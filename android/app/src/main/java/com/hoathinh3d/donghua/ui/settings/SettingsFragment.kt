@@ -5,7 +5,9 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.text.format.DateFormat
+import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
@@ -13,6 +15,8 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
@@ -21,6 +25,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.hoathinh3d.donghua.BuildConfig
+import com.hoathinh3d.donghua.R
 import com.hoathinh3d.donghua.core.DeviceProfileResolver
 import com.hoathinh3d.donghua.core.HttpClientProvider
 import com.hoathinh3d.donghua.core.LanSyncManager
@@ -38,6 +43,7 @@ import com.hoathinh3d.donghua.databinding.FragmentSettingsBinding
 import com.hoathinh3d.donghua.player.HlsCacheProvider
 import com.hoathinh3d.donghua.ui.AppHost
 import com.hoathinh3d.donghua.ui.ChromeInsetsListener
+import com.hoathinh3d.donghua.ui.MainTab
 import com.hoathinh3d.donghua.ui.RefreshableTab
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -51,6 +57,15 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private val binding get() = _binding!!
     private val host: AppHost? get() = activity as? AppHost
     private var pendingFocusTag: String? = null
+    private var lastMobileDetailOpen: Boolean? = null
+    private var lastMobileSubtab: SettingsSubtab? = null
+
+    private data class MobileSettingsMenuItem(
+        val subtab: SettingsSubtab,
+        val title: String,
+        val iconRes: Int,
+        val accentColor: Int
+    )
 
     // Custom source form state
     private var draftUrl = ""
@@ -141,55 +156,84 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val h = host ?: return
         val st = h.getState()
         val p = h.getPalette()
-        val isTv = st.resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
+        val isTv = st.resolvedDevice == ResolvedDeviceProfile.TV
+        val isMobile = st.resolvedDevice == ResolvedDeviceProfile.MOBILE
         val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.settingsScroll.setPadding(hPad, chromeTop, hPad, chromeBot)
 
-        b.settingsBannerPanel.background = ThemeManager.glassPanelDrawable(requireContext(), p, 22f)
-        b.txtSettingsBannerTitle.setTextColor(p.textMain)
-        b.txtSettingsBannerSub.setTextColor(p.textMuted)
-
-        // Render 6 subtab pills
+        val subtabsRow = b.settingsSubtabsContainer.parent as? View
+        val contentLp = b.settingsSubtabContent.layoutParams as? ViewGroup.MarginLayoutParams
         b.settingsSubtabsContainer.removeAllViews()
-        for (sub in SettingsSubtab.entries) {
-            val active = st.settingsSubtab == sub
-            val tagStr = "subtab_${sub.wireValue}"
-            val btn = Button(requireContext()).apply {
-                tag = tagStr
-                text = sub.label
-                isAllCaps = false
-                textSize = 12f
-                minHeight = 0
-                minimumHeight = 0
-                setPadding(
-                    ThemeManager.dp(context, 14f),
-                    ThemeManager.dp(context, 8f),
-                    ThemeManager.dp(context, 14f),
-                    ThemeManager.dp(context, 8f)
-                )
-                background = ThemeManager.pillDrawable(context, p, active = active, radiusDp = 16f)
-                setTextColor(if (active) Color.WHITE else p.textMain)
-                isFocusable = true
-                setOnClickListener {
-                    pendingFocusTag = tagStr
-                    h.setSettingsSubtab(sub)
-                }
-            }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = ThemeManager.dp(requireContext(), 8f) }
-            b.settingsSubtabsContainer.addView(btn, lp)
-        }
-
         b.settingsSubtabContent.removeAllViews()
-        when (st.settingsSubtab) {
-            SettingsSubtab.PLAYER -> renderPlayerTab(p)
-            SettingsSubtab.SOURCES -> renderSourcesTab(p)
-            SettingsSubtab.APPEARANCE -> renderAppearanceTab(p)
-            SettingsSubtab.BACKUP -> renderBackupTab(p)
-            SettingsSubtab.EXTENSIONS -> renderExtensionsTab(p)
+
+        if (isMobile) {
+            b.settingsBannerPanel.visibility = View.GONE
+            subtabsRow?.visibility = View.GONE
+            contentLp?.topMargin = ThemeManager.dp(requireContext(), 4f)
+
+            val shouldResetScroll = lastMobileDetailOpen != st.isSettingsDetailOpen ||
+                (st.isSettingsDetailOpen && lastMobileSubtab != st.settingsSubtab)
+            lastMobileDetailOpen = st.isSettingsDetailOpen
+            lastMobileSubtab = st.settingsSubtab
+
+            if (!st.isSettingsDetailOpen) {
+                renderMobileSettingsHub(h, p, !st.settings.reducedMotion)
+            } else {
+                renderMobileSubtabHeader(
+                    title = mobileSubtabDisplayTitle(st.settingsSubtab),
+                    p = p
+                ) {
+                    h.closeSettingsDetail()
+                }
+                renderSelectedSubtabContent(st.settingsSubtab, p)
+            }
+            if (shouldResetScroll) {
+                b.settingsScroll.post { _binding?.settingsScroll?.scrollTo(0, 0) }
+            }
+        } else {
+            lastMobileDetailOpen = null
+            lastMobileSubtab = null
+            b.settingsBannerPanel.visibility = View.VISIBLE
+            subtabsRow?.visibility = View.VISIBLE
+            contentLp?.topMargin = ThemeManager.dp(requireContext(), 14f)
+
+            b.settingsBannerPanel.background = ThemeManager.glassPanelDrawable(requireContext(), p, 22f)
+            b.txtSettingsBannerTitle.setTextColor(p.textMain)
+            b.txtSettingsBannerSub.setTextColor(p.textMuted)
+
+            for (sub in SettingsSubtab.entries) {
+                val active = st.settingsSubtab == sub
+                val tagStr = "subtab_${sub.wireValue}"
+                val btn = Button(requireContext()).apply {
+                    tag = tagStr
+                    text = sub.label
+                    isAllCaps = false
+                    textSize = 12f
+                    minHeight = 0
+                    minimumHeight = 0
+                    setPadding(
+                        ThemeManager.dp(context, 14f),
+                        ThemeManager.dp(context, 8f),
+                        ThemeManager.dp(context, 14f),
+                        ThemeManager.dp(context, 8f)
+                    )
+                    background = ThemeManager.pillDrawable(context, p, active = active, radiusDp = 16f)
+                    setTextColor(if (active) Color.WHITE else p.textMain)
+                    isFocusable = true
+                    setOnClickListener {
+                        pendingFocusTag = tagStr
+                        h.setSettingsSubtab(sub)
+                    }
+                }
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { marginEnd = ThemeManager.dp(requireContext(), 8f) }
+                b.settingsSubtabsContainer.addView(btn, lp)
+            }
+
+            renderSelectedSubtabContent(st.settingsSubtab, p)
         }
 
         val restoreTag = pendingFocusTag
@@ -199,6 +243,296 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 _binding?.root?.findViewWithTag<View>(restoreTag)?.requestFocus()
             }
         }
+    }
+
+    private fun renderSelectedSubtabContent(subtab: SettingsSubtab, p: ThemePalette) {
+        when (subtab) {
+            SettingsSubtab.PLAYER -> renderPlayerTab(p)
+            SettingsSubtab.SOURCES -> renderSourcesTab(p)
+            SettingsSubtab.APPEARANCE -> renderAppearanceTab(p)
+            SettingsSubtab.BACKUP -> renderBackupTab(p)
+            SettingsSubtab.EXTENSIONS -> renderExtensionsTab(p)
+        }
+    }
+
+    private fun mobileSubtabDisplayTitle(subtab: SettingsSubtab): String = when (subtab) {
+        SettingsSubtab.PLAYER -> "Trình phát tích hợp"
+        SettingsSubtab.SOURCES -> "Nguồn phim (+Web)"
+        SettingsSubtab.APPEARANCE -> "Giao diện"
+        SettingsSubtab.BACKUP -> "Cập nhật và Sao lưu"
+        SettingsSubtab.EXTENSIONS -> "Tiện ích mở rộng"
+    }
+
+    private fun renderMobileSettingsHub(h: AppHost, p: ThemePalette, enableAnimation: Boolean) {
+        val ctx = requireContext()
+        renderMobileSubtabHeader(
+            title = "Thiết lập",
+            p = p,
+            trailingBadge = "v${BuildConfig.VERSION_NAME}",
+            onBack = { h.navigateTab(MainTab.HOME) }
+        )
+
+        val experienceItems = listOf(
+            MobileSettingsMenuItem(
+                subtab = SettingsSubtab.PLAYER,
+                title = "Trình phát tích hợp",
+                iconRes = R.drawable.ic_cs_play,
+                accentColor = p.accentFrom
+            ),
+            MobileSettingsMenuItem(
+                subtab = SettingsSubtab.APPEARANCE,
+                title = "Giao diện",
+                iconRes = if (p.isDark) R.drawable.ic_theme_moon else R.drawable.ic_theme_sun,
+                accentColor = Color.parseColor("#E08B2B")
+            ),
+            MobileSettingsMenuItem(
+                subtab = SettingsSubtab.EXTENSIONS,
+                title = "Tiện ích mở rộng",
+                iconRes = R.drawable.ic_cs_sub_tune,
+                accentColor = Color.parseColor("#8B5CF6")
+            )
+        )
+
+        val systemItems = listOf(
+            MobileSettingsMenuItem(
+                subtab = SettingsSubtab.SOURCES,
+                title = "Nguồn phim (+Web)",
+                iconRes = R.drawable.ic_lg_sources,
+                accentColor = Color.parseColor("#0EA5E9")
+            ),
+            MobileSettingsMenuItem(
+                subtab = SettingsSubtab.BACKUP,
+                title = "Cập nhật và Sao lưu",
+                iconRes = R.drawable.ic_cs_replay,
+                accentColor = Color.parseColor("#10B981")
+            )
+        )
+
+        addMobileSectionHeader("TRẢI NGHIỆM & PHÁT", p, topMarginDp = 6f)
+        addMobileGroupedMenuCard(experienceItems, p, enableAnimation) { item ->
+            h.setSettingsSubtab(item.subtab)
+        }
+
+        addMobileSectionHeader("HỆ THỐNG & DỮ LIỆU", p, topMarginDp = 16f)
+        addMobileGroupedMenuCard(systemItems, p, enableAnimation) { item ->
+            h.setSettingsSubtab(item.subtab)
+        }
+
+        val infoNote = mutedText(
+            "Chạm vào từng mục để tùy chỉnh Trình phát, Nguồn phim Web, Giao diện Liquid Glass và Cập nhật OTA.",
+            p,
+            11f
+        ).apply {
+            setPadding(ThemeManager.dp(ctx, 4f), ThemeManager.dp(ctx, 2f), ThemeManager.dp(ctx, 4f), 0)
+            alpha = 0.85f
+        }
+        binding.settingsSubtabContent.addView(infoNote)
+    }
+
+    private fun renderMobileSubtabHeader(
+        title: String,
+        p: ThemePalette,
+        trailingBadge: String? = null,
+        onBack: () -> Unit
+    ) {
+        val ctx = requireContext()
+        val headerRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, ThemeManager.dp(ctx, 2f), 0, ThemeManager.dp(ctx, 10f))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onBack() }
+        }
+        val backBtn = FrameLayout(ctx).apply {
+            background = ThemeManager.navTabDrawable(ctx, p, active = false, radiusDp = 18f)
+            isClickable = true
+            isFocusable = true
+            contentDescription = "Quay lại"
+            setOnClickListener { onBack() }
+            val arrow = ImageView(ctx).apply {
+                setImageResource(R.drawable.ic_cs_back)
+                imageTintList = ThemeManager.tintColorState(p.textMain)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            val iconSize = ThemeManager.dp(ctx, 20f)
+            addView(arrow, FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER))
+        }
+        val backBtnSize = ThemeManager.dp(ctx, 36f)
+        headerRow.addView(backBtn, LinearLayout.LayoutParams(backBtnSize, backBtnSize).apply {
+            marginEnd = ThemeManager.dp(ctx, 10f)
+        })
+
+        val titleView = TextView(ctx).apply {
+            text = title
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(p.textMain)
+            maxLines = 1
+        }
+        headerRow.addView(titleView, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+
+        if (!trailingBadge.isNullOrBlank()) {
+            val badge = TextView(ctx).apply {
+                text = trailingBadge
+                textSize = 11f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(p.textMuted)
+                background = ThemeManager.pillDrawable(ctx, p, active = false, radiusDp = 11f)
+                setPadding(
+                    ThemeManager.dp(ctx, 10f),
+                    ThemeManager.dp(ctx, 4f),
+                    ThemeManager.dp(ctx, 10f),
+                    ThemeManager.dp(ctx, 4f)
+                )
+            }
+            headerRow.addView(badge)
+        }
+        binding.settingsSubtabContent.addView(headerRow)
+    }
+
+    private fun addMobileSectionHeader(label: String, p: ThemePalette, topMarginDp: Float) {
+        val ctx = requireContext()
+        val tv = TextView(ctx).apply {
+            text = label
+            textSize = 11.5f
+            letterSpacing = 0.06f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(p.textMuted)
+            setPadding(ThemeManager.dp(ctx, 4f), 0, ThemeManager.dp(ctx, 4f), 0)
+        }
+        val lp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = ThemeManager.dp(ctx, topMarginDp)
+            bottomMargin = ThemeManager.dp(ctx, 8f)
+        }
+        binding.settingsSubtabContent.addView(tv, lp)
+    }
+
+    private fun addMobileGroupedMenuCard(
+        items: List<MobileSettingsMenuItem>,
+        p: ThemePalette,
+        enableAnimation: Boolean,
+        onItemClick: (MobileSettingsMenuItem) -> Unit
+    ) {
+        val ctx = requireContext()
+        val card = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val vPad = ThemeManager.dp(ctx, 4f)
+            setPadding(0, vPad, 0, vPad)
+            background = ThemeManager.glassPanelDrawable(ctx, p, radiusDp = 18f, isCard = false)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = ThemeManager.dp(ctx, 6f) }
+        }
+
+        items.forEachIndexed { idx, item ->
+            if (idx > 0) {
+                val divider = View(ctx).apply {
+                    setBackgroundColor(p.glassSubtleBorder)
+                }
+                val divLp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
+                    marginStart = ThemeManager.dp(ctx, 64f)
+                    marginEnd = ThemeManager.dp(ctx, 14f)
+                }
+                card.addView(divider, divLp)
+            }
+
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = ThemeManager.dp(ctx, 56f)
+                setPadding(
+                    ThemeManager.dp(ctx, 14f),
+                    ThemeManager.dp(ctx, 12f),
+                    ThemeManager.dp(ctx, 14f),
+                    ThemeManager.dp(ctx, 12f)
+                )
+                background = ThemeManager.navTabDrawable(ctx, p, active = false, radiusDp = 14f)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { onItemClick(item) }
+            }
+
+            val iconBoxSize = ThemeManager.dp(ctx, 36f)
+            val iconBox = FrameLayout(ctx).apply {
+                background = ThemeManager.navFeatureIconDrawable(
+                    ctx,
+                    p,
+                    item.accentColor,
+                    active = false,
+                    radiusDp = 10f
+                )
+                val iconImg = ImageView(ctx).apply {
+                    setImageResource(item.iconRes)
+                    imageTintList = ThemeManager.tintColorState(
+                        if (p.isDark) Color.argb(242, 245, 245, 250) else item.accentColor
+                    )
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }
+                val innerSize = ThemeManager.dp(ctx, 18f)
+                addView(iconImg, FrameLayout.LayoutParams(innerSize, innerSize, Gravity.CENTER))
+            }
+            row.addView(iconBox, LinearLayout.LayoutParams(iconBoxSize, iconBoxSize))
+
+            val labelTv = TextView(ctx).apply {
+                text = item.title
+                textSize = 15f
+                setTypeface(null, android.graphics.Typeface.NORMAL)
+                setTextColor(p.textMain)
+                maxLines = 2
+            }
+            row.addView(
+                labelTv,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = ThemeManager.dp(ctx, 14f)
+                    marginEnd = ThemeManager.dp(ctx, 10f)
+                }
+            )
+
+            val chevron = ImageView(ctx).apply {
+                setImageResource(R.drawable.ic_chevron_down)
+                rotation = -90f
+                imageTintList = ThemeManager.tintColorState(p.textMuted)
+                alpha = 0.72f
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            val chevronSize = ThemeManager.dp(ctx, 14f)
+            row.addView(chevron, LinearLayout.LayoutParams(chevronSize, chevronSize))
+
+            if (enableAnimation) {
+                row.setOnTouchListener { v, event ->
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_DOWN -> {
+                            v.animate().cancel()
+                            iconBox.animate().cancel()
+                            v.animate().scaleX(0.985f).scaleY(0.985f).setDuration(80L).start()
+                            iconBox.animate().scaleX(0.92f).scaleY(0.92f).setDuration(80L).start()
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            v.animate().cancel()
+                            iconBox.animate().cancel()
+                            v.animate().scaleX(1f).scaleY(1f).setDuration(140L).start()
+                            iconBox.animate().scaleX(1f).scaleY(1f).setDuration(140L).start()
+                        }
+                    }
+                    false
+                }
+            }
+
+            card.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
+        binding.settingsSubtabContent.addView(card)
     }
 
     private fun cardContainer(p: ThemePalette, radiusDp: Float = 20f, isCard: Boolean = false): LinearLayout {

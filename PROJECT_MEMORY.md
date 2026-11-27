@@ -33,7 +33,7 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** HoatHinh3D Universal (Donghua 3D Aggregator & Native Cinema Player)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 46`, `versionName "3.5.6-v46"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 47`, `versionName "3.5.7-v47"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -116,6 +116,24 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-27] - Phiên 47: Thiết Kế Lại Giao Diện Cài Đặt Dạng Danh Sách Phân Nhóm Trên Điện Thoại (`v3.5.7-v47`)
+- **Yêu cầu người dùng:**
+  1. Bố trí lại giao diện hiển thị các tác vụ trong mục **Trung tâm Cài đặt Hệ thống** trên thiết bị **Điện thoại** giống giao diện hiển thị của ảnh mẫu đính kèm (menu phân nhóm thẻ bo góc kèm tiêu đề nhóm, ô biểu tượng bo tròn trái, vạch phân cách mảnh thò đầu và mũi tên `›` bên phải; chạm vào mục để mở trang chi tiết có thanh quay lại `←`).
+- **Thay đổi đã thực hiện:**
+  1. **Điều hướng hai tầng cho Cài đặt trên Mobile (`MainActivity.kt`):**
+     - Thêm trường `isSettingsDetailOpen: Boolean = false` vào `MainState`, thêm `closeSettingsDetail()` trên `AppHost` / `MainActivity`.
+     - Khi chuyển sang tab `MainTab.SETTINGS` hoặc chạm lại biểu tượng `Cài đặt` khi đang ở trang con trên `MOBILE`, app đưa về danh sách chính `Thiết lập`; vẫn giữ cơ chế deep-link `setSettingsSubtab(SettingsSubtab.SOURCES)` (VD từ nút `Quản lý nguồn Web`) mở thẳng trang con tương ứng.
+     - Cập nhật `onBackPressedDispatcher` để nhấn nút Back phần cứng trên Điện thoại khi đang xem chi tiết mục cài đặt sẽ quay về danh sách `Thiết lập` trước khi thoát ra Trang chủ.
+  2. **Giao diện Menu Cài Đặt Phân Nhóm Liquid Glass (`SettingsFragment.kt`):**
+     - Chỉ áp dụng trên `ResolvedDeviceProfile.MOBILE` (giữ nguyên thanh 5 pill ngang cho **Tablet / Giả lập PC** và **Android TV** để không làm gián đoạn D-Pad).
+     - Khi ở danh sách gốc (`!isSettingsDetailOpen`): ẩn banner & thanh cuộn pill ngang, hiển thị thanh đầu `← Thiết lập` + huy hiệu `v3.5.7-v47`, chia 2 phân nhóm thẻ kính bo góc `18dp`:
+       - **TRẢI NGHIỆM & PHÁT**: `Trình phát tích hợp`, `Giao diện`, `Tiện ích mở rộng`.
+       - **HỆ THỐNG & DỮ LIỆU**: `Nguồn phim (+Web)`, `Cập nhật và Sao lưu`.
+     - Mỗi hàng dùng ô biểu tượng VectorDrawable bo góc `36dp` (`navFeatureIconDrawable`), nhãn rõ nét, vạch chia `1px` inset (`marginStart 64dp`, màu `glassSubtleBorder`), mũi tên `ic_chevron_down` xoay `-90f` và hiệu ứng chạm gợn sóng + nhún nhẹ khi bật animation (`!reducedMotion`).
+     - Khi mở mục chi tiết (`isSettingsDetailOpen == true`): hiển thị thanh `← <Tên mục>` ở trên cùng và tự cuộn lên đầu trang, đồng thời giữ nguyên trang đang mở khi người dùng bật/tắt công tắc hay đổi giao diện.
+- **Kiểm thử & Build:**
+  - `testDebugUnitTest`: **45/45 tests PASSED** (0 failures, 0 errors, 0 skipped); `lintDebug`: **BUILD SUCCESSFUL** (0 errors). *(Chưa kiểm thử giao diện trực tiếp trên thiết bị thật qua ADB ở phiên này).*
 
 ### [2026-11-27] - Phiên 46: Đồng Bộ Lưới `Lịch sử` Giống `Yêu thích`, Làm Nổi Bật & Hiệu Ứng Chạm Thanh Điều Hướng Kính, Chủ Đề `Hoàng Hôn Đêm Sâu` (`v3.5.6-v46`)
 - **Yêu cầu người dùng:**
@@ -1128,12 +1146,14 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 46).
-- **Phiên bản hiện tại:** `versionCode 46` / `versionName "3.5.6-v46"`.
+- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 47).
+- **Phiên bản hiện tại:** `versionCode 47` / `versionName "3.5.7-v47"`.
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
 - **Quy tắc Build & Xuất bản OTA (Phiên 41+):** Không tạo Release R8 APK; cuối mỗi phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
-- **Trạng thái Code & Test:** `compileDebugKotlin` sạch (0 warnings), `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **45/45 unit tests** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
+- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **45/45 unit tests** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
 - **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
+  - **Menu Cài đặt phân nhóm 2 tầng trên Điện thoại (Phiên 47):**
+    - `SettingsFragment` + `MainActivity` (`MainState.isSettingsDetailOpen`, `closeSettingsDetail`) hiển thị riêng trên `MOBILE` menu phân nhóm **TRẢI NGHIỆM & PHÁT** (*Trình phát tích hợp*, *Giao diện*, *Tiện ích mở rộng*) và **HỆ THỐNG & DỮ LIỆU** (*Nguồn phim (+Web)*, *Cập nhật và Sao lưu*) trong thẻ kính bo góc `18dp` kèm ô biểu tượng `36dp`, vạch ngăn inset, mũi tên phải `›` và nút Back quay lại đúng luồng; vẫn giữ thanh 5 pill ngang cho Tablet/PC và TV.
   - **Đồng bộ `Lịch sử` giống `Yêu thích`, Thanh điều hướng nổi bật & `Hoàng Hôn Đêm Sâu` (Phiên 46):**
     - `HistoryFragment` + `fragment_history.xml` dùng chung lưới poster `MovieCardAdapter` (`3`/`4`/`5` cột), chạm phát tiếp ngay tại đúng phút/giây, nhấn giữ mở menu thao tác/xóa; thanh điều hướng kính đáy & TV Rail bọc `RippleDrawable`, `navFeatureIconDrawable` nổi bật từng biểu tượng + hiệu ứng nhấn đàn hồi (`attachLiquidNavTapEffect`); chủ đề `DARK` chuyển sang **Hoàng Hôn Đêm Sâu** (`#040507` / vàng hoàng hôn dịu `#E2AE58`).
   - **Chi tiết phim mới nhất trước, Thể loại phim thời gian thực, 3 cột Điện thoại & Tinh gọn Giao diện (Phiên 45):**
@@ -1156,9 +1176,9 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.80 MB**, `14,474,398 bytes`, `SHA-256: b1f26eb57521a13f2676aa85953c8ad30b35311acd57e84db1ccabcbfb91ba80`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v46` + `version.json`.
+- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.81 MB**, `14,482,892 bytes`, `SHA-256: 4b3c3fb253a8aa71cc4e09c6eeee9c999e296184db592f1df114a09f23e0f262`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v47` + `version.json`.
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
-  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.6-v46`)** trên **Điện thoại Android**, **Giả lập PC** và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận giao diện lưới `Lịch sử` giống `Yêu thích`, hiệu ứng chạm & nổi bật 5 icon thanh điều hướng, chủ đề `Hoàng Hôn Đêm Sâu` và nâng cấp OTA từ `v45` → `v46`.
+  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.7-v47`)** trên **Điện thoại Android**, **Giả lập PC** và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận giao diện Cài đặt phân nhóm 2 tầng trên Điện thoại (kèm Back từ trang chi tiết & deep-link `Quản lý nguồn Web`), thanh pill ngang giữ nguyên trên PC/TV và nâng cấp OTA từ `v46` → `v47`.
 
 ---
 
@@ -1167,11 +1187,12 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer) tại `E:\Project\3_HoatHinh3D`.
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 46, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 47, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 46:
-- Phiên bản hiện tại: `versionCode 46`, `versionName "3.5.6-v46"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.80 MB, `14,474,398 bytes`), đã qua **45/45 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v46` + `version.json`.
+Tóm tắt hiện trạng sau Phiên 47:
+- Phiên bản hiện tại: `versionCode 47`, `versionName "3.5.7-v47"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.81 MB, `14,482,892 bytes`), đã qua **45/45 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v47` + `version.json`.
+- **Phiên 47 (Menu Cài Đặt Mobile Phân Nhóm):** Trên **Điện thoại (`MOBILE`)**, tab Cài đặt hiển thị giao diện danh sách phân nhóm 2 thẻ kính (`TRẢI NGHIỆM & PHÁT` + `HỆ THỐNG & DỮ LIỆU`) kèm ô icon bo góc `36dp`, vạch chia inset, mũi tên phải `›` và điều hướng 2 tầng (`isSettingsDetailOpen`, nút Back phần cứng & thanh `← <Tiêu đề>`); **Tablet/PC** và **TV** giữ nguyên thanh 5 pill ngang.
 - **Phiên 46 (Đồng nhất Lịch sử, Thanh điều hướng & Hoàng Hôn Đêm Sâu):** Lưới `Lịch sử` dùng chung `MovieCardAdapter` giống `Yêu thích` (chạm phát tiếp ngay, nhấn giữ mở menu); thanh điều hướng kính đáy & TV Rail bọc `RippleDrawable`, `navFeatureIconDrawable` làm nổi bật 5 icon tính năng + `attachLiquidNavTapEffect`; chủ đề `DARK` thành **Hoàng Hôn Đêm Sâu** (`#040507`, vàng hoàng hôn dịu `#E2AE58`).
 - **Phiên 45 (UI/UX, Thể loại & Tập mới nhất trước):** Chi tiết phim hiển thị tập mới nhất trước; bấm `Thể loại phim ▾` mở bảng Liquid Glass đồng bộ thời gian thực các chủ đề *Phim Hot, Phim Chiếu Rạp, Phim Lẻ, Phim Bộ, Phim Hoạt Hình, Phim Hành Động, Tình Cảm* + toàn bộ thể loại Web; Mobile 3 cột / Tablet-PC 4 cột / TV 5 cột; bỏ `Xanh Băng` (`AQUA`) giữ 3 tông màu (`PEARL`, `SAKURA`, `DARK`), bỏ `Hệ thống`, mặc định `52%` trong suốt / `32%` mờ / Hiệu ứng nền Bật.
 - **Sửa văng app Xiaomi MiTV4-ANSM0 & OTA GitHub (Phiên 41–44):** Bật `coreLibraryDesugaringEnabled true` (`desugar_jdk_libs:2.1.4`), 17 Root CA (`Sectigo E46/R46`), `liteRender` Mali-450, xuất bản gói `HoatHinh3d.apk`, `AppUpdateChecker` trỏ `version.json` trên `main`.

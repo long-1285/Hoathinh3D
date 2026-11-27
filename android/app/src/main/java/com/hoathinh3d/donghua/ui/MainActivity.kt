@@ -106,6 +106,7 @@ interface AppHost {
     fun checkAppUpdate(manual: Boolean = false)
     fun navigateTab(tab: MainTab)
     fun setSettingsSubtab(subtab: SettingsSubtab)
+    fun closeSettingsDetail()
     fun openSamplePlayer()
     fun showToast(msg: String)
 }
@@ -113,6 +114,7 @@ interface AppHost {
 data class MainState(
     val activeTab: MainTab = MainTab.HOME,
     val settingsSubtab: SettingsSubtab = SettingsSubtab.PLAYER,
+    val isSettingsDetailOpen: Boolean = false,
     val sources: List<DonghuaSource> = emptyList(),
     val activeSourceId: String = "YanHH3DNow",
     val genres: List<GenreItem> = InitialData.GENRES_DATA,
@@ -277,6 +279,9 @@ class MainActivity : AppCompatActivity(), AppHost {
                     isSourcePickerOpen -> closeSourcePickerOverlay()
                     isSearchOverlayOpen -> closeSearchOverlay()
                     state.searchQuery.trim().isNotEmpty() -> clearSearch()
+                    state.activeTab == MainTab.SETTINGS &&
+                        state.resolvedDevice == ResolvedDeviceProfile.MOBILE &&
+                        state.isSettingsDetailOpen -> closeSettingsDetail()
                     state.activeTab != MainTab.HOME -> navigateTab(MainTab.HOME)
                     else -> showExitConfirmDialog()
                 }
@@ -2155,16 +2160,31 @@ class MainActivity : AppCompatActivity(), AppHost {
         closeGenrePickerOverlay()
         if (state.activeTab == tab) {
             setChromeCollapsed(false)
+            if (tab == MainTab.SETTINGS &&
+                state.resolvedDevice == ResolvedDeviceProfile.MOBILE &&
+                state.isSettingsDetailOpen
+            ) {
+                closeSettingsDetail()
+            }
             return
         }
-        state = state.copy(activeTab = tab)
+        state = state.copy(
+            activeTab = tab,
+            isSettingsDetailOpen = if (tab == MainTab.SETTINGS) false else state.isSettingsDetailOpen
+        )
         setChromeCollapsed(false)
         updateBottomNavUi()
         showTabFragment(tab)
     }
 
     override fun setSettingsSubtab(subtab: SettingsSubtab) {
-        state = state.copy(settingsSubtab = subtab)
+        state = state.copy(settingsSubtab = subtab, isSettingsDetailOpen = true)
+        notifyActiveFragment()
+    }
+
+    override fun closeSettingsDetail() {
+        if (!state.isSettingsDetailOpen) return
+        state = state.copy(isSettingsDetailOpen = false)
         notifyActiveFragment()
     }
 
