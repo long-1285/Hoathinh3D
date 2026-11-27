@@ -472,7 +472,7 @@ object PrefsStore {
                 nightModeDrc = obj.optBoolean("nightModeDrc", false),
                 autoClearCacheOnExit = obj.optBoolean("autoClearCacheOnExit", false),
                 autoUpdateApp = obj.optBoolean("autoUpdateApp", true),
-                updateManifestUrl = obj.optString("updateManifestUrl", "").trim(),
+                updateManifestUrl = AppUpdateChecker.resolveEffectiveManifestUrl(obj.optString("updateManifestUrl", "")),
                 showHomeHero = obj.optBoolean("showHomeHero", true),
                 showHomeContinue = obj.optBoolean("showHomeContinue", true),
                 showHomeTrending = obj.optBoolean("showHomeTrending", true)

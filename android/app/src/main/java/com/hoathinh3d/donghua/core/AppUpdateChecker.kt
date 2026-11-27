@@ -12,6 +12,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 
 data class UpdateManifest(
     val versionCode: Int,
@@ -29,6 +30,30 @@ sealed class UpdateCheckResult {
 }
 
 object AppUpdateChecker {
+
+    const val OFFICIAL_GITHUB_REPO = "long-1285/Hoathinh3D"
+    const val DEFAULT_MANIFEST_URL =
+        "https://raw.githubusercontent.com/$OFFICIAL_GITHUB_REPO/main/version.json"
+    const val GITHUB_RELEASES_LATEST_URL =
+        "https://api.github.com/repos/$OFFICIAL_GITHUB_REPO/releases/latest"
+
+    fun resolveEffectiveManifestUrl(rawUrl: String?): String =
+        rawUrl?.trim().orEmpty().ifBlank { DEFAULT_MANIFEST_URL }
+
+    fun isOfficialGitUrl(rawUrl: String?): Boolean {
+        val cleaned = resolveEffectiveManifestUrl(rawUrl)
+        return cleaned.equals(DEFAULT_MANIFEST_URL, ignoreCase = true) ||
+            cleaned.equals(GITHUB_RELEASES_LATEST_URL, ignoreCase = true)
+    }
+
+    fun withCacheBuster(url: String, nowMs: Long = System.currentTimeMillis()): String {
+        val trimmed = url.trim()
+        if (!trimmed.contains("raw.githubusercontent.com", ignoreCase = true)) {
+            return trimmed
+        }
+        val sep = if (trimmed.contains('?')) '&' else '?'
+        return "$trimmed${sep}t=$nowMs"
+    }
 
     fun isNewerVersion(
         remoteCode: Int,
@@ -83,6 +108,17 @@ object AppUpdateChecker {
         }.getOrDefault(false)
     }
 
+    fun isValidApkArchive(file: File): Boolean {
+        if (!file.exists() || file.length() <= 100_000L) return false
+        return runCatching {
+            file.inputStream().use { input ->
+                val b0 = input.read()
+                val b1 = input.read()
+                b0 == 0x50 && b1 == 0x4B // 'P''K' ZIP/APK magic header
+            }
+        }.getOrDefault(false)
+    }
+
     fun parseManifestJson(jsonText: String): UpdateManifest? {
         return try {
             val obj = JSONObject(jsonText.trim())
@@ -91,7 +127,7 @@ object AppUpdateChecker {
                     .ifBlank { obj.optString("apkSha256") }
                     .ifBlank { obj.optString("hash") }
             )
-            // Hỗ trợ định dạng JSON tùy chỉnh: {versionCode, versionName, apkUrl, changelog, sha256}
+            // Hỗ trợ định dạng JSON chuẩn (`version.json`): {versionCode, versionName, apkUrl, changelog, sha256}
             val directApk = obj.optString("apkUrl").trim()
                 .ifBlank { obj.optString("downloadUrl").trim() }
                 .ifBlank { obj.optString("url").trim() }
@@ -106,7 +142,7 @@ object AppUpdateChecker {
                 }
             }
             // Hỗ trợ GitHub Releases API JSON: {tag_name, body, assets:[{browser_download_url}]}
-            val tag = obj.optString("tag_name").trim().removePrefix("v")
+            val tag = obj.optString("tag_name").trim().removePrefix("v").removePrefix("V")
             val assets = obj.optJSONArray("assets")
             var ghApkUrl = ""
             if (assets != null) {
@@ -121,11 +157,18 @@ object AppUpdateChecker {
             }
             if (ghApkUrl.isNotBlank() && tag.isNotBlank()) {
                 val body = obj.optString("body").trim()
+                val bodyCode = Regex("""(?:versionCode|build)\s*[:=]\s*(\d+)""", RegexOption.IGNORE_CASE)
+                    .find(body)
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.toIntOrNull()
+                    ?: tag.toIntOrNull()
+                    ?: 0
                 val bodySha = explicitSha.ifBlank {
                     val m = Regex("""sha-?256\s*[:=]\s*([0-9a-fA-F]{64})""", RegexOption.IGNORE_CASE).find(body)
                     normalizeSha256(m?.groupValues?.getOrNull(1))
                 }
-                return UpdateManifest(0, tag, ghApkUrl, body, bodySha)
+                return UpdateManifest(bodyCode, tag, ghApkUrl, body, bodySha)
             }
             null
         } catch (_: Exception) {
@@ -133,12 +176,24 @@ object AppUpdateChecker {
         }
     }
 
-    suspend fun checkForUpdate(manifestUrl: String): UpdateCheckResult {
-        val cleanUrl = manifestUrl.trim()
-        if (cleanUrl.isBlank()) {
-            return UpdateCheckResult.NotConfigured("Chưa cấu hình URL kiểm tra cập nhật (JSON/GitHub Release).")
-        }
-        if (cleanUrl.endsWith(".apk", ignoreCase = true)) {
+    private suspend fun fetchAndParseManifest(url: String): UpdateManifest {
+        val headers = mapOf(
+            "Accept" to "application/json",
+            "Cache-Control" to "no-cache",
+            "Pragma" to "no-cache"
+        )
+        val body = HttpClientProvider.getText(
+            withCacheBuster(url),
+            headers,
+            timeoutMs = 9000L
+        )
+        return parseManifestJson(body)
+            ?: throw IllegalStateException("Phản hồi cập nhật không đúng định dạng JSON.")
+    }
+
+    suspend fun checkForUpdate(manifestUrl: String = DEFAULT_MANIFEST_URL): UpdateCheckResult {
+        val cleanUrl = resolveEffectiveManifestUrl(manifestUrl)
+        if (cleanUrl.substringBefore('?').endsWith(".apk", ignoreCase = true)) {
             return UpdateCheckResult.Available(
                 UpdateManifest(
                     versionCode = BuildConfig.VERSION_CODE + 1,
@@ -149,13 +204,19 @@ object AppUpdateChecker {
             )
         }
         return try {
-            val body = HttpClientProvider.getText(
-                cleanUrl,
-                mapOf("Accept" to "application/json"),
-                timeoutMs = 7000L
-            )
-            val parsed = parseManifestJson(body)
-                ?: return UpdateCheckResult.Error("Phản hồi cập nhật không đúng định dạng JSON.")
+            val parsed = try {
+                fetchAndParseManifest(cleanUrl)
+            } catch (primaryErr: Exception) {
+                if (cleanUrl.equals(DEFAULT_MANIFEST_URL, ignoreCase = true)) {
+                    AppDiagnostics.log(
+                        "Update",
+                        "Fallback sang GitHub Releases API sau lỗi version.json: ${primaryErr.message}"
+                    )
+                    fetchAndParseManifest(GITHUB_RELEASES_LATEST_URL)
+                } else {
+                    throw primaryErr
+                }
+            }
             if (isNewerVersion(parsed.versionCode, parsed.versionName)) {
                 UpdateCheckResult.Available(parsed)
             } else {
@@ -167,27 +228,66 @@ object AppUpdateChecker {
         }
     }
 
+    fun resolveUpdateDir(context: Context): File {
+        val appCtx = context.applicationContext
+        // Trên Android 6.0.1 (API 23, VD Xiaomi MiTV4-ANSM0), PackageInstaller không đọc được file:// trong /data/user/0/.../cache (0700),
+        // nên dùng externalCacheDir (không cần quyền WRITE_EXTERNAL_STORAGE trên API 19+).
+        val baseDir = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            appCtx.externalCacheDir ?: appCtx.cacheDir
+        } else {
+            appCtx.cacheDir
+        }
+        return File(baseDir, "updates").apply { if (!exists()) mkdirs() }
+    }
+
+    fun cleanupOldUpdates(context: Context) {
+        val appCtx = context.applicationContext
+        val dirs = listOfNotNull(
+            File(appCtx.cacheDir, "updates"),
+            appCtx.externalCacheDir?.let { File(it, "updates") }
+        )
+        for (dir in dirs) {
+            if (!dir.exists()) continue
+            dir.listFiles()?.forEach { file ->
+                if (file.isFile && file.name.endsWith(".apk", ignoreCase = true)) {
+                    runCatching { file.delete() }
+                }
+            }
+        }
+    }
+
     suspend fun downloadApkToCache(
         context: Context,
         apkUrl: String,
-        onProgress: (Int) -> Unit
+        onProgress: (pct: Int, downloadedBytes: Long, totalBytes: Long) -> Unit
     ): File? = withContext(Dispatchers.IO) {
         try {
-            val dir = File(context.applicationContext.cacheDir, "updates")
-            if (!dir.exists()) dir.mkdirs()
+            val dir = resolveUpdateDir(context)
             val outFile = File(dir, "HoatHinh3D-update.apk")
             if (outFile.exists()) outFile.delete()
+
+            val downloadClient = HttpClientProvider.okHttpClient.newBuilder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .callTimeout(5, TimeUnit.MINUTES)
+                .build()
 
             val req = Request.Builder()
                 .url(apkUrl)
                 .header("User-Agent", HttpClientProvider.DEFAULT_UA)
+                .header("Cache-Control", "no-cache")
                 .build()
-            HttpClientProvider.okHttpClient.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext null
+
+            downloadClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    AppDiagnostics.log("Update", "Tải APK HTTP ${resp.code} ($apkUrl)")
+                    return@withContext null
+                }
                 val body = resp.body ?: return@withContext null
                 val total = body.contentLength()
                 var downloaded = 0L
-                var lastPct = -1
+                var lastPct = -2
+                var lastStepBytes = 0L
                 body.byteStream().use { input ->
                     outFile.outputStream().use { output ->
                         val buf = ByteArray(16 * 1024)
@@ -200,14 +300,25 @@ object AppUpdateChecker {
                                 val pct = ((downloaded * 100L) / total).toInt().coerceIn(0, 100)
                                 if (pct != lastPct) {
                                     lastPct = pct
-                                    onProgress(pct)
+                                    onProgress(pct, downloaded, total)
                                 }
+                            } else if (downloaded - lastStepBytes >= 262_144L) {
+                                lastStepBytes = downloaded
+                                onProgress(-1, downloaded, -1L)
                             }
                         }
                     }
                 }
             }
-            if (outFile.exists() && outFile.length() > 100_000L) outFile else null
+            if (!isValidApkArchive(outFile)) {
+                AppDiagnostics.log("Update", "Tệp tải về không phải APK hợp lệ (${outFile.length()} bytes)")
+                runCatching { outFile.delete() }
+                return@withContext null
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                runCatching { outFile.setReadable(true, false) }
+            }
+            outFile
         } catch (e: Exception) {
             AppDiagnostics.log("Update", "Lỗi tải APK: ${e.message}")
             null
@@ -218,6 +329,7 @@ object AppUpdateChecker {
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
         } else {
+            runCatching { apkFile.setReadable(true, false) }
             Uri.fromFile(apkFile)
         }
         return Intent(Intent.ACTION_VIEW).apply {

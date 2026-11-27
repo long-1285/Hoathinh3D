@@ -15,20 +15,25 @@
 2. **Cập nhật Memory sau mỗi phiên làm việc / debug:**
    - Khi kết thúc phiên debug hoặc thêm tính năng, **BẮT BUỘC** cập nhật mục [5. Nhật Ký Debug & Thay Đổi](#5-nhật-ký-debug--thay-đổi-debug--changelog) (thêm phiên mới lên đầu), [6. Tổng Kết Bàn Giao](#6-tổng-kết-bàn-giao--trạng-thái-hiện-tại-handoff-status) và [7. Prompt Chuyển Giao](#7-prompt-chuyển-giao-cho-ai-agent-phiên-sau).
 3. **Bắt buộc chạy Test & Build file APK sau mỗi lần thay đổi code:**
+   - Tăng `versionCode` (theo số phiên) và `versionName` trong `android/app/build.gradle` khi chốt phiên mới.
    - Người dùng yêu cầu có file `.apk` mới nhất để test trực tiếp trên điện thoại / Android TV Box sau mỗi phiên:
      ```powershell
      powershell -ExecutionPolicy Bypass -File .\build-apk.ps1
      # Script tự động ép JAVA_HOME = OpenJDK 21 -> .\gradlew.bat testDebugUnitTest -> .\gradlew.bat assembleDebug -> copy APK ra root
      ```
-   - Xác nhận `testDebugUnitTest` qua 100%, xác nhận file APK tại `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` và báo kích thước/đường dẫn chính xác cho người dùng.
-4. **Bắt buộc đẩy mã nguồn lên Git sau mỗi phiên debug:**
-   - Sau khi kiểm thử, build APK và cập nhật `PROJECT_MEMORY.md` xong ở mỗi phiên debug, **BẮT BUỘC** commit với thông điệp phiên bản rõ ràng (ví dụ: `feat(v41): ...` hoặc `fix(session-41): ...`) và đẩy (`git push`) mã nguồn cập nhật mới nhất lên `https://github.com/long-1285/Hoathinh3D.git`.
+   - Chạy `.\gradlew.bat lintDebug` bảo đảm 0 lỗi `NewApi`, xác nhận `testDebugUnitTest` qua 100%, xác nhận file APK tại `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` và báo kích thước/đường dẫn/SHA-256 chính xác cho người dùng.
+4. **Bắt buộc xuất bản OTA, đẩy mã nguồn & Release mới nhất lên Git sau mỗi phiên debug:**
+   - Sau khi kiểm thử, build APK và cập nhật `PROJECT_MEMORY.md` xong ở mỗi phiên debug, **BẮT BUỘC** commit với thông điệp phiên bản rõ ràng (ví dụ: `feat(v42): ...` hoặc `fix(session-42): ...`), đẩy mã nguồn lên `https://github.com/long-1285/Hoathinh3D.git`, rồi chạy:
+     ```powershell
+     powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "Mô tả ngắn phiên bản..."
+     ```
+   - Script `publish-ota.ps1` tự động tải `HoatHinh3D-Universal-debug.apk` lên GitHub Releases (tag `v<versionCode>`) và cập nhật `version.json` (kèm `versionCode`, `versionName`, `apkUrl`, `sha256`, `changelog`). Commit + push `version.json` lên `main` ngay sau khi Release asset đã live để thiết bị bấm **Kiểm tra cập nhật OTA** luôn nhận diện được phiên bản mới nhất trên Git và tải về cài đặt.
 
 ---
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** HoatHinh3D Universal (Donghua 3D Aggregator & Native Cinema Player)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 35`, `versionName "3.5.0-universal"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 41`, `versionName "3.5.1-v41"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 2 cột, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -44,7 +49,7 @@
 | **JDK (Java)** | OpenJDK 21 (hoặc JDK 17) | ⚠️ **BẮT BUỘC:** Gradle 8.11.1 không chạy với JBR 25 (`major version 69`). `build-apk.ps1` tự dò `JAVA_HOME` (OpenJDK 21/17) trên mọi máy Windows. |
 | **Android SDK** | `%LOCALAPPDATA%\Android\Sdk` (hoặc `ANDROID_HOME`) | Compile/Target SDK 35 (Android 15), Min SDK 23 (Android 6.0). `build-apk.ps1` tự dò trên máy mới. |
 | **Native Stack** | Kotlin `2.0.21`, Media3 ExoPlayer `1.5.1`, OkHttp `4.12.0`, Jsoup `1.18.3`, Glide `4.16.0`, Material `1.12.0` | Project Gradle đặt tại `android/` (không phụ thuộc `node_modules`) |
-| **Build Script** | `build-apk.ps1` (`$PSScriptRoot`) | Di động trên mọi máy/thư mục clone; chạy `testDebugUnitTest` + `assembleDebug`, xuất ra `HoatHinh3D-Universal-debug.apk` |
+| **Build & OTA** | `build-apk.ps1` + `publish-ota.ps1` | `build-apk.ps1` build Debug APK; `publish-ota.ps1` xuất bản GitHub Release `v<code >` + cập nhật `version.json` OTA |
 | **Git Repo** | `https://github.com/long-1285/Hoathinh3D.git` | Nhánh chính `main` (tuyệt đối không lưu token lên Git/mã nguồn) |
 
 ---
@@ -54,7 +59,9 @@
 ```text
 E:\Project\3_HoatHinh3D\
 ├── GEMINI.md                                      # Bộ nhớ & quy tắc always_on tự đồng bộ theo repo Git
+├── version.json                                   # Manifest OTA chính thức (raw.githubusercontent.com/long-1285/Hoathinh3D/main/version.json)
 ├── build-apk.ps1                                  # Script 1-click Test + Build APK với OpenJDK 21
+├── publish-ota.ps1                                # Script xuất bản GitHub Release + cập nhật version.json OTA (không lưu token)
 ├── HoatHinh3D-Universal-debug.apk                 # File APK đầu ra mới nhất
 ├── android/app/src/main/java/com/hoathinh3d/donghua/
 │   ├── HoatHinhApp.kt                             # Application init (PrefsStore, HttpClientProvider)
@@ -109,6 +116,27 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-27] - Phiên 41: Thiết Lập Luồng Cập Nhật OTA Tự Động Qua GitHub (Default Manifest + Fallback Releases API + Tương Thích Android 6.0.1 API 23)
+- **Vấn đề / Yêu cầu:**
+  - Thiết lập hoàn chỉnh tính năng cập nhật OTA trực tiếp trên app: mặc định trỏ tới kho Git chính thức `https://github.com/long-1285/Hoathinh3D`, nhấn **Kiểm tra cập nhật** tự kiểm tra phiên bản mới nhất trên Git, so sánh `versionCode` / `versionName`, tự tải về xác thực SHA-256 & mở cài đặt.
+  - Bổ sung quy tắc bắt buộc cuối mỗi phiên debug phải xuất bản APK lên GitHub Release và cập nhật manifest OTA.
+- **Thay đổi đã thực hiện:**
+  1. **Mặc định nguồn OTA GitHub & chống cache CDN (`AppUpdateChecker.kt`, `Models.kt`, `PrefsStore.kt`):**
+     - Đặt `DEFAULT_MANIFEST_URL = "https://raw.githubusercontent.com/long-1285/Hoathinh3D/main/version.json"` và `GITHUB_RELEASES_LATEST_URL = "https://api.github.com/repos/long-1285/Hoathinh3D/releases/latest"`.
+     - `AppSettings.updateManifestUrl` mặc định trỏ tới `DEFAULT_MANIFEST_URL`; các máy nâng cấp từ bản cũ có giá trị rỗng `""` tự động migrate qua `AppUpdateChecker.resolveEffectiveManifestUrl`.
+     - Thêm `withCacheBuster` (`?t=<timestamp>`) + header `Cache-Control: no-cache` để bỏ qua cache 5 phút của CDN `raw.githubusercontent.com` ngay khi vừa push bản mới; tự fallback sang `GITHUB_RELEASES_LATEST_URL` nếu `version.json` lỗi; hỗ trợ đọc `versionCode` / `build` từ body GitHub Release.
+  2. **Tải APK an toàn, tương thích Android 6.0.1 (`MiTV4-ANSM0`) & Android 8–15 (`AppUpdateChecker.kt`, `MainActivity.kt`, `SettingsFragment.kt`):**
+     - `downloadApkToCache` tách client với timeout tải lớn (`connectTimeout 15s`, `readTimeout 60s`, `callTimeout 5m`), kiểm tra magic header ZIP `'P''K'` (`isValidApkArchive`), cập nhật tiến độ `%` và dung lượng `MB` theo thời gian thực.
+     - Trên Android `< 7.0` (API 23 như **Xiaomi MiTV4-ANSM0**), lưu APK tải về vào `externalCacheDir/updates` + `setReadable(true, false)` để `PackageInstaller` (`file://`) đọc được không bị lỗi quyền `/data/user/0/.../cache`; Android `7.0+` dùng `FileProvider`. Tự dọn tệp APK cũ khi khởi động (`cleanupOldUpdates`).
+     - Trên Android `8.0+`, lưu `pendingInstallManifest` khi chuyển sang màn hình cấp quyền *"Cài đặt ứng dụng không rõ nguồn gốc"* và tự tiếp tục tải/cài trong `onResume()` ngay khi người dùng quay lại. Nút cấu hình URL đổi sang nút **Mặc định Git** tiện khôi phục.
+  3. **Nâng cấp quy trình xuất bản (`android/app/build.gradle`, `publish-ota.ps1`, `version.json`):**
+     - Nâng `versionCode` từ `35` → **`41`**, `versionName` → **`"3.5.1-v41"`**.
+     - Tạo script `publish-ota.ps1` tự đọc `versionCode` / `versionName`, băm `SHA-256`, tạo/cập nhật GitHub Release tag `v<versionCode>`, upload `HoatHinh3D-Universal-debug.apk` và xuất `version.json` (lấy xác thực từ `GH_TOKEN`/`gh`/`git-credential-manager` trong RAM, không bao giờ lưu token vào file).
+- **Kiểm thử & Build:**
+  - `testDebugUnitTest`: **43/43 tests PASSED** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 8, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 5, `YanHh3dScraperTest` 6 — 0 failures/errors/skipped).
+  - `lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+  - APK: `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` (`12.69 MB`, `13,311,097 bytes`, `SHA-256: 0aab55162af61e4c70abce354eded6b1060f93738e1a6d9cbc9770a3124da2a4`).
 
 ### [2026-11-27] - Phiên 40: Khắc Phục Văng App & Tối Ưu Toàn Diện Cấu Hình Cho Xiaomi MiTV4-ANSM0 (Android 6.0.1 API 23, `armeabi-v7a` 32-bit, 1.6 GB RAM)
 - **Vấn đề / Yêu cầu (theo 3 ảnh minh họa thiết bị thực tế):**
@@ -1004,11 +1032,14 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 40).
+- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 41).
+- **Phiên bản hiện tại:** `versionCode 41` / `versionName "3.5.1-v41"`.
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
-- **Quy tắc Build mới (Phiên 35+):** **Hủy bỏ tạo file Release R8 APK (`assembleRelease` + `lintVitalRelease`) sau mỗi phiên** — chỉ chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` để kiểm tra unit tests và xuất `HoatHinh3D-Universal-debug.apk`.
+- **Quy tắc Build & Xuất bản OTA (Phiên 41+):** Không tạo Release R8 APK; cuối mỗi phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản APK lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
 - **Trạng thái Code & Test:** `compileDebugKotlin` sạch (0 warnings), `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **43/43 unit tests** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 8, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 5, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
-- **Trạng thái Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player, Cài Đặt & UI Liquid Glass iOS 27:**
+- **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
+  - **Cập nhật OTA tự động qua GitHub (Phiên 41):**
+    - `AppUpdateChecker.DEFAULT_MANIFEST_URL` trỏ mặc định tới `https://raw.githubusercontent.com/long-1285/Hoathinh3D/main/version.json` (có `withCacheBuster` + `Cache-Control: no-cache`, tự fallback sang `GITHUB_RELEASES_LATEST_URL`), tự migrate các bản cài cũ có URL rỗng, kiểm tra `SHA-256` + magic ZIP `'P''K'`, tải với timeout `60s`/`5m`, lưu vào `externalCacheDir/updates` trên API < 24 (`MiTV4-ANSM0`) và tự tiếp tục cài đặt sau khi cấp quyền `ACTION_MANAGE_UNKNOWN_APP_SOURCES`.
   - **Khắc phục văng app & tối ưu cấu hình Xiaomi MiTV4-ANSM0 (Phiên 40):**
     - Sửa sạch lỗi `NewApi` API 24/26 (`decodeBase64Compat` thuần Kotlin trong `YanHh3dNowScraper`, bỏ `Map.putIfAbsent` ở `YanHh3dScraper` & `CustomSourceParser`), đổi nút có `android:drawableStart` vector sang `LinearLayout` + `ImageView(app:srcCompat)`, thay `Switch` sang `SwitchCompat`, bật `setCompatVectorFromResourcesEnabled(true)`, thêm bộ ghi crash (`hh3d_diag_crash` → `AppDiagnostics`) và `onTrimMemory()` xả Glide.
     - Tinh chỉnh riêng ngưỡng **Ultra-Low RAM (`<= 1800 MB`)** cho MiTV4 `1.6 GB` / `armeabi-v7a` / ổ `5.0 GB`: OkHttp `12` requests (`4/host`), `InstantLoadControl` `20 MB`, `SimpleCache` `64 MB`, tắt prefetch segment nền, `DefaultRenderersFactory.setEnableDecoderFallback(true)` cho chip Amlogic H.265/H.264, `sharedTvCardPool`, `RGB_565` + `override()` + `dontAnimate()` đồng bộ mọi adapter ảnh, và thêm `<uses-feature android:name="android.hardware.wifi" android:required="false" />`.
@@ -1025,9 +1056,9 @@ E:\Project\3_HoatHinh3D\
     - Card **Đồng Bộ Nhanh Điện Thoại ↔ Android TV** có thêm **📧 Đồng Bộ Qua Tài Khoản Email**; Card **Thông Tin Gói APK Native** có **Auto xóa Cache khi thoát App** (`autoClearCacheOnExit`) và **Auto Update App** (`AppUpdateChecker`).
   - **Mạng TLS 1.2 + Root CA Hiện Đại:** `CompatTls` (15 Root CA hiện đại + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, ABR cap `1080p`/hạ `720p` khi lỗi decoder, DoH DNS fallback, `AppDiagnostics`, Android TV Left Rail (`tvNavRail`), `OfflineDownloadService`, LAN Sync UDP `8776` & `HH3D1:...`.
   - **Giao diện Header, Tiếp Tục Xem & Player CloudStream (Phiên 33–36):** Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt (`floatingSourcePickerOverlay`), **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát tiếp đúng phút/giây đang xem dở, nút **Bỏ qua Intro (`+85s`)** tự ẩn sau **5 giây**, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` (**13.80 MB**, `14,470,362 bytes`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21.
+- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` (**12.69 MB**, `13,311,097 bytes`, `SHA-256: 0aab55162af61e4c70abce354eded6b1060f93738e1a6d9cbc9770a3124da2a4`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và đã xuất bản OTA lên GitHub Release `v41` + `version.json`.
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
-  1. Cài lại `HoatHinh3D-Universal-debug.apk` lên **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận: mở app không văng, tải đầy đủ ảnh bìa/Hero bằng `RGB_565`, chuyển nguồn `YanHH3D Now` / `YanHH3D` / `+Web` không crash, phát video H.264/H.265 1080p mượt và kiểm tra `Nhật ký lỗi` trong Cài đặt nếu có cảnh báo phát sinh.
+  1. Cài `HoatHinh3D-Universal-debug.apk` (`v3.5.1-v41`) lên **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) và điện thoại để xác nhận luồng OTA từ GitHub (`⬆ Kiểm tra cập nhật` → tải về → xác thực SHA-256 → mở trình cài đặt hệ thống) cùng trải nghiệm phát video H.264/H.265 1080p mượt mà.
 
 ---
 
@@ -1036,11 +1067,12 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer) tại `E:\Project\3_HoatHinh3D`.
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 40, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 41, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 40:
-- Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` (13.80 MB, `14,470,362 bytes`), đã qua **43/43 unit tests** (`testDebugUnitTest`) và `lintDebug` (0 errors).
+Tóm tắt hiện trạng sau Phiên 41:
+- Phiên bản hiện tại: `versionCode 41`, `versionName "3.5.1-v41"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3D-Universal-debug.apk` (12.69 MB, `13,311,097 bytes`), đã qua **43/43 unit tests** (`testDebugUnitTest`) và `lintDebug` (0 errors).
+- **Cập nhật OTA tự động qua GitHub (Phiên 41):** `AppUpdateChecker.DEFAULT_MANIFEST_URL` trỏ mặc định tới `https://raw.githubusercontent.com/long-1285/Hoathinh3D/main/version.json` (tự fallback sang `releases/latest`), chống cache CDN, kiểm tra SHA-256 + magic `'P''K'`, lưu `externalCacheDir/updates` trên Android < 7.0 (`MiTV4-ANSM0`), và script `publish-ota.ps1` tự xuất bản APK lên GitHub Release + sinh `version.json`.
 - **Tương thích Android 6.0.1 / Xiaomi MiTV4-ANSM0 (Phiên 35 & 40):**
   - Đã xử lý sạch lỗi `NewApi` API 24/26 (`decodeBase64Compat` thuần Kotlin trong `YanHh3dNowScraper`, bỏ `Map.putIfAbsent` ở `YanHh3dScraper` & `CustomSourceParser`), đổi nút có `android:drawableStart` vector sang `LinearLayout` + `ImageView(app:srcCompat)`, bật `setCompatVectorFromResourcesEnabled(true)` và `SwitchCompat`, thêm bộ ghi crash `hh3d_diag_crash` → `AppDiagnostics` và `onTrimMemory()` xả Glide.
   - Ngưỡng **Ultra-Low RAM (`<= 1800 MB`)** riêng cho MiTV4 (`1.6 GB` RAM, `armeabi-v7a` 32-bit, ổ `5.0 GB`): OkHttp `12` requests (`4/host`), `InstantLoadControl` `20 MB`, `SimpleCache` `64 MB`, tắt prefetch segment nền, `DefaultRenderersFactory.setEnableDecoderFallback(true)`, `sharedTvCardPool`, `RGB_565` + `override()` + `dontAnimate()` cho mọi adapter ảnh; kèm `CompatTls` (15 Root CA hiện đại + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, cap ABR `1080p` + hạ `720p` khi lỗi decoder.
@@ -1055,5 +1087,5 @@ Tóm tắt hiện trạng sau Phiên 40:
 Nhiệm vụ tiếp theo cho bạn:
 [Điền yêu cầu cụ thể của phiên mới tại đây...]
 
-Lưu ý bắt buộc khi kết thúc: chỉ chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` (KHÔNG chạy `assembleRelease` / không tạo Release R8 APK) để kiểm tra unit tests, xuất lại `HoatHinh3D-Universal-debug.apk`, cập nhật `PROJECT_MEMORY.md`, và **commit với phiên bản rõ ràng rồi push toàn bộ mã nguồn mới nhất lên `https://github.com/long-1285/Hoathinh3D.git`** (tuyệt đối không lưu token lên Git hay mã nguồn).
+Lưu ý bắt buộc khi kết thúc: tăng `versionCode`/`versionName` trong `android/app/build.gradle`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` (KHÔNG chạy `assembleRelease`) + `.\gradlew.bat lintDebug`, cập nhật `PROJECT_MEMORY.md`, commit + push lên `https://github.com/long-1285/Hoathinh3D.git`, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` và đẩy `version.json` để luồng OTA nhận ngay bản mới nhất trên Git (tuyệt đối không lưu token lên Git hay mã nguồn).
 ```

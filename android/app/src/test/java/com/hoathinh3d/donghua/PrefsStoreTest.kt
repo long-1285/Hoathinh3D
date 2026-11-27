@@ -237,8 +237,15 @@ class PrefsStoreTest {
         val reset = PrefsStore.resetSettingsToDefaults()
         assertFalse(reset.autoClearCacheOnExit)
         assertTrue(reset.autoUpdateApp)
-        assertEquals("", reset.updateManifestUrl)
+        assertEquals(com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL, reset.updateManifestUrl)
         assertTrue(reset.showHomeHero)
+
+        val blankMigrated = PrefsStore.saveSettings(AppSettings(updateManifestUrl = ""))
+        assertEquals("", blankMigrated.updateManifestUrl)
+        assertEquals(
+            com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL,
+            PrefsStore.getSettings().updateManifestUrl
+        )
         assertTrue(reset.showHomeContinue)
         assertTrue(reset.showHomeTrending)
 

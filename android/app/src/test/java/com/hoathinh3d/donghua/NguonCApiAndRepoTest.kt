@@ -428,6 +428,42 @@ class NguonCApiAndRepoTest {
         assertFalse(com.hoathinh3d.donghua.core.AppUpdateChecker.isNewerVersion(34, "4.0.0", currentCode = 35, currentName = "3.5.0-universal"))
         assertTrue(com.hoathinh3d.donghua.core.AppUpdateChecker.isNewerVersion(0, "3.6.0", currentCode = 35, currentName = "3.5.0-universal"))
         assertFalse(com.hoathinh3d.donghua.core.AppUpdateChecker.isNewerVersion(0, "3.5.0", currentCode = 35, currentName = "3.5.0-universal"))
+
+        val ghWithCodeJson = """
+            {
+              "tag_name": "v42",
+              "body": "versionCode: 42\nSHA-256: $ghSha",
+              "assets": [
+                {"browser_download_url": "https://github.com/long-1285/Hoathinh3D/releases/download/v42/HoatHinh3D-Universal-debug.apk"}
+              ]
+            }
+        """.trimIndent()
+        val ghWithCode = com.hoathinh3d.donghua.core.AppUpdateChecker.parseManifestJson(ghWithCodeJson)
+        assertEquals(42, ghWithCode?.versionCode)
+        assertEquals("42", ghWithCode?.versionName)
+
+        assertEquals(
+            com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL,
+            com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl("   ")
+        )
+        assertEquals(
+            "https://raw.githubusercontent.com/long-1285/Hoathinh3D/main/version.json?t=12345",
+            com.hoathinh3d.donghua.core.AppUpdateChecker.withCacheBuster(
+                com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL,
+                12345L
+            )
+        )
+
+        val badApk = java.io.File.createTempFile("hh3d_bad_apk", ".apk").apply {
+            writeBytes(ByteArray(120_000) { 0x41 })
+            deleteOnExit()
+        }
+        val goodApk = java.io.File.createTempFile("hh3d_good_apk", ".apk").apply {
+            writeBytes(byteArrayOf(0x50, 0x4B, 0x03, 0x04) + ByteArray(120_000))
+            deleteOnExit()
+        }
+        assertFalse(com.hoathinh3d.donghua.core.AppUpdateChecker.isValidApkArchive(badApk))
+        assertTrue(com.hoathinh3d.donghua.core.AppUpdateChecker.isValidApkArchive(goodApk))
     }
 
     @Test

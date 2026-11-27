@@ -170,6 +170,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     private var isSearchOverlayOpen = false
     private var isSourcePickerOpen = false
     private var lastSourceTriggerView: View? = null
+    private var pendingInstallManifest: com.hoathinh3d.donghua.core.UpdateManifest? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -253,9 +254,12 @@ class MainActivity : AppCompatActivity(), AppHost {
         showTabFragment(MainTab.HOME)
         loadLiveDonghuaFeed(initialSource, silentOnSuccess = true)
         startRealtimeTrendingSync()
-        if (savedSettings.autoUpdateApp && savedSettings.updateManifestUrl.isNotBlank()) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            com.hoathinh3d.donghua.core.AppUpdateChecker.cleanupOldUpdates(this@MainActivity)
+        }
+        if (savedSettings.autoUpdateApp) {
             lifecycleScope.launch {
-                delay(2500L)
+                delay(2800L)
                 if (!isFinishing && !isDestroyed) {
                     checkAppUpdate(manual = false)
                 }
@@ -292,6 +296,14 @@ class MainActivity : AppCompatActivity(), AppHost {
         notifyActiveFragment()
         if (!state.isLoadingFeed) {
             syncRealtimeTrendingNow(state.activeSourceId)
+        }
+        val pendingManifest = pendingInstallManifest
+        if (pendingManifest != null &&
+            (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+                packageManager.canRequestPackageInstalls())
+        ) {
+            pendingInstallManifest = null
+            startDownloadAndInstallUpdate(pendingManifest)
         }
     }
 
@@ -1710,14 +1722,16 @@ class MainActivity : AppCompatActivity(), AppHost {
     }
 
     override fun configureUpdateSourceDialog() {
-        val currentUrl = state.settings.updateManifestUrl
+        val currentUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
+            state.settings.updateManifestUrl
+        )
         val pad = ThemeManager.dp(this, 16f)
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad / 2, pad, 0)
         }
         val urlInput = EditText(this).apply {
-            hint = "https://.../version.json hoặc GitHub Releases API"
+            hint = com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL
             setText(currentUrl)
             isSingleLine = true
         }
@@ -1725,45 +1739,31 @@ class MainActivity : AppCompatActivity(), AppHost {
         AlertDialog.Builder(this)
             .setTitle("Cấu hình nguồn Auto Update")
             .setMessage(
-                "Hỗ trợ JSON manifest ({versionCode, versionName, apkUrl, changelog, sha256}), " +
-                    "GitHub Releases API (/releases/latest) hoặc link .apk trực tiếp."
+                "Mặc định kiểm tra trực tiếp kho GitHub chính thức (${com.hoathinh3d.donghua.core.AppUpdateChecker.OFFICIAL_GITHUB_REPO}). " +
+                    "Cũng hỗ trợ JSON manifest khác, GitHub Releases API (/releases/latest) hoặc link .apk trực tiếp."
             )
             .setView(container)
             .setNegativeButton("Hủy", null)
-            .setNeutralButton("Xóa URL") { _, _ ->
-                updateSettings { it.copy(updateManifestUrl = "") }
-                showToast("Đã xóa URL cập nhật")
+            .setNeutralButton("Mặc định Git") { _, _ ->
+                updateSettings {
+                    it.copy(updateManifestUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL)
+                }
+                showToast("Đã khôi phục URL OTA GitHub mặc định")
             }
             .setPositiveButton("Lưu & Kiểm tra") { _, _ ->
-                val cleaned = urlInput.text.toString().trim()
+                val cleaned = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
+                    urlInput.text.toString()
+                )
                 updateSettings { it.copy(updateManifestUrl = cleaned) }
-                if (cleaned.isNotBlank()) {
-                    checkAppUpdate(manual = true)
-                } else {
-                    showToast("Đã lưu (URL trống)")
-                }
+                checkAppUpdate(manual = true)
             }
             .show()
     }
 
     override fun checkAppUpdate(manual: Boolean) {
-        val manifestUrl = state.settings.updateManifestUrl.trim()
-        if (manifestUrl.isBlank()) {
-            if (manual) {
-                AlertDialog.Builder(this)
-                    .setTitle("Kiểm tra cập nhật (v${BuildConfig.VERSION_NAME})")
-                    .setMessage(
-                        "Phiên bản hiện tại: v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE}).\n" +
-                            "Chưa có URL nguồn cập nhật. Nhấn 'Cấu hình URL' để nhập link JSON/GitHub Release/APK."
-                    )
-                    .setNegativeButton("Đóng", null)
-                    .setPositiveButton("Cấu hình URL") { _, _ ->
-                        configureUpdateSourceDialog()
-                    }
-                    .show()
-            }
-            return
-        }
+        val manifestUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
+            state.settings.updateManifestUrl
+        )
 
         if (manifestUrl.substringBefore('?').endsWith(".apk", ignoreCase = true)) {
             if (manual) {
@@ -1779,7 +1779,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
 
         if (manual) {
-            showToast("Đang kiểm tra phiên bản mới...")
+            showToast("Đang kiểm tra phiên bản mới trên GitHub...")
         }
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -1792,7 +1792,7 @@ class MainActivity : AppCompatActivity(), AppHost {
                 }
                 is com.hoathinh3d.donghua.core.UpdateCheckResult.UpToDate -> {
                     if (manual) {
-                        showToast("Bạn đang dùng phiên bản mới nhất (v${result.currentVersion})")
+                        showToast("Bạn đang dùng phiên bản mới nhất trên Git (v${result.currentVersion}, build ${BuildConfig.VERSION_CODE})")
                     }
                 }
                 is com.hoathinh3d.donghua.core.UpdateCheckResult.NotConfigured -> {
@@ -1828,10 +1828,11 @@ class MainActivity : AppCompatActivity(), AppHost {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
         ) {
+            pendingInstallManifest = manifest
             AlertDialog.Builder(this)
                 .setTitle("Cấp quyền cài đặt APK")
-                .setMessage("Android yêu cầu bật quyền 'Cài đặt ứng dụng không rõ nguồn gốc' cho HoatHinh3D để tự cập nhật.")
-                .setNegativeButton("Hủy", null)
+                .setMessage("Android yêu cầu bật quyền 'Cài đặt ứng dụng không rõ nguồn gốc' cho HoatHinh3D để tự cập nhật. Sau khi bật và quay lại, app sẽ tự tải về và cài đặt ngay.")
+                .setNegativeButton("Hủy") { _, _ -> pendingInstallManifest = null }
                 .setPositiveButton("Mở Cài đặt") { _, _ ->
                     runCatching {
                         startActivity(
@@ -1841,6 +1842,7 @@ class MainActivity : AppCompatActivity(), AppHost {
                             )
                         )
                     }.onFailure {
+                        pendingInstallManifest = null
                         showToast("Vui lòng bật quyền Cài đặt nguồn không xác định trong Cài đặt hệ thống")
                     }
                 }
@@ -1848,8 +1850,9 @@ class MainActivity : AppCompatActivity(), AppHost {
             return
         }
 
+        pendingInstallManifest = null
         val statusTv = android.widget.TextView(this).apply {
-            text = "Đang tải v${manifest.versionName}... 0%"
+            text = "Đang tải v${manifest.versionName} từ GitHub..."
             val p = ThemeManager.dp(context, 16f)
             setPadding(p, p, p, p)
         }
@@ -1865,10 +1868,17 @@ class MainActivity : AppCompatActivity(), AppHost {
                 com.hoathinh3d.donghua.core.AppUpdateChecker.downloadApkToCache(
                     this@MainActivity,
                     manifest.apkUrl
-                ) { pct ->
+                ) { pct, downloaded, total ->
+                    val dlMb = String.format(java.util.Locale.US, "%.1f", downloaded / (1024.0 * 1024.0))
+                    val line = if (pct >= 0 && total > 0L) {
+                        val totalMb = String.format(java.util.Locale.US, "%.1f", total / (1024.0 * 1024.0))
+                        "Đang tải v${manifest.versionName}... $pct% ($dlMb / $totalMb MB)"
+                    } else {
+                        "Đang tải v${manifest.versionName}... $dlMb MB"
+                    }
                     runOnUiThread {
                         if (progressDialog.isShowing) {
-                            statusTv.text = "Đang tải v${manifest.versionName}... $pct%"
+                            statusTv.text = line
                         }
                     }
                 }

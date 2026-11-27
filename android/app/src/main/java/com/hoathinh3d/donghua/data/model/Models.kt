@@ -180,7 +180,7 @@ data class AppSettings(
     val nightModeDrc: Boolean = false,
     val autoClearCacheOnExit: Boolean = false,
     val autoUpdateApp: Boolean = true,
-    val updateManifestUrl: String = "",
+    val updateManifestUrl: String = com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL,
     val showHomeHero: Boolean = true,
     val showHomeContinue: Boolean = true,
     val showHomeTrending: Boolean = true

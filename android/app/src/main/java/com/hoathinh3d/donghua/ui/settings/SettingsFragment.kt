@@ -1205,11 +1205,13 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         )
         infoBox.addView(buttonGrid(diagButtons, columns = if (isWide) 3 else 2, topMarginDp = 10f))
         infoBox.addView(diagResultTv)
-        val updateUrl = st.settings.updateManifestUrl.trim()
-        val updateSub = if (updateUrl.isNotBlank()) {
-            "Kiểm tra APK mới khi mở app • $updateUrl"
+        val updateUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
+            st.settings.updateManifestUrl
+        )
+        val updateSub = if (com.hoathinh3d.donghua.core.AppUpdateChecker.isOfficialGitUrl(updateUrl)) {
+            "Tự kiểm tra bản mới trên GitHub (${com.hoathinh3d.donghua.core.AppUpdateChecker.OFFICIAL_GITHUB_REPO})"
         } else {
-            "Tự kiểm tra khi mở app (Nhập link JSON/GitHub/APK ở nút ⚙ URL cập nhật)"
+            "Kiểm tra APK mới khi mở app • $updateUrl"
         }
         addResponsiveRows(
             infoBox,
