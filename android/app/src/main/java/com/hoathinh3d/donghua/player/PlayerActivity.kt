@@ -646,7 +646,7 @@ class PlayerActivity : AppCompatActivity() {
             hideSkipIntroPillImmediate()
             closeDrawer()
             binding.hudContainer.visibility = View.GONE
-            binding.btnUnlockScreen.visibility = View.VISIBLE
+            resetUnlockHideTimer()
             if (isTvProfile) {
                 binding.btnUnlockScreen.post { binding.btnUnlockScreen.requestFocus() }
             }
@@ -654,10 +654,15 @@ class PlayerActivity : AppCompatActivity() {
         }
         binding.btnUnlockScreen.setOnClickListener {
             isLocked = false
+            cancelUnlockHideTimer()
             binding.btnUnlockScreen.visibility = View.GONE
             binding.hudContainer.visibility = View.VISIBLE
             wakeHud()
             showToast("Đã mở khóa màn hình trình phát")
+        }
+        binding.btnQuickShare.setOnClickListener {
+            wakeHud()
+            shareCurrentMovieOrEpisode()
         }
         binding.btnPipOrSpeed.setOnClickListener {
             wakeHud()
@@ -800,7 +805,7 @@ class PlayerActivity : AppCompatActivity() {
                     return true
                 }
                 if (isLocked) {
-                    binding.btnUnlockScreen.alpha = 1.0f
+                    resetUnlockHideTimer()
                     return true
                 }
                 showHud = !showHud
@@ -830,7 +835,12 @@ class PlayerActivity : AppCompatActivity() {
         binding.gestureStage.setOnTouchListener { v, event ->
             detector.onTouchEvent(event)
             if (activeDrawer != PlayerDrawerType.NONE) return@setOnTouchListener false
-            if (isLocked) return@setOnTouchListener true
+            if (isLocked) {
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    resetUnlockHideTimer()
+                }
+                return@setOnTouchListener true
+            }
 
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -2402,6 +2412,52 @@ class PlayerActivity : AppCompatActivity() {
         binding.hudContainer.visibility = View.GONE
     }
 
+    private val unlockHideHandler = Handler(Looper.getMainLooper())
+    private val unlockHideRunnable = Runnable {
+        if (isLocked) {
+            binding.btnUnlockScreen.animate().cancel()
+            val reduced = DeviceProfileResolver.shouldUseReducedMotion(this, deviceProfile, settings.reducedMotion)
+            val dur = if (reduced) 0L else 300L
+            if (dur == 0L) {
+                binding.btnUnlockScreen.visibility = View.GONE
+            } else {
+                binding.btnUnlockScreen.animate()
+                    .alpha(0f)
+                    .setDuration(dur)
+                    .withEndAction {
+                        if (isLocked) binding.btnUnlockScreen.visibility = View.GONE
+                    }
+                    .start()
+            }
+        }
+    }
+
+    private fun resetUnlockHideTimer() {
+        unlockHideHandler.removeCallbacks(unlockHideRunnable)
+        binding.btnUnlockScreen.animate().cancel()
+        binding.btnUnlockScreen.alpha = 1f
+        binding.btnUnlockScreen.visibility = View.VISIBLE
+        unlockHideHandler.postDelayed(unlockHideRunnable, 3000L)
+    }
+
+    private fun cancelUnlockHideTimer() {
+        unlockHideHandler.removeCallbacks(unlockHideRunnable)
+    }
+
+    private fun shareCurrentMovieOrEpisode() {
+        val title = movie.title.ifBlank { "Hoạt Hình 3D" }
+        val currentEp = episodesList().getOrNull(currentEpIdx)
+        val epLabel = currentEp?.name ?: "Tập ${currentEpIdx + 1}"
+        val text = PlayerUtils.formatShareText(title, epLabel)
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_TITLE, "$title - $epLabel")
+            type = "text/plain"
+        }
+        startActivity(Intent.createChooser(sendIntent, "Chia sẻ phim qua"))
+    }
+
     private fun applyBrightness(value: Float) {
         brightness = value.coerceIn(0.15f, 1.0f)
         window.attributes = window.attributes.apply { screenBrightness = brightness }
@@ -2625,6 +2681,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         persistWatchProgressNow()
+        cancelUnlockHideTimer()
         mainHandler.removeCallbacksAndMessages(null)
         storyboardSprites.evictAll()
         seekCoalescer?.release()

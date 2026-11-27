@@ -15,13 +15,24 @@ $jdkCandidates = @()
 if ($env:JAVA_HOME -and (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
     $jdkCandidates += $env:JAVA_HOME
 }
+$userJava = [System.Environment]::GetEnvironmentVariable('JAVA_HOME', 'User')
+if ($userJava -and (Test-Path "$userJava\bin\java.exe")) {
+    $jdkCandidates += $userJava
+}
+$machineJava = [System.Environment]::GetEnvironmentVariable('JAVA_HOME', 'Machine')
+if ($machineJava -and (Test-Path "$machineJava\bin\java.exe")) {
+    $jdkCandidates += $machineJava
+}
 $jdkPatterns = @(
     "C:\Program Files\Microsoft\jdk-21*",
     "C:\Program Files\Eclipse Adoptium\jdk-21*",
     "C:\Program Files\Java\jdk-21*",
     "C:\Program Files\Android\Android Studio\jbr",
     "C:\Program Files\Microsoft\jdk-17*",
-    "C:\Program Files\Eclipse Adoptium\jdk-17*"
+    "C:\Program Files\Eclipse Adoptium\jdk-17*",
+    "C:\Android\jdk-21*",
+    "C:\Android\jdk-17*",
+    "C:\Android\jdk*"
 )
 foreach ($pat in $jdkPatterns) {
     $found = Get-ChildItem $pat -ErrorAction SilentlyContinue | Sort-Object Name -Descending
@@ -50,11 +61,16 @@ if (-not $jdkPath) {
     throw "Không tìm thấy JDK 21 (hoặc JDK 17). Vui lòng cài OpenJDK 21 và thử lại."
 }
 
+$userSdk = [System.Environment]::GetEnvironmentVariable('ANDROID_HOME', 'User')
+$machineSdk = [System.Environment]::GetEnvironmentVariable('ANDROID_HOME', 'Machine')
 $sdkCandidates = @(
     $env:ANDROID_HOME,
     $env:ANDROID_SDK_ROOT,
+    $userSdk,
+    $machineSdk,
     "$env:LOCALAPPDATA\Android\Sdk",
-    "C:\Android\Sdk"
+    "C:\Android\Sdk",
+    "C:\Android"
 ) | Where-Object { $_ -and (Test-Path $_) }
 
 $androidSdk = $sdkCandidates | Select-Object -First 1

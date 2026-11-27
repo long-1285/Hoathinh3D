@@ -84,6 +84,9 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 host?.onMainContentScroll(dy, recyclerView.computeVerticalScrollOffset())
             }
         })
+        binding.swipeRefreshSchedule.setOnRefreshListener {
+            loadScheduleForDay(activeDay)
+        }
         refreshUi()
         loadScheduleForDay(activeDay)
     }
@@ -98,6 +101,7 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             val yanTask = async { runCatching { YanHh3dScraper.fetchMovies(showtimeId = showtimeId, perPage = 30).movies }.getOrDefault(emptyList()) }
             yanDayMovies = MovieRepository.mergeMovieLists(listOf(nowTask.await(), yanTask.await()))
             _binding?.txtLoadingSchedule?.visibility = View.GONE
+            _binding?.swipeRefreshSchedule?.isRefreshing = false
             refreshUi()
         }
     }
@@ -139,6 +143,13 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.scheduleRoot.setPadding(hPad, chromeTop, hPad, 0)
         b.rvSchedule.setPadding(0, 0, 0, chromeBot)
+
+        b.swipeRefreshSchedule.isEnabled = !isTv
+        b.swipeRefreshSchedule.setColorSchemeColors(p.accentFrom, p.accentTo)
+        b.swipeRefreshSchedule.setProgressBackgroundColorSchemeColor(p.bgSecondary)
+        if (fetchJob?.isActive != true && b.swipeRefreshSchedule.isRefreshing) {
+            b.swipeRefreshSchedule.isRefreshing = false
+        }
 
         b.scheduleHeaderPanel.background = ThemeManager.glassPanelDrawable(requireContext(), p, 22f)
         b.txtScheduleTitle.setTextColor(p.textMain)

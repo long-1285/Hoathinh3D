@@ -267,4 +267,43 @@ class PrefsStoreTest {
         assertEquals("1. Trình phát tích hợp", tabs.first().label)
         assertEquals("5. Tiện ích mở rộng", tabs.last().label)
     }
+
+    @Test
+    fun searchHistory_addRemoveClear_andCapsAt10() {
+        assertTrue(PrefsStore.getSearchHistory().isEmpty())
+
+        // Add 1st item
+        val list1 = PrefsStore.addSearchHistory("Đấu Phá Thương Khung")
+        assertEquals(1, list1.size)
+        assertEquals("Đấu Phá Thương Khung", list1[0])
+
+        // Add 2nd item
+        val list2 = PrefsStore.addSearchHistory("Tiên Nghịch")
+        assertEquals(2, list2.size)
+        assertEquals("Tiên Nghịch", list2[0])
+        assertEquals("Đấu Phá Thương Khung", list2[1])
+
+        // Add duplicate (case-insensitive) -> moves to top
+        val list3 = PrefsStore.addSearchHistory("đấu phá thương khung")
+        assertEquals(2, list3.size)
+        assertEquals("đấu phá thương khung", list3[0])
+        assertEquals("Tiên Nghịch", list3[1])
+
+        // Fill past 10 items
+        for (i in 1..12) {
+            PrefsStore.addSearchHistory("Từ khóa $i")
+        }
+        val capped = PrefsStore.getSearchHistory()
+        assertEquals(10, capped.size)
+        assertEquals("Từ khóa 12", capped.first())
+
+        // Remove single item
+        val removed = PrefsStore.removeSearchHistoryItem("Từ khóa 12")
+        assertEquals(9, removed.size)
+        assertFalse(removed.contains("Từ khóa 12"))
+
+        // Clear all
+        PrefsStore.clearSearchHistory()
+        assertTrue(PrefsStore.getSearchHistory().isEmpty())
+    }
 }

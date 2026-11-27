@@ -132,6 +132,10 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             }
         })
 
+        binding.swipeRefreshHome.setOnRefreshListener {
+            host?.reloadActiveSourceFeed()
+        }
+
         refreshUi()
     }
 
@@ -166,6 +170,13 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val hPad = homeHorizontalPadPx(st.resolvedDevice)
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.rvHomeFeed.setPadding(hPad, chromeTop, hPad, chromeBot)
+
+        b.swipeRefreshHome.isEnabled = (st.resolvedDevice != ResolvedDeviceProfile.TV)
+        b.swipeRefreshHome.setColorSchemeColors(p.accentFrom, p.accentTo)
+        b.swipeRefreshHome.setProgressBackgroundColorSchemeColor(p.bgSecondary)
+        if (!st.isLoadingFeed && b.swipeRefreshHome.isRefreshing) {
+            b.swipeRefreshHome.isRefreshing = false
+        }
 
         val desiredSpan = DeviceProfileResolver.gridSpanCount(st.resolvedDevice)
         if (desiredSpan != currentSpanCount) {

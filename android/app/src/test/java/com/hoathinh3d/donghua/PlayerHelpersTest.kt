@@ -194,4 +194,20 @@ class PlayerHelpersTest {
             )
         )
     }
+
+    @Test
+    fun formatShareText_handlesMovieAndEpisodeCleanly() {
+        assertEquals(
+            "Xem hoạt hình 3D \"Tiên Nghịch\" trên HoatHinh3D Universal!",
+            PlayerUtils.formatShareText("  Tiên Nghịch  ")
+        )
+        assertEquals(
+            "Đang xem \"Đấu Phá Thương Khung\" - Tập 120 trên HoatHinh3D Universal!",
+            PlayerUtils.formatShareText("Đấu Phá Thương Khung", "Tập 120")
+        )
+        assertEquals(
+            "Xem hoạt hình 3D \"Hoạt Hình 3D\" trên HoatHinh3D Universal!",
+            PlayerUtils.formatShareText("   ", "")
+        )
+    }
 }

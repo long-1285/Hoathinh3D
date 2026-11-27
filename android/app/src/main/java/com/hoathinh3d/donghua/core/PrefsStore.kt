@@ -34,6 +34,7 @@ object PrefsStore {
         const val SOURCES_V4_TWO_ONLY = "hh3d_sources_v4_yanhh3d_nguonc_only"
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
+        const val SEARCH_HISTORY = "hh3d_search_history_v1"
     }
 
     private lateinit var prefs: SharedPreferences
@@ -100,6 +101,59 @@ object PrefsStore {
 
     fun clearHistory() {
         prefs.edit().remove(Keys.HISTORY).apply()
+    }
+
+    // =====================================================
+    // Search History
+    // =====================================================
+    private const val MAX_SEARCH_HISTORY = 10
+
+    fun getSearchHistory(): List<String> {
+        val raw = prefs.getString(Keys.SEARCH_HISTORY, null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            val list = ArrayList<String>(arr.length())
+            for (i in 0 until arr.length()) {
+                val q = arr.optString(i, "").trim()
+                if (q.isNotEmpty()) list.add(q)
+            }
+            list
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun addSearchHistory(query: String): List<String> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return getSearchHistory()
+        val current = getSearchHistory().toMutableList()
+        current.removeAll { it.equals(trimmed, ignoreCase = true) }
+        current.add(0, trimmed)
+        val capped = current.take(MAX_SEARCH_HISTORY)
+        val arr = JSONArray()
+        for (item in capped) {
+            arr.put(item)
+        }
+        prefs.edit().putString(Keys.SEARCH_HISTORY, arr.toString()).apply()
+        return capped
+    }
+
+    fun removeSearchHistoryItem(query: String): List<String> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return getSearchHistory()
+        val current = getSearchHistory().toMutableList()
+        val removed = current.removeAll { it.equals(trimmed, ignoreCase = true) }
+        if (!removed) return current
+        val arr = JSONArray()
+        for (item in current) {
+            arr.put(item)
+        }
+        prefs.edit().putString(Keys.SEARCH_HISTORY, arr.toString()).apply()
+        return current
+    }
+
+    fun clearSearchHistory() {
+        prefs.edit().remove(Keys.SEARCH_HISTORY).apply()
     }
 
     // =====================================================

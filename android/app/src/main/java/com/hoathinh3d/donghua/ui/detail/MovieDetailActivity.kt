@@ -328,6 +328,20 @@ class MovieDetailActivity : AppCompatActivity() {
         binding.btnDetailFavorite.background = ThemeManager.pillDrawable(this, p, active = false, 14f)
         binding.btnDetailFavorite.setTextColor(if (isFav) Color.parseColor("#F43F5E") else p.textMain)
 
+        binding.btnDetailShare.background = ThemeManager.pillDrawable(this, p, active = false, 14f)
+        binding.btnDetailShare.setTextColor(p.textMain)
+        binding.btnDetailShare.setOnClickListener {
+            val title = movie.title.ifBlank { "Hoạt Hình 3D" }
+            val text = PlayerUtils.formatShareText(title)
+            val sendIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, text)
+                putExtra(Intent.EXTRA_TITLE, title)
+                type = "text/plain"
+            }
+            startActivity(Intent.createChooser(sendIntent, "Chia sẻ phim qua"))
+        }
+
         // Offline download CTA
         val targetEpNum = prog?.episode ?: 1
         val currentSrv = serverGroups.getOrNull(activeServerIdx) ?: serverGroups.firstOrNull()

@@ -33,7 +33,7 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** HoatHinh3D Universal (Donghua 3D Aggregator & Native Cinema Player)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 48`, `versionName "3.5.8-v48"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 49`, `versionName "3.5.9-v49"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -116,6 +116,32 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-27] - Phiên 49: Tìm Kiếm Thông Minh (Lịch Sử & Từ Khóa Hot), Kéo Để Làm Mới (Pull-to-Refresh), Khóa Màn Hình Tự Ẩn 3s & Chia Sẻ Nhanh (`v3.5.9-v49`)
+- **Yêu cầu người dùng:**
+  - Triển khai tối ưu và hoàn thiện 3 định hướng phát triển cho phiên mới:
+    1. **Tìm kiếm thông minh:** Lưu lịch sử tìm kiếm gần đây + gợi ý từ khóa Hot trực quan cho cả Mobile và Android TV Remote.
+    2. **Kéo để làm mới (Pull-to-refresh):** Vuốt xuống làm mới nhanh cho Trang chủ và Lịch chiếu trên Mobile/Tablet.
+    3. **Tối ưu Trình phát & Chi tiết phim:** Hoàn thiện tính năng Khóa màn hình chống chạm nhầm (nút mở khóa mờ tự ẩn sau 3s, tương thích Android 6.0.1) và thêm nút Chia sẻ nhanh phim/tập phim.
+- **Thay đổi đã thực hiện:**
+  1. **Tìm kiếm thông minh — Lịch sử & Gợi ý từ khóa Hot ([PrefsStore.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/core/PrefsStore.kt), [activity_main.xml](file:///E:/Duan/01_HH3D/android/app/src/main/res/layout/activity_main.xml), [MainActivity.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/MainActivity.kt)):**
+     - Bổ sung `Keys.SEARCH_HISTORY` và các hàm `getSearchHistory`, `addSearchHistory` (chống trùng không phân biệt hoa thường, giới hạn 10 mục mới nhất), `removeSearchHistoryItem`, `clearSearchHistory` vào `PrefsStore`.
+     - Mở rộng `floatingSearchContainer` với `searchSuggestionsPanel` dạng Liquid Glass gồm 2 hàng chip cuộn ngang: **TỪ KHÓA THỊNH HÀNH** (`HOT_KEYWORDS`: *Đấu Phá Thương Khung, Tiên Nghịch, Thế Giới Hoàn Mỹ, Thôn Phệ Tinh Không, Già Thiên, Phàm Nhân Tu Tiên, Bách Luyện Thành Thần, Vạn Giới Độc Tôn, Tuyệt Thế Đường Môn, Nhất Niệm Vĩnh Hằng*) và **TÌM KIẾM GẦN ĐÂY** kèm nút `✕` xóa từng mục và nút `Xóa lịch sử`.
+     - Tự động ẩn bảng gợi ý khi người dùng bắt đầu nhập từ khóa và lưu lịch sử ngay khi thực hiện tìm kiếm (`runLiveSearch`), hỗ trợ đầy đủ D-Pad focus trên TV.
+  2. **Kéo để làm mới (Pull-to-refresh) ([build.gradle](file:///E:/Duan/01_HH3D/android/app/build.gradle), [fragment_home.xml](file:///E:/Duan/01_HH3D/android/app/src/main/res/layout/fragment_home.xml), [fragment_schedule.xml](file:///E:/Duan/01_HH3D/android/app/src/main/res/layout/fragment_schedule.xml), [HomeFragment.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/home/HomeFragment.kt), [ScheduleFragment.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/schedule/ScheduleFragment.kt)):**
+     - Tích hợp `androidx.swiperefreshlayout:swiperefreshlayout:1.1.0` bọc `rvHomeFeed` (`swipeRefreshHome`) và `rvSchedule` (`swipeRefreshSchedule`).
+     - Đồng bộ màu spinner theo `ThemePalette` (`p.accentFrom`, `p.accentTo`, `p.bgSecondary`), gọi `host?.reloadActiveSourceFeed()` / `loadScheduleForDay(activeDay)` khi kéo xuống, tự tắt `isRefreshing` sau khi nạp xong và tự động vô hiệu hóa gesture trên `ResolvedDeviceProfile.TV` để không cản trở D-Pad.
+  3. **Tối ưu Khóa màn hình tự ẩn 3s & Chia sẻ nhanh ([activity_player.xml](file:///E:/Duan/01_HH3D/android/app/src/main/res/layout/activity_player.xml), [PlayerActivity.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/player/PlayerActivity.kt), [activity_movie_detail.xml](file:///E:/Duan/01_HH3D/android/app/src/main/res/layout/activity_movie_detail.xml), [MovieDetailActivity.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/detail/MovieDetailActivity.kt), [PlayerHelpers.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/player/PlayerHelpers.kt)):**
+     - Thiết kế lại `btnUnlockScreen` thành thẻ kính `LinearLayout` đặt tại `top|start` (tránh che phụ đề dưới đáy), dùng VectorDrawable `@drawable/ic_cs_lock` + chữ `"Chạm mở khóa"` thay cho emoji `🔒` (tránh lỗi ô vuông `▯` trên Android 6.0.1).
+     - Bổ sung `unlockHideHandler` tự làm mờ và ẩn `btnUnlockScreen` sau 3 giây khi đang khóa (`isLocked = true`); chạm bất kỳ vị trí nào trên màn hình sẽ đánh thức lại nút mở khóa 3s mà vẫn chặn 100% gesture vuốt sáng/âm lượng/tua/double-tap.
+     - Thêm `PlayerUtils.formatShareText`, nút `btnQuickShare` ở thanh trên `PlayerActivity` và `btnDetailShare` trong `MovieDetailActivity` mở Android Sharesheet (`Intent.ACTION_SEND`).
+  4. **Cập nhật bộ dò môi trường [build-apk.ps1](file:///E:/Duan/01_HH3D/build-apk.ps1):**
+     - Hỗ trợ tự dò thêm `JAVA_HOME` / `ANDROID_HOME` từ biến môi trường User/Machine và thư mục `C:\Android\jdk*` / `C:\Android` trên máy mới.
+- **Kiểm thử & Build:**
+  - Bổ sung unit test `searchHistory_addRemoveClear_andCapsAt10` ([PrefsStoreTest.kt](file:///E:/Duan/01_HH3D/android/app/src/test/java/com/hoathinh3d/donghua/PrefsStoreTest.kt)) và `formatShareText_handlesMovieAndEpisodeCleanly` ([PlayerHelpersTest.kt](file:///E:/Duan/01_HH3D/android/app/src/test/java/com/hoathinh3d/donghua/PlayerHelpersTest.kt)).
+  - `testDebugUnitTest`: **49/49 tests PASSED** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 10, `PrefsStoreTest` 8, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
+  - `lintDebug`: **BUILD SUCCESSFUL** (0 errors). *(Chưa kiểm thử trực tiếp trên thiết bị thật qua ADB ở phiên này).*
+  - APK mới nhất: `E:\Duan\01_HH3D\HoatHinh3d.apk` (**13.84 MB**, `14,514,180 bytes`, `SHA-256: 5e540226a7a86aed7967aa63918acba441e538791f824582791354d80d0d8bd6`).
 
 ### [2026-11-27] - Phiên 48: Sửa Triệt Để Lỗi Trùng Phim & Mất Poster Trang Chủ, Tối Ưu Toàn Diện Giao Diện & Nguồn Phát Đa Thiết Bị (`v3.5.8-v48`)
 - **Yêu cầu người dùng:**
@@ -1164,12 +1190,16 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 48).
-- **Phiên bản hiện tại:** `versionCode 48` / `versionName "3.5.8-v48"`.
-- **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
+- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 49).
+- **Phiên bản hiện tại:** `versionCode 49` / `versionName "3.5.9-v49"`.
+- **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Duan\01_HH3D\android` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
 - **Quy tắc Build & Xuất bản OTA (Phiên 41+):** Không tạo Release R8 APK; cuối mỗi phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
-- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **47/47 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
+- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **49/49 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 10, `PrefsStoreTest` 8, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
 - **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
+  - **Tìm kiếm thông minh, Pull-to-refresh, Khóa màn hình tự ẩn 3s & Chia sẻ nhanh (Phiên 49):**
+    - `PrefsStore` lưu lịch sử tìm kiếm (tối đa 10 mục, chống trùng, xóa lẻ/xóa hết) kèm `searchSuggestionsPanel` Liquid Glass (Từ khóa Hot Thịnh Hành + Lịch sử gần đây) trong `MainActivity`.
+    - `SwipeRefreshLayout` bọc `rvHomeFeed` (`HomeFragment`) và `rvSchedule` (`ScheduleFragment`), đổi màu spinner theo theme, tự tắt trên Android TV để giữ nguyên D-Pad.
+    - `PlayerActivity` nâng cấp `btnUnlockScreen` tại `top|start` dùng VectorDrawable `ic_cs_lock` (không emoji) tự ẩn sau 3s, chạm màn hình hiện lại; thêm `PlayerUtils.formatShareText` + nút Chia sẻ nhanh (`btnQuickShare`, `btnDetailShare`).
   - **Sửa trùng lặp phim & mất poster, tối ưu đa thiết bị & nguồn phát (Phiên 48):**
     - Không còn trộn `InitialData.INITIAL_DONGHUA_CATALOG` vào feed sống (`loadLiveDonghuaFeed`), thay sạch URL `phimimg.com` chết (404) bằng link `yanhh3d.now` xác thực + `bg_poster_placeholder.xml`, hợp nhất khử trùng lặp (`mergeMoviePair`, `extractPosterUrl`) theo slug/tiêu đề & khử trùng `ServerGroup`; đồng bộ lề ngang (`14/18/22dp`), kích thước card/hero/chi tiết phim cho Mobile / PC-Tablet / TV và sắp xếp tập mới nhất trước trong Drawer của `PlayerActivity`.
   - **Menu Cài đặt phân nhóm 2 tầng trên Điện thoại (Phiên 47):**
@@ -1196,22 +1226,23 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.82 MB**, `14,487,587 bytes`, `SHA-256: 1a92bfb8001cdee51f36e8fd339ea395c84ba031c375bdfd0c0bf21e9b6ed3cc`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v48` + `version.json`.
+- **File APK mới nhất:** `E:\Duan\01_HH3D\HoatHinh3d.apk` (**13.84 MB**, `14,514,180 bytes`, `SHA-256: 5e540226a7a86aed7967aa63918acba441e538791f824582791354d80d0d8bd6`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 17 và xuất bản OTA lên GitHub Release `v49` + `version.json`.
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
-  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.8-v48`)** trên **Điện thoại Android**, **Giả lập PC** và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận không còn phim trùng/mất poster trên Trang chủ, bố cục 5 tab + Chi tiết phim + Drawer tập mới nhất trước trong Trình phát và nâng cấp OTA từ `v47` → `v48`.
+  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.9-v49`)** trên **Điện thoại Android**, **Giả lập PC** và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận bảng gợi ý Từ khóa Hot & Lịch sử tìm kiếm, cử chỉ vuốt Pull-to-refresh trên Trang chủ & Lịch chiếu, nút Mở khóa màn hình tự ẩn 3s không lỗi ô vuông và tính năng Chia sẻ nhanh + nâng cấp OTA từ `v48` → `v49`.
 
 ---
 
 ## 7. PROMPT CHUYỂN GIAO CHO AI AGENT PHIÊN SAU
 
 ```markdown
-Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer) tại `E:\Project\3_HoatHinh3D`.
+Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer) tại `E:\Duan\01_HH3D`.
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 48, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Duan\01_HH3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 49, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 48:
-- Phiên bản hiện tại: `versionCode 48`, `versionName "3.5.8-v48"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.82 MB, `14,487,587 bytes`), đã qua **47/47 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v48` + `version.json`.
+Tóm tắt hiện trạng sau Phiên 49:
+- Phiên bản hiện tại: `versionCode 49`, `versionName "3.5.9-v49"`. Mã nguồn Android Native nằm tại `E:\Duan\01_HH3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `E:\Duan\01_HH3D\HoatHinh3d.apk` (13.84 MB, `14,514,180 bytes`), đã qua **49/49 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v49` + `version.json`.
+- **Phiên 49 (Tìm kiếm thông minh, Pull-to-refresh, Khóa màn hình tự ẩn & Chia sẻ nhanh):** Bổ sung lịch sử tìm kiếm 10 từ khóa (`PrefsStore`) + bảng gợi ý Từ khóa Hot (`HOT_KEYWORDS`) & Lịch sử Liquid Glass trong `MainActivity`; tích hợp `SwipeRefreshLayout` cho `HomeFragment` & `ScheduleFragment` (tự tắt trên TV); nâng cấp `btnUnlockScreen` tại `top|start` dùng VectorDrawable tự ẩn 3s khi khóa màn hình trong `PlayerActivity`; thêm `PlayerUtils.formatShareText` + nút Chia sẻ (`btnQuickShare`, `btnDetailShare`).
 - **Phiên 48 (Khắc phục trùng phim/mất poster & tối ưu toàn app):** Bỏ trộn `INITIAL_DONGHUA_CATALOG` vào feed sống (`loadLiveDonghuaFeed`), thay toàn bộ link `phimimg.com` 404 bằng poster xác thực + vector `bg_poster_placeholder.xml`, hợp nhất khử trùng slug/tiêu đề & ưu tiên poster sống trong `MovieRepository`, khử trùng `ServerGroup`, đồng bộ `hPad` (`14/18/22dp`), kích thước card/hero/detail cho Mobile/PC/TV và xếp tập mới nhất trước trong Drawer của `PlayerActivity`.
 - **Phiên 47 (Menu Cài Đặt Mobile Phân Nhóm):** Trên **Điện thoại (`MOBILE`)**, tab Cài đặt hiển thị giao diện danh sách phân nhóm 2 thẻ kính (`TRẢI NGHIỆM & PHÁT` + `HỆ THỐNG & DỮ LIỆU`) kèm ô icon bo góc `36dp`, vạch chia inset, mũi tên phải `›` và điều hướng 2 tầng (`isSettingsDetailOpen`, nút Back phần cứng & thanh `← <Tiêu đề>`); **Tablet/PC** và **TV** giữ nguyên thanh 5 pill ngang.
 - **Phiên 46 (Đồng nhất Lịch sử, Thanh điều hướng & Hoàng Hôn Đêm Sâu):** Lưới `Lịch sử` dùng chung `MovieCardAdapter` giống `Yêu thích` (chạm phát tiếp ngay, nhấn giữ mở menu); thanh điều hướng kính đáy & TV Rail bọc `RippleDrawable`, `navFeatureIconDrawable` làm nổi bật 5 icon tính năng + `attachLiquidNavTapEffect`; chủ đề `DARK` thành **Hoàng Hôn Đêm Sâu** (`#040507`, vàng hoàng hôn dịu `#E2AE58`).

@@ -161,6 +161,15 @@ object PlayerUtils {
         }
     }
 
+    fun formatShareText(title: String, epName: String? = null): String {
+        val cleanTitle = title.trim().ifBlank { "Hoạt Hình 3D" }
+        return if (epName.isNullOrBlank()) {
+            "Xem hoạt hình 3D \"$cleanTitle\" trên HoatHinh3D Universal!"
+        } else {
+            "Đang xem \"$cleanTitle\" - $epName trên HoatHinh3D Universal!"
+        }
+    }
+
     fun maxHeightForQualityPreset(preset: String?): Int? {
         return when (preset?.trim()) {
             "4K 60FPS" -> 2160

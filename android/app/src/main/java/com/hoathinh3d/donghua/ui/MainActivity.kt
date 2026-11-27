@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -371,6 +372,10 @@ class MainActivity : AppCompatActivity(), AppHost {
             override fun afterTextChanged(s: Editable?) {
                 val q = s?.toString().orEmpty()
                 binding.btnClearSearch.visibility = if (q.isNotEmpty()) View.VISIBLE else View.GONE
+                binding.searchSuggestionsPanel.visibility = if (q.trim().isEmpty()) View.VISIBLE else View.GONE
+                if (q.trim().isEmpty()) {
+                    renderSearchSuggestions()
+                }
                 if (q == state.searchQuery) return
                 state = state.copy(searchQuery = q)
                 if (q.trim().isNotEmpty() && state.activeTab != MainTab.HOME) {
@@ -510,6 +515,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         binding.btnClearSearch.background = ThemeManager.navTabDrawable(this, p, active = false, 10f)
         binding.btnCloseSearchOverlay.setTextColor(p.accentFrom)
         binding.btnCloseSearchOverlay.background = ThemeManager.pillDrawable(this, p, active = false, 14f)
+        renderSearchSuggestions()
 
         binding.btnQuickTheme.background = ThemeManager.pillDrawable(this, p, active = false, 17f)
         binding.imgQuickThemeIcon.setImageResource(if (p.isDark) R.drawable.ic_theme_moon else R.drawable.ic_theme_sun)
@@ -649,6 +655,9 @@ class MainActivity : AppCompatActivity(), AppHost {
         if (isSourcePickerOpen) closeSourcePickerOverlay()
         if (isGenrePickerOpen) closeGenrePickerOverlay()
         isSearchOverlayOpen = true
+        renderSearchSuggestions()
+        binding.searchSuggestionsPanel.visibility =
+            if (binding.editSearch.text.isNullOrBlank()) View.VISIBLE else View.GONE
         binding.floatingSearchContainer.animate().cancel()
         val dur = animDuration(180L)
         if (dur == 0L) {
@@ -699,6 +708,104 @@ class MainActivity : AppCompatActivity(), AppHost {
                 if (!isSearchOverlayOpen) binding.floatingSearchContainer.visibility = View.GONE
             }
             .start()
+    }
+
+    private fun renderSearchSuggestions() {
+        val p = getPalette()
+        binding.txtSearchHotHeader.setTextColor(p.accentFrom)
+        binding.txtSearchHistoryHeader.setTextColor(p.accentFrom)
+        binding.btnClearSearchHistory.setTextColor(p.textMuted)
+        binding.btnClearSearchHistory.background = ThemeManager.pillDrawable(this, p, active = false, 10f)
+
+        // 1. Hot keywords chips
+        binding.searchHotChipsContainer.removeAllViews()
+        val chipMargin = ThemeManager.dp(this, 3f)
+        for (kw in HOT_KEYWORDS) {
+            val chip = TextView(this).apply {
+                text = "🔥 $kw"
+                textSize = 11.5f
+                setTextColor(p.textMain)
+                background = ThemeManager.pillDrawable(this@MainActivity, p, active = false, 14f)
+                setPadding(ThemeManager.dp(this@MainActivity, 10f), ThemeManager.dp(this@MainActivity, 5f), ThemeManager.dp(this@MainActivity, 10f), ThemeManager.dp(this@MainActivity, 5f))
+                isFocusable = true
+                isClickable = true
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(chipMargin, 0, chipMargin, 0)
+                }
+                setOnClickListener {
+                    binding.editSearch.setText(kw)
+                    binding.editSearch.setSelection(kw.length)
+                    PrefsStore.addSearchHistory(kw)
+                    if (state.activeTab != MainTab.HOME) navigateTab(MainTab.HOME)
+                    searchJob?.cancel()
+                    searchJob = lifecycleScope.launch { runLiveSearch(kw) }
+                }
+            }
+            binding.searchHotChipsContainer.addView(chip)
+        }
+
+        // 2. Search History chips
+        val history = PrefsStore.getSearchHistory()
+        binding.searchHistoryChipsContainer.removeAllViews()
+        if (history.isEmpty()) {
+            binding.searchHistoryHeaderBox.visibility = View.GONE
+            binding.searchHistoryChipsScroll.visibility = View.GONE
+        } else {
+            binding.searchHistoryHeaderBox.visibility = View.VISIBLE
+            binding.searchHistoryChipsScroll.visibility = View.VISIBLE
+            for (hItem in history) {
+                val chipBox = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    background = ThemeManager.pillDrawable(this@MainActivity, p, active = false, 14f)
+                    setPadding(ThemeManager.dp(this@MainActivity, 9f), ThemeManager.dp(this@MainActivity, 3f), ThemeManager.dp(this@MainActivity, 6f), ThemeManager.dp(this@MainActivity, 3f))
+                    isFocusable = true
+                    isClickable = true
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        setMargins(chipMargin, 0, chipMargin, 0)
+                    }
+                }
+                val txtLabel = TextView(this).apply {
+                    text = "🕒 $hItem"
+                    textSize = 11.5f
+                    setTextColor(p.textMain)
+                }
+                val btnDel = TextView(this).apply {
+                    text = " ✕"
+                    textSize = 11f
+                    setTextColor(p.textMuted)
+                    setPadding(ThemeManager.dp(this@MainActivity, 4f), 0, ThemeManager.dp(this@MainActivity, 4f), 0)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        PrefsStore.removeSearchHistoryItem(hItem)
+                        renderSearchSuggestions()
+                    }
+                }
+                chipBox.addView(txtLabel)
+                chipBox.addView(btnDel)
+                chipBox.setOnClickListener {
+                    binding.editSearch.setText(hItem)
+                    binding.editSearch.setSelection(hItem.length)
+                    PrefsStore.addSearchHistory(hItem)
+                    if (state.activeTab != MainTab.HOME) navigateTab(MainTab.HOME)
+                    searchJob?.cancel()
+                    lifecycleScope.launch { runLiveSearch(hItem) }
+                }
+                binding.searchHistoryChipsContainer.addView(chipBox)
+            }
+        }
+
+        binding.btnClearSearchHistory.setOnClickListener {
+            PrefsStore.clearSearchHistory()
+            renderSearchSuggestions()
+        }
     }
 
     override fun onMainContentScroll(dy: Int, scrollY: Int) {
@@ -1204,6 +1311,10 @@ class MainActivity : AppCompatActivity(), AppHost {
     }
 
     private suspend fun runLiveSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isNotEmpty()) {
+            PrefsStore.addSearchHistory(trimmed)
+        }
         state = state.copy(isSearching = true)
         notifyActiveFragment()
         try {
@@ -2212,6 +2323,21 @@ class MainActivity : AppCompatActivity(), AppHost {
             }.start()
         }
         super.onDestroy()
+    }
+
+    companion object {
+        val HOT_KEYWORDS = listOf(
+            "Đấu Phá Thương Khung",
+            "Tiên Nghịch",
+            "Thế Giới Hoàn Mỹ",
+            "Thôn Phệ Tinh Không",
+            "Già Thiên",
+            "Phàm Nhân Tu Tiên",
+            "Bách Luyện Thành Thần",
+            "Vạn Giới Độc Tôn",
+            "Tuyệt Thế Đường Môn",
+            "Nhất Niệm Vĩnh Hằng"
+        )
     }
 }
 
