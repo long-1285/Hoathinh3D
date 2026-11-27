@@ -497,16 +497,16 @@ class MainActivity : AppCompatActivity(), AppHost {
             ThemeManager.applyOrbBlur(binding.orb3, state.settings.glassBlur)
         }
 
-        binding.headerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f)
-        binding.btnBrandHome.background = ThemeManager.navTabDrawable(this, p, active = false, 16f)
+        binding.headerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
+        binding.btnBrandHome.background = ThemeManager.navTabDrawable(this, p, active = false, 16f, liteRender = isLite)
         binding.txtHeaderBrand.setTextColor(p.accentFrom)
         binding.txtHeaderBadge.background = ThemeManager.accentGradientDrawable(this, p, 8f)
         binding.txtHeaderSub.setTextColor(p.textMuted)
         binding.txtHeaderSub.visibility =
             if (state.resolvedDevice == ResolvedDeviceProfile.MOBILE) View.GONE else View.VISIBLE
 
-        binding.floatingSearchContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f)
-        binding.searchBarBox.background = ThemeManager.glassPanelDrawable(this, p, 16f, isCard = true)
+        binding.floatingSearchContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
+        binding.searchBarBox.background = ThemeManager.glassPanelDrawable(this, p, 16f, isCard = true, liteRender = isLite)
         binding.imgSearchIcon.imageTintList = ThemeManager.tintColorState(p.textMuted)
         binding.editSearch.setTextColor(p.textMain)
         binding.editSearch.setHintTextColor(p.textMuted)
@@ -527,21 +527,21 @@ class MainActivity : AppCompatActivity(), AppHost {
 
         binding.btnBottomSearch.background = ThemeManager.pillDrawable(this, p, active = false, 16f)
         binding.imgBottomSearchIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
-        binding.btnCollapsedSearch.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f)
+        binding.btnCollapsedSearch.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
         binding.imgCollapsedSearchIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
-        binding.btnCollapsedSource.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f)
+        binding.btnCollapsedSource.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
         binding.imgCollapsedSourceIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
 
-        binding.bottomNavContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 30f)
-        binding.tvNavRail.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f)
+        binding.bottomNavContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 30f, liteRender = isLite)
+        binding.tvNavRail.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
         binding.tvRailDivider.setBackgroundColor(p.glassSubtleBorder)
-        binding.tvRailSearch.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f)
+        binding.tvRailSearch.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f, liteRender = isLite)
         binding.tvRailSearchIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
         binding.tvRailSearchLabel.setTextColor(p.textMain)
-        binding.tvRailSource.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f)
+        binding.tvRailSource.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f, liteRender = isLite)
         binding.tvRailSourceIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
         binding.tvRailSourceLabel.setTextColor(p.textMain)
-        binding.tvRailTheme.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f)
+        binding.tvRailTheme.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f, liteRender = isLite)
         binding.tvRailThemeIcon.setImageResource(if (p.isDark) R.drawable.ic_theme_moon else R.drawable.ic_theme_sun)
         binding.tvRailThemeIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
         binding.tvRailThemeLabel.text = if (p.isDark) "Giao diện Tối" else "Giao diện Sáng"
@@ -607,7 +607,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             val active = state.activeTab == tab
             val (icon, lbl) = iconAndLabel
             val featCol = featureAccentForTab(tab, p)
-            tabView.background = ThemeManager.navTabDrawable(this, p, active = active, radiusDp = 24f)
+            tabView.background = ThemeManager.navTabDrawable(this, p, active = active, radiusDp = 24f, liteRender = !enableTapFx)
             icon.background = ThemeManager.navFeatureIconDrawable(this, p, featCol, active = active, radiusDp = 12f)
             icon.imageTintList = ThemeManager.tintColorState(if (active) Color.WHITE else featCol)
             val restScale = if (active) 1.04f else 1.0f
@@ -631,7 +631,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             val active = state.activeTab == tab
             val (icon, lbl) = iconAndLabel
             val featCol = featureAccentForTab(tab, p)
-            railView.background = ThemeManager.navTabDrawable(this, p, active = active, radiusDp = 16f)
+            railView.background = ThemeManager.navTabDrawable(this, p, active = active, radiusDp = 16f, liteRender = !enableTapFx)
             icon.background = ThemeManager.navFeatureIconDrawable(this, p, featCol, active = active, radiusDp = 9f)
             icon.imageTintList = ThemeManager.tintColorState(if (active) Color.WHITE else featCol)
             lbl.setTextColor(if (active) featCol else p.textMain)

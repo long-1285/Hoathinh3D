@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.hoathinh3d.donghua.core.DeviceProfileResolver
 import com.hoathinh3d.donghua.core.ThemeManager
 import com.hoathinh3d.donghua.core.ThemePalette
 import com.hoathinh3d.donghua.data.model.DonghuaMovie
@@ -79,6 +80,9 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         currentCols = if (h.getState().resolvedDevice == ResolvedDeviceProfile.MOBILE) 1 else 2
         binding.rvSchedule.layoutManager = GridLayoutManager(requireContext(), currentCols)
         binding.rvSchedule.adapter = adapter
+        if (DeviceProfileResolver.shouldUseReducedMotion(requireContext(), h.getState().resolvedDevice, h.getState().settings.reducedMotion)) {
+            binding.rvSchedule.itemAnimator = null
+        }
         binding.rvSchedule.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 host?.onMainContentScroll(dy, recyclerView.computeVerticalScrollOffset())

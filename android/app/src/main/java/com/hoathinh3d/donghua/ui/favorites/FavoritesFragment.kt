@@ -64,6 +64,9 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         currentSpan = DeviceProfileResolver.gridSpanCount(h.getState().resolvedDevice)
         binding.rvFavorites.layoutManager = GridLayoutManager(requireContext(), currentSpan)
         binding.rvFavorites.adapter = favAdapter
+        if (DeviceProfileResolver.shouldUseReducedMotion(requireContext(), h.getState().resolvedDevice, h.getState().settings.reducedMotion)) {
+            binding.rvFavorites.itemAnimator = null
+        }
 
         binding.btnCheckFavUpdates.setOnClickListener { h.checkFavoritesNewEpisodes() }
         binding.favoritesScroll.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->

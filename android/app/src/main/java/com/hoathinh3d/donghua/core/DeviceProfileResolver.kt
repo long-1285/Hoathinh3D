@@ -63,7 +63,7 @@ object DeviceProfileResolver {
         context: Context,
         resolved: ResolvedDeviceProfile,
         explicitReducedMotion: Boolean
-    ): Boolean = explicitReducedMotion || (resolved == ResolvedDeviceProfile.TV && isLowRamDevice(context))
+    ): Boolean = explicitReducedMotion || resolved == ResolvedDeviceProfile.TV || isUltraLowRamDevice(context)
 
     fun capMaxVideoHeightForDevice(
         presetMaxHeight: Int?,

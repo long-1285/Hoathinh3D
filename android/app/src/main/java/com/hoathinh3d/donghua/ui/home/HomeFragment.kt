@@ -116,6 +116,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         )
         binding.rvHomeFeed.layoutManager = glm
         binding.rvHomeFeed.adapter = concatAdapter
+        if (isLite) binding.rvHomeFeed.itemAnimator = null
         binding.rvHomeFeed.setItemViewCacheSize(if (isUltraLow) 2 else if (isLite) 6 else 14)
         sharedTvCardPool.setMaxRecycledViews(0, if (isUltraLow) 6 else 12)
 
@@ -250,6 +251,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val b = headerBinding ?: return
         val h = host ?: return
         val ctx = b.root.context
+        val isLite = DeviceProfileResolver.shouldUseReducedMotion(ctx, st.resolvedDevice, st.settings.reducedMotion)
 
         val desiredHeroH = ThemeManager.dp(
             ctx,
@@ -308,11 +310,13 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                     isDark = true,
                     glassSurface = Color.argb(115, 15, 23, 42)
                 )
-                b.btnHeroDetail.background = ThemeManager.liquidGlassSheetDrawable(ctx, frostedDarkHero, 16f)
+                b.btnHeroDetail.background = ThemeManager.liquidGlassSheetDrawable(ctx, frostedDarkHero, 16f, liteRender = isLite)
                 renderHeroSlide(heroSlides[heroIdx % heroSlides.size], heroSlides.size)
             }
-            if (heroTimerJob?.isActive != true) {
+            if (!isLite && heroTimerJob?.isActive != true) {
                 startHeroAutoRotate()
+            } else if (isLite) {
+                heroTimerJob?.cancel()
             }
         } else {
             b.heroCard.visibility = View.GONE
@@ -821,7 +825,20 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.chipSortRating.setOnClickListener { host?.setCatalogSortMode(CatalogSortMode.TOP_RATED) }
             b.chipSortTitleAz.setOnClickListener { host?.setCatalogSortMode(CatalogSortMode.TITLE_AZ) }
 
-            ThemeManager.applyRoundedOutline(b.heroCard, 24f)
+            val isLite = h?.let {
+                DeviceProfileResolver.shouldUseReducedMotion(
+                    b.root.context,
+                    it.getState().resolvedDevice,
+                    it.getState().settings.reducedMotion
+                )
+            } ?: false
+            if (isLite) {
+                b.rvGenres.itemAnimator = null
+                b.rvTrending.itemAnimator = null
+                b.rvContinue.itemAnimator = null
+            } else {
+                ThemeManager.applyRoundedOutline(b.heroCard, 24f)
+            }
             if (h != null) {
                 lastGenreBarKey = null
                 lastFilterBarKey = null

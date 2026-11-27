@@ -59,6 +59,9 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         currentSpan = DeviceProfileResolver.gridSpanCount(h.getState().resolvedDevice)
         binding.rvHistory.layoutManager = GridLayoutManager(requireContext(), currentSpan)
         binding.rvHistory.adapter = historyAdapter
+        if (DeviceProfileResolver.shouldUseReducedMotion(requireContext(), h.getState().resolvedDevice, h.getState().settings.reducedMotion)) {
+            binding.rvHistory.itemAnimator = null
+        }
 
         binding.historyScroll.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
             host?.onMainContentScroll(scrollY - oldScrollY, scrollY)

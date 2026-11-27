@@ -1341,20 +1341,31 @@ class PlayerActivity : AppCompatActivity() {
         skipIntroShownEpKey = epKey
         binding.txtSkipIntroSec.text = "+${skipIntroSec}s"
         binding.btnSkipIntro.animate().cancel()
-        binding.btnSkipIntro.alpha = 0f
-        binding.btnSkipIntro.visibility = View.VISIBLE
-        binding.btnSkipIntro.animate().alpha(1f).setDuration(180L).start()
+        val reduced = DeviceProfileResolver.shouldUseReducedMotion(this, deviceProfile, settings.reducedMotion)
+        if (reduced) {
+            binding.btnSkipIntro.alpha = 1f
+            binding.btnSkipIntro.visibility = View.VISIBLE
+        } else {
+            binding.btnSkipIntro.alpha = 0f
+            binding.btnSkipIntro.visibility = View.VISIBLE
+            binding.btnSkipIntro.animate().alpha(1f).setDuration(180L).start()
+        }
 
         skipIntroHideRunnable?.let { mainHandler.removeCallbacks(it) }
         val hideTask = Runnable {
-            binding.btnSkipIntro.animate()
-                .alpha(0f)
-                .setDuration(200L)
-                .withEndAction {
-                    binding.btnSkipIntro.visibility = View.GONE
-                    binding.btnSkipIntro.alpha = 1f
-                }
-                .start()
+            if (reduced) {
+                binding.btnSkipIntro.visibility = View.GONE
+                binding.btnSkipIntro.alpha = 1f
+            } else {
+                binding.btnSkipIntro.animate()
+                    .alpha(0f)
+                    .setDuration(200L)
+                    .withEndAction {
+                        binding.btnSkipIntro.visibility = View.GONE
+                        binding.btnSkipIntro.alpha = 1f
+                    }
+                    .start()
+            }
         }
         skipIntroHideRunnable = hideTask
         mainHandler.postDelayed(hideTask, 5_000L)

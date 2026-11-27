@@ -216,7 +216,8 @@ object ThemeManager {
     fun liquidGlassSheetDrawable(
         context: Context,
         palette: ThemePalette,
-        radiusDp: Float = 26f
+        radiusDp: Float = 26f,
+        liteRender: Boolean = false
     ): StateListDrawable {
         val radiusPx = dp(context, radiusDp).toFloat()
         val rimColor = when {
@@ -230,7 +231,11 @@ object ThemeManager {
             setColor(palette.glassSurface)
             setStroke(dp(context, 1.25f).coerceAtLeast(1), rimColor)
         }
-        val normal = LayerDrawable(arrayOf(baseNormal, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        val normal: Drawable = if (liteRender) {
+            baseNormal
+        } else {
+            LayerDrawable(arrayOf(baseNormal, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        }
 
         val baseFocused = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -238,7 +243,11 @@ object ThemeManager {
             setColor(palette.glassSurface)
             setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
-        val focused = LayerDrawable(arrayOf(baseFocused, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        val focused: Drawable = if (liteRender) {
+            baseFocused
+        } else {
+            LayerDrawable(arrayOf(baseFocused, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        }
 
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -358,7 +367,8 @@ object ThemeManager {
         context: Context,
         palette: ThemePalette,
         active: Boolean,
-        radiusDp: Float = 22f
+        radiusDp: Float = 22f,
+        liteRender: Boolean = false
     ): Drawable {
         val radiusPx = dp(context, radiusDp).toFloat()
         val focusCol = focusStrokeColor(palette)
@@ -380,7 +390,7 @@ object ThemeManager {
                 setColor(lensFill)
                 setStroke(dp(context, 1.25f).coerceAtLeast(1), lensRim)
             }
-            LayerDrawable(arrayOf(lens, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+            if (liteRender) lens else LayerDrawable(arrayOf(lens, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
         } else {
             GradientDrawable().apply {
                 cornerRadius = radiusPx
@@ -396,6 +406,7 @@ object ThemeManager {
             addState(intArrayOf(android.R.attr.state_focused), focused)
             addState(intArrayOf(), normal)
         }
+        if (liteRender) return states
         val rippleTint = Color.argb(
             if (palette.isDark) 82 else 68,
             Color.red(palette.accentFrom),
@@ -453,6 +464,12 @@ object ThemeManager {
         enableAnimation: Boolean
     ) {
         if (!enableAnimation) {
+            tabView.animate().cancel()
+            iconView.animate().cancel()
+            tabView.scaleX = 1f
+            tabView.scaleY = 1f
+            iconView.scaleX = 1f
+            iconView.scaleY = 1f
             tabView.setOnTouchListener(null)
             return
         }
