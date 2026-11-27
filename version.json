@@ -1,11 +1,11 @@
 {
-    "versionCode":  42,
-    "versionName":  "3.5.2-v42",
-    "tag":  "v42",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v42/HoatHinh3D-Universal-debug.apk",
-    "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3D-Universal-debug.apk",
-    "sha256":  "8439544e6517625582bde777d3cc6f54aa2faca644422442b442482fe247d2ce",
-    "apkSizeBytes":  13311091,
-    "changelog":  "Phiên 42: Bản nâng cấp kiểm thử OTA (v3.5.2-v42, build 42) — kiểm tra tự động phát hiện từ v41, tải về, xác thực SHA-256 và cài đặt.",
-    "releasedAt":  "2026-11-27T07:47:01Z"
+    "versionCode":  43,
+    "versionName":  "3.5.3-v43",
+    "tag":  "v43",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v43/HoatHinh3d.apk",
+    "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
+    "sha256":  "fca306d5e737cdc8b89064a648b98ee3c96cb23e8e4fc20c63c79fee09ee7164",
+    "apkSizeBytes":  13310209,
+    "changelog":  "Phiên 43: Tinh gọn UI Cài đặt (ẩn Nhật ký lỗi \u0026 URL cập nhật), đổi tên gói xuất bản thành HoatHinh3d.apk, tối ưu PAYLOAD_META trang chủ, vòng đời Player \u0026 giải phóng cache nền.",
+    "releasedAt":  "2026-11-27T08:06:33Z"
 }
