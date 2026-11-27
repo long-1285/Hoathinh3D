@@ -1,11 +1,11 @@
 {
-    "versionCode":  49,
-    "versionName":  "3.5.9-v49",
-    "tag":  "v49",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v49/HoatHinh3d.apk",
+    "versionCode":  50,
+    "versionName":  "3.6.0-v50",
+    "tag":  "v50",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v50/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "5e540226a7a86aed7967aa63918acba441e538791f824582791354d80d0d8bd6",
-    "apkSizeBytes":  14514180,
-    "changelog":  "Phien 49: Tim kiem thong minh (Lich su \u0026 Tu khoa Hot), Pull-to-refresh Trang chu \u0026 Lich chieu, nut Khoa man hinh tu an 3s \u0026 Chia se nhanh.",
-    "releasedAt":  "2026-11-27T15:45:58Z"
+    "sha256":  "69695c654bded901bbdac142147132083cf9cc04779d8614db464c7dda407004",
+    "apkSizeBytes":  14515523,
+    "changelog":  "Phien 50: Tat 100% hieu ung giao dien dong o che do TV (Ripple, specular sheen, orbs, hero auto-rotate, itemAnimator, skip intro anim) toi uu muot ma cho MiTV4.",
+    "releasedAt":  "2026-11-27T16:08:20Z"
 }
