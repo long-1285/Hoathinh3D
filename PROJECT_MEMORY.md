@@ -53,6 +53,7 @@
 
 ```text
 E:\Project\3_HoatHinh3D\
+├── GEMINI.md                                      # Bộ nhớ & quy tắc always_on tự đồng bộ theo repo Git
 ├── build-apk.ps1                                  # Script 1-click Test + Build APK với OpenJDK 21
 ├── HoatHinh3D-Universal-debug.apk                 # File APK đầu ra mới nhất
 ├── android/app/src/main/java/com/hoathinh3d/donghua/
