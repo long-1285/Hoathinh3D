@@ -41,10 +41,11 @@
 
 | Thành phần | Đường dẫn / Phiên bản | Ghi chú quan trọng |
 | :--- | :--- | :--- |
-| **JDK (Java)** | `C:\Program Files\Microsoft\jdk-21.0.13.102-hotspot` (OpenJDK 21) | ⚠️ **BẮT BUỘC:** Gradle 8.11.1 không chạy với JBR 25 (`major version 69`). `build-apk.ps1` đã cấu hình sẵn `JAVA_HOME`. |
-| **Android SDK** | `C:\Users\Admin\AppData\Local\Android\Sdk` | Compile/Target SDK 35 (Android 15), Min SDK 23 (Android 6.0) |
-| **Native Stack** | Kotlin `2.0.21`, Media3 ExoPlayer `1.5.1`, OkHttp `4.12.0`, Jsoup `1.18.3`, Glide `4.16.0`, Material `1.12.0` | Project Gradle đặt tại `E:\Project\3_HoatHinh3D\android` |
-| **Build Script** | `E:\Project\3_HoatHinh3D\build-apk.ps1` | Chạy `testDebugUnitTest` + `assembleDebug`, xuất ra `HoatHinh3D-Universal-debug.apk` |
+| **JDK (Java)** | OpenJDK 21 (hoặc JDK 17) | ⚠️ **BẮT BUỘC:** Gradle 8.11.1 không chạy với JBR 25 (`major version 69`). `build-apk.ps1` tự dò `JAVA_HOME` (OpenJDK 21/17) trên mọi máy Windows. |
+| **Android SDK** | `%LOCALAPPDATA%\Android\Sdk` (hoặc `ANDROID_HOME`) | Compile/Target SDK 35 (Android 15), Min SDK 23 (Android 6.0). `build-apk.ps1` tự dò trên máy mới. |
+| **Native Stack** | Kotlin `2.0.21`, Media3 ExoPlayer `1.5.1`, OkHttp `4.12.0`, Jsoup `1.18.3`, Glide `4.16.0`, Material `1.12.0` | Project Gradle đặt tại `android/` (không phụ thuộc `node_modules`) |
+| **Build Script** | `build-apk.ps1` (`$PSScriptRoot`) | Di động trên mọi máy/thư mục clone; chạy `testDebugUnitTest` + `assembleDebug`, xuất ra `HoatHinh3D-Universal-debug.apk` |
+| **Git Repo** | `https://github.com/long-1285/Hoathinh3D.git` | Nhánh chính `main` (tuyệt đối không lưu token lên Git/mã nguồn) |
 
 ---
 

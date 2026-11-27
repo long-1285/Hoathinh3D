@@ -5,16 +5,79 @@ Write-Host "=========================================================" -Foregrou
 Write-Host "  BẮT ĐẦU BUILD HOATHINH3D NATIVE ANDROID APK (KOTLIN)  " -ForegroundColor Cyan
 Write-Host "=========================================================" -ForegroundColor Cyan
 
-# 1. Cấu hình biến môi trường (bắt buộc OpenJDK 21 cho Gradle 8.11.1)
-$jdkPath = (Get-ChildItem "C:\Program Files\Microsoft\jdk-21*" | Select-Object -First 1).FullName
-if (-not $jdkPath) {
-    $jdkPath = "C:\Program Files\Android\Android Studio\jbr"
+# 1. Tự động dò OpenJDK 21 / 17 & Android SDK (tương thích mọi máy tính mới sau git clone)
+$projectRoot = $PSScriptRoot
+if (-not $projectRoot) {
+    $projectRoot = (Get-Location).Path
 }
+
+$jdkCandidates = @()
+if ($env:JAVA_HOME -and (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
+    $jdkCandidates += $env:JAVA_HOME
+}
+$jdkPatterns = @(
+    "C:\Program Files\Microsoft\jdk-21*",
+    "C:\Program Files\Eclipse Adoptium\jdk-21*",
+    "C:\Program Files\Java\jdk-21*",
+    "C:\Program Files\Android\Android Studio\jbr",
+    "C:\Program Files\Microsoft\jdk-17*",
+    "C:\Program Files\Eclipse Adoptium\jdk-17*"
+)
+foreach ($pat in $jdkPatterns) {
+    $found = Get-ChildItem $pat -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+    foreach ($item in $found) {
+        if (Test-Path "$($item.FullName)\bin\java.exe") {
+            $jdkCandidates += $item.FullName
+        }
+    }
+}
+
+$jdkPath = $null
+foreach ($cand in ($jdkCandidates | Select-Object -Unique)) {
+    $prevErrPref = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $verOut = cmd /c "`"$cand\bin\java.exe`" -version 2>&1" | Out-String
+    $ErrorActionPreference = $prevErrPref
+    if ($verOut -match 'version "(17|21)\.') {
+        $jdkPath = $cand
+        break
+    }
+}
+if (-not $jdkPath -and $jdkCandidates.Count -gt 0) {
+    $jdkPath = $jdkCandidates[0]
+}
+if (-not $jdkPath) {
+    throw "Không tìm thấy JDK 21 (hoặc JDK 17). Vui lòng cài OpenJDK 21 và thử lại."
+}
+
+$sdkCandidates = @(
+    $env:ANDROID_HOME,
+    $env:ANDROID_SDK_ROOT,
+    "$env:LOCALAPPDATA\Android\Sdk",
+    "C:\Android\Sdk"
+) | Where-Object { $_ -and (Test-Path $_) }
+
+$androidSdk = $sdkCandidates | Select-Object -First 1
+if (-not $androidSdk -and (Test-Path "$projectRoot\android\local.properties")) {
+    $sdkLine = Select-String -Path "$projectRoot\android\local.properties" -Pattern "^sdk\.dir=" | Select-Object -First 1
+    if ($sdkLine) {
+        $parsedSdk = ($sdkLine.Line -replace "^sdk\.dir=", "") -replace "\\\\", "\" -replace "\\:", ":"
+        if (Test-Path $parsedSdk) { $androidSdk = $parsedSdk }
+    }
+}
+if (-not $androidSdk) {
+    throw "Không tìm thấy Android SDK! Hãy cài Android SDK hoặc đặt biến môi trường ANDROID_HOME."
+}
+
 $env:JAVA_HOME = $jdkPath
-$env:ANDROID_HOME = "C:\Users\Admin\AppData\Local\Android\Sdk"
+$env:ANDROID_HOME = $androidSdk
+$env:ANDROID_SDK_ROOT = $androidSdk
 $env:PATH = "$jdkPath\bin;$env:PATH"
 
-$projectRoot = "E:\Project\3_HoatHinh3D"
+Write-Host "  Project Root : $projectRoot" -ForegroundColor DarkGray
+Write-Host "  JAVA_HOME    : $env:JAVA_HOME" -ForegroundColor DarkGray
+Write-Host "  ANDROID_HOME : $env:ANDROID_HOME" -ForegroundColor DarkGray
+
 Set-Location "$projectRoot\android"
 
 # 2. Chạy Unit Tests & biên dịch APK bằng Gradle
