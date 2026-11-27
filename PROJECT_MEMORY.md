@@ -33,11 +33,11 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** HoatHinh3D Universal (Donghua 3D Aggregator & Native Cinema Player)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 44`, `versionName "3.5.4-v44"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 45`, `versionName "3.5.5-v45"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
-  - Điện thoại Android (`MOBILE` - 2 cột, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
-  - Máy tính bảng (`TABLET` - 3 cột)
+  - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
+  - Máy tính bảng & Giả lập PC (`TABLET` - 4 cột)
   - Android TV Box / Google TV (`TV` - `LEANBACK_LAUNCHER`, 5 cột + horizontal rows, D-Pad không rớt focus)
 
 ---
@@ -116,6 +116,33 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-27] - Phiên 45: Tập Mới Nhất Trước, Thể Loại Phim Thời Gian Thực, 3 Cột Điện Thoại, Tinh Gọn Giao Diện Cài Đặt & 3 Chủ Đề Dịu Nhẹ (`v3.5.5-v45`)
+- **Yêu cầu người dùng (10 tác vụ):**
+  1. Sắp xếp số tập trong Chi tiết phim theo thứ tự **tập mới nhất trước**.
+  2. Thực thi tính năng mục **`Thể loại phim`** trên Trang chủ và đồng bộ thời gian thực theo nguồn Web các chủ đề: *Phim Hot, Phim Chiếu Rạp, Phim Lẻ, Phim Bộ, Phim Hoạt Hình, Phim Hành Động, Tình Cảm...*
+  3. Chế độ Điện thoại tăng lên **3 hàng (3 cột)** hiển thị phim.
+  4. Bỏ mục chỉnh **Độ trong suốt** (mặc định chung `52%`); bỏ mục chỉnh **Độ mờ** (mặc định chung `32%`); bỏ mục **Hiệu ứng nền** (mặc định chung **Bật**).
+  5. Bỏ mục **Hệ thống** trong **Chế độ Sáng / Tối & Vật liệu**; bỏ mục **Tùy biến bố cục Trang chủ** trong **Giao diện**.
+  6. Bỏ chủ đề **Xanh Băng (`AQUA`)**, tinh chỉnh **3 chủ đề còn lại** (`Ngọc Trai Dịu Nhẹ`, `Anh Đào Phấn Nhạt`, `Đêm Cực Quang Dịu`) dịu mắt và thanh thoát hơn.
+  7. Tối ưu bố cục Trang chủ, các mục con và Trình phát cho Điện thoại, Giả lập PC và Android TV.
+- **Thay đổi đã thực hiện:**
+  1. **Sắp xếp tập mới nhất trước trong Chi tiết phim (`PlayerHelpers.kt`, `MovieDetailActivity.kt`):**
+     - Bổ sung `PlayerUtils.descendingEpisodeDisplayIndices` & `PlayerUtils.buildDescendingEpisodeRanges` sắp xếp tập giảm dần (`Tập N -> Tập 1`) cùng thanh phân trang `50 tập/trang` (`Tập 120 - 71`, `Tập 70 - 21`, ...), giữ nguyên thứ tự phát tiến `Tập N -> N+1` trong `PlayerActivity`.
+  2. **Thực thi `Thể loại phim` tương tác & đồng bộ Web thời gian thực (`activity_main.xml`, `MainActivity.kt`, `HomeFragment.kt`, `MovieCardAdapter.kt`, `YanHh3dNowScraper.kt`, `YanHh3dScraper.kt`, `MovieRepository.kt`):**
+     - Chạm nút `Thể loại phim ▾` trên Trang chủ mở bảng **Liquid Glass Thể Loại Phim** (`floatingGenrePickerOverlay`, 2 cột Mobile / 3 cột Tablet-PC / 4 cột TV) kèm trạng thái `"🟢 Đồng bộ từ <Nguồn> • HH:mm:ss"` và nút `↻ Đồng bộ` ngay.
+     - Đưa 7 chủ đề chuẩn (*Phim Hot, Phim Chiếu Rạp, Phim Lẻ, Phim Bộ, Phim Hoạt Hình, Phim Hành Động, Tình Cảm*) + toàn bộ danh mục HTML/JSON từ nguồn Web vào `YanHh3dNowScraper`, `YanHh3dScraper`, `CustomSourceParser` & `MovieRepository.resolveNowTopicPage` / `resolveYanTopicPage` (TTL 90 giây + tự đồng bộ lại cả chuyên mục đang chọn trong chu kỳ 60s).
+  3. **3 cột Điện thoại & 4 cột Tablet/PC (`DeviceProfileResolver.kt`, `MovieCardAdapter.kt`, `HomeFragment.kt`):**
+     - `gridSpanCount`: `MOBILE = 3`, `TABLET = 4`, `TV = 5`. Tối ưu kích thước card trên lưới 3 cột điện thoại (`posterFrame` `146dp`, margin `3dp`, padding `6dp`, chữ & badge `11.5sp`/`8.5sp`, nút tim `28dp`) để 3 cột thẳng hàng gọn đẹp không chồng chữ.
+  4. **Tinh gọn Cài đặt Giao diện & 3 Chủ đề dịu nhẹ (`Models.kt`, `PrefsStore.kt`, `ThemeManager.kt`, `colors.xml`, `bg_orb_*.xml`, `SettingsFragment.kt`):**
+     - Bỏ `AQUA` khỏi `ThemePreset`, tinh chỉnh `PEARL`, `SAKURA`, `DARK` sang tông sương mai dịu mắt (`#F6F8FC`/`#5C6BC0`, `#FDF7F9`/`#C9648A`, `#0A0F1A`/`#6E7CF2`); ẩn tùy chọn `Hệ thống` khỏi nút chọn Sáng/Tối.
+     - Ẩn toàn bộ thanh kéo Độ trong suốt, Độ mờ, switch Giọt sáng nền và khối Tùy biến bố cục Trang chủ trong `SettingsFragment.renderAppearanceTab`; áp dụng migration `APPEARANCE_DEFAULTS_V45` đưa mặc định chung về `glassOpacity = 52`, `glassBlur = 32`, `ambientOrbs = true`, `showHomeHero/Continue/Trending = true`.
+  5. **Tối ưu bố cục đa thiết bị (`ScheduleFragment.kt`, `item_schedule_movie.xml`, `FavoritesFragment.kt`, `MovieDetailActivity.kt`, `PlayerActivity.kt`):**
+     - `ScheduleFragment` & `rvOfflineEpisodes` dùng `GridLayoutManager` `2` cột trên Tablet/PC/TV (`1` cột Mobile); `PlayerActivity.applyResponsivePlayerBars` cân chỉnh tỷ lệ nút Play/Tua giữa màn hình & thanh 6 nút đáy cho Điện thoại dọc, Ngang/PC và Android TV.
+- **Kiểm thử & Build:**
+  - `testDebugUnitTest`: **45/45 tests PASSED** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures/errors/skipped).
+  - `lintDebug`: **BUILD SUCCESSFUL** (0 errors). *(Chưa kiểm thử trực tiếp trên TV/điện thoại qua ADB từ PC ở phiên này).*
+  - APK mới nhất: `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (`13.80 MB`, `14,471,602 bytes`, `SHA-256: 14b98c99da8ff0e1ba82ce2f2e7c1420df338c89d5a53c8dcd4be284a6706de1`).
 
 ### [2026-11-27] - Phiên 44: Sửa Triệt Để Lỗi Văng App Sau 1s Trên Xiaomi MiTV4-ANSM0 (`coreLibraryDesugaring` Cho `Jsoup 1.18.3`, Root CA Sectigo E46/R46, Giảm Tải HWUI Mali-450 & Bảo Vệ `Throwable`)
 - **Phân tích video thực tế (`video_2026-11-27_17-26-33.mp4`) & truy vết bytecode DEX (`dexdump`):**
@@ -1083,12 +1110,17 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 44).
-- **Phiên bản hiện tại:** `versionCode 44` / `versionName "3.5.4-v44"`.
+- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 45).
+- **Phiên bản hiện tại:** `versionCode 45` / `versionName "3.5.5-v45"`.
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
 - **Quy tắc Build & Xuất bản OTA (Phiên 41+):** Không tạo Release R8 APK; cuối mỗi phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
-- **Trạng thái Code & Test:** `compileDebugKotlin` sạch (0 warnings), `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **43/43 unit tests** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 8, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 5, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
+- **Trạng thái Code & Test:** `compileDebugKotlin` sạch (0 warnings), `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **45/45 unit tests** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
 - **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
+  - **Chi tiết phim mới nhất trước, Thể loại phim thời gian thực, 3 cột Điện thoại & Tinh gọn Giao diện (Phiên 45):**
+    - Chi tiết phim (`MovieDetailActivity`) hiển thị số tập mới nhất trước (`Tập N -> Tập 1`) theo trang 50 tập giảm dần.
+    - Bấm `Thể loại phim ▾` trên Trang chủ mở bảng **Liquid Glass Thể Loại Phim** (`floatingGenrePickerOverlay`) kèm đồng bộ thời gian thực các chủ đề (*Phim Hot, Phim Chiếu Rạp, Phim Lẻ, Phim Bộ, Phim Hoạt Hình, Phim Hành Động, Tình Cảm* + toàn bộ thể loại Web).
+    - `DeviceProfileResolver.gridSpanCount`: `MOBILE = 3`, `TABLET = 4`, `TV = 5`; `MovieCardAdapter` co giãn tỷ lệ card 3 cột cho điện thoại; `ScheduleFragment` & `rvOfflineEpisodes` hiển thị 2 cột trên Tablet/PC/TV; `PlayerActivity` cân chỉnh nút Play/Tua & thanh công cụ đáy theo thiết bị.
+    - Tinh gọn `3. Giao diện`: bỏ `Xanh Băng` (chỉ giữ 3 tông màu dịu nhẹ `Ngọc Trai Dịu Nhẹ`, `Anh Đào Phấn Nhạt`, `Đêm Cực Quang Dịu`), bỏ `Hệ thống`, bỏ Độ trong suốt (mặc định `52%`), Độ mờ (mặc định `32%`), Giọt sáng nền (mặc định Bật) và Tùy biến bố cục Trang chủ (`APPEARANCE_DEFAULTS_V45`).
   - **Sửa lỗi văng app sau 1s trên Xiaomi MiTV4-ANSM0 & tối ưu GPU/RAM (Phiên 44):**
     - Bật `coreLibraryDesugaringEnabled true` (`com.android.tools:desugar_jdk_libs:2.1.4`) để rewrite toàn bộ API Java 8+ trong `Jsoup 1.18.3` (`java.util.stream`, `Optional`, `Collectors`), Media3 Guava, AndroidX và Kotlin sang `j$.util.*` (`9,180` lệnh gọi đã desugar theo `dexdump`), triệt tiêu `NoClassDefFoundError` khi bóc tách HTML ở Android 6.0.1 (API 23).
     - Nạp thêm Root CA `Sectigo E46` & `R46` vào `modern_roots.pem` (tổng **17 Root CA**), đặt `windowBackground` `@color/pearl_bg_primary`, thêm `liteRender` bỏ `specularSheenLayer` & `clipToOutline` trên máy `isUltraLowRamDevice`, giới hạn pool/cache `HomeFragment` (`1` carousel `5` item + pool `6`), mở rộng `catch (Throwable)` (giữ nguyên `CancellationException`) và lùi auto-update sang `4.5s`.
@@ -1104,9 +1136,9 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.79 MB**, `14,457,442 bytes`, `SHA-256: 70f02511c53ddafa147fd9691baff8e0702bef6ce0e386faeb75f753843fc227`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v44` + `version.json`.
+- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.80 MB**, `14,471,602 bytes`, `SHA-256: 14b98c99da8ff0e1ba82ce2f2e7c1420df338c89d5a53c8dcd4be284a6706de1`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v45` + `version.json`.
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
-  1. Cài mới (hoặc thử nâng cấp OTA) **`HoatHinh3d.apk` (`v3.5.4-v44`)** trực tiếp trên **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận app vượt qua mốc 1 giây đầu khi nạp `YanHH3DNow`, hiển thị đầy đủ poster, phát phim mượt và không còn bị văng ra Launcher TV.
+  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.5-v45`)** trên cả **Điện thoại Android** (lưới 3 cột, bảng `Thể loại phim`, chi tiết phim tập mới nhất trước, trình phát dọc/ngang), **Giả lập PC** (4 cột), và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận trải nghiệm mượt và nâng cấp OTA từ `v44` → `v45`.
 
 ---
 
@@ -1115,16 +1147,15 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer) tại `E:\Project\3_HoatHinh3D`.
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 44, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 45, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 44:
-- Phiên bản hiện tại: `versionCode 44`, `versionName "3.5.4-v44"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.79 MB, `14,457,442 bytes`), đã qua **43/43 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors) và xác nhận `dexdump` 9,180 lệnh gọi đã desugar sang `j$.util.*`, đã xuất bản OTA lên GitHub Release `v44` + `version.json`.
-- **Sửa văng app Xiaomi MiTV4-ANSM0 & tối ưu GPU/RAM (Phiên 44):** Bật `coreLibraryDesugaringEnabled true` (`desugar_jdk_libs:2.1.4`) triệt tiêu lỗi `NoClassDefFoundError` từ `Jsoup 1.18.3` / Guava / AndroidX / Kotlin trên Android 6.0.1 API 23; bổ sung Root CA `Sectigo E46/R46` (tổng 17 Root CA) cho GitHub OTA; đặt `windowBackground` `@color/pearl_bg_primary`, `liteRender` bỏ `specularSheenLayer` & `clipToOutline` trên `isUltraLowRamDevice`, giới hạn pool/carousel `HomeFragment`, bắt `Throwable` trên các luồng tải dữ liệu và dời auto-update lúc mở app sang `4.5s`.
-- **Tinh gọn UI & Tối ưu vòng đời (Phiên 43):** Đổi tên gói xuất ra thành `HoatHinh3d.apk`; ẩn `Nhật ký lỗi` & `URL cập nhật` trong `4. Cập nhật & Sao lưu`; dùng `PAYLOAD_META` chống nháy poster Glide, cleanup coroutine/cache nền ở `MainActivity.onDestroy()`, giữ trần `1080p` ABR trên máy RAM thấp.
-- **Cập nhật OTA tự động qua GitHub (Phiên 41–42):** `AppUpdateChecker.DEFAULT_MANIFEST_URL` trỏ mặc định tới `https://raw.githubusercontent.com/long-1285/Hoathinh3D/main/version.json` (tự fallback sang `releases/latest`), kiểm tra SHA-256 + magic `'P''K'`, lưu `externalCacheDir/updates` trên Android < 7.0 (`MiTV4-ANSM0`), và script `publish-ota.ps1` tự xuất bản APK lên GitHub Release + sinh `version.json`.
-- **Nền tảng Android 6.0.1 / MiTV4-ANSM0 & Mạng TLS (Phiên 35 & 40):** Sạch lỗi `NewApi` API 24/26, `SwitchCompat`, `setCompatVectorFromResourcesEnabled(true)`, `Ultra-Low RAM (<= 1800 MB)` (OkHttp `12` requests / `4/host`, `InstantLoadControl` `20 MB`, `SimpleCache` `64 MB`, `DefaultRenderersFactory.setEnableDecoderFallback(true)`, `RGB_565`), `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`.
-- **Đồng Bộ Thể Loại Thời Gian Thực, Cài Đặt 5 Tab & Player CloudStream (Phiên 31–39):** Nhãn đầu **`Thể loại phim`** đồng bộ từ Web và `+Web`; Cài đặt 5 phân mục 2 cột trên TV/Tablet, ẩn/hiện Banner Hero / Tiếp tục xem / Top 10 BXH; Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát app; **Tiếp tục xem / Tiếp tục Tập X** đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, Storyboard Preview `seekThumbCard`, trình phát thuần HLS/MP4 khử PNG-TS, phụ đề rời `±0.5s`, Night Mode DRC.
+Tóm tắt hiện trạng sau Phiên 45:
+- Phiên bản hiện tại: `versionCode 45`, `versionName "3.5.5-v45"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.80 MB, `14,471,602 bytes`), đã qua **45/45 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v45` + `version.json`.
+- **Phiên 45 (UI/UX, Thể loại & Tập mới nhất trước):** Chi tiết phim hiển thị tập mới nhất trước; bấm `Thể loại phim ▾` mở bảng Liquid Glass đồng bộ thời gian thực các chủ đề *Phim Hot, Phim Chiếu Rạp, Phim Lẻ, Phim Bộ, Phim Hoạt Hình, Phim Hành Động, Tình Cảm* + toàn bộ thể loại Web; Mobile 3 cột / Tablet-PC 4 cột / TV 5 cột; bỏ `Xanh Băng` (`AQUA`) giữ 3 tông màu dịu nhẹ (`PEARL`, `SAKURA`, `DARK`), bỏ `Hệ thống`, bỏ Độ trong suốt (mặc định `52%`), Độ mờ (mặc định `32%`), Hiệu ứng nền (mặc định Bật) và Tùy biến bố cục Trang chủ.
+- **Sửa văng app Xiaomi MiTV4-ANSM0 & tối ưu GPU/RAM (Phiên 44):** Bật `coreLibraryDesugaringEnabled true` (`desugar_jdk_libs:2.1.4`) triệt tiêu lỗi `NoClassDefFoundError` từ `Jsoup 1.18.3` / Guava / AndroidX / Kotlin trên Android 6.0.1 API 23; bổ sung Root CA `Sectigo E46/R46` (tổng 17 Root CA) cho GitHub OTA; `liteRender` & giảm tải Mali-450 trên `isUltraLowRamDevice`, bắt `Throwable` trên luồng tải dữ liệu.
+- **Tinh gọn UI & Cập nhật OTA GitHub (Phiên 41–43):** Xuất bản gói `HoatHinh3d.apk`, `AppUpdateChecker.DEFAULT_MANIFEST_URL` trỏ `version.json` trên `main` (fallback `releases/latest`, SHA-256), ẩn `Nhật ký lỗi` & `URL cập nhật`, `PAYLOAD_META` chống nháy poster Glide.
+- **Nền tảng Android 6.0.1 / MiTV4-ANSM0 & Player CloudStream (Phiên 31–40):** Sạch `NewApi`, `Ultra-Low RAM (<= 1800 MB)`, `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`, Auto Clear Cache khi thoát, **Tiếp tục xem / Tập X** đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, Storyboard Preview `seekThumbCard`, trình phát thuần HLS/MP4 khử PNG-TS, phụ đề rời `±0.5s`, Night Mode DRC.
 
 Nhiệm vụ tiếp theo cho bạn:
 [Điền yêu cầu cụ thể của phiên mới tại đây...]

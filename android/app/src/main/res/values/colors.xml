@@ -1,45 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#4F46E5</color>
-    <color name="colorPrimaryDark">#3730A3</color>
-    <color name="colorAccent">#06B6D4</color>
+    <color name="colorPrimary">#5C6BC0</color>
+    <color name="colorPrimaryDark">#3F4EA3</color>
+    <color name="colorAccent">#43A6B8</color>
 
-    <!-- Pearl Theme -->
-    <color name="pearl_bg_primary">#F4F7FB</color>
-    <color name="pearl_bg_secondary">#EEF2FF</color>
-    <color name="pearl_text_main">#0F172A</color>
+    <!-- Pearl Theme (Soft Ivory / Mist) -->
+    <color name="pearl_bg_primary">#F6F8FC</color>
+    <color name="pearl_bg_secondary">#ECF2F9</color>
+    <color name="pearl_text_main">#1E293B</color>
     <color name="pearl_text_muted">#64748B</color>
-    <color name="pearl_glass_surface">#B8FFFFFF</color>
-    <color name="pearl_glass_card">#D9FFFFFF</color>
-    <color name="pearl_glass_border">#EBFFFFFF</color>
-    <color name="pearl_accent_from">#4F46E5</color>
-    <color name="pearl_accent_to">#06B6D4</color>
+    <color name="pearl_glass_surface">#96FFFFFF</color>
+    <color name="pearl_glass_card">#BFFFFFFF</color>
+    <color name="pearl_glass_border">#E8FFFFFF</color>
+    <color name="pearl_accent_from">#5C6BC0</color>
+    <color name="pearl_accent_to">#43A6B8</color>
 
-    <!-- Aqua Theme -->
-    <color name="aqua_bg_primary">#F0FDFA</color>
-    <color name="aqua_bg_secondary">#E0F2FE</color>
-    <color name="aqua_accent_from">#0284C7</color>
-    <color name="aqua_accent_to">#14B8A6</color>
+    <!-- Sakura Theme (Soft Pastel Blossom) -->
+    <color name="sakura_bg_primary">#FDF7F9</color>
+    <color name="sakura_bg_secondary">#F7EBF1</color>
+    <color name="sakura_accent_from">#C9648A</color>
+    <color name="sakura_accent_to">#9B78C4</color>
 
-    <!-- Sakura Theme -->
-    <color name="sakura_bg_primary">#FFF5F7</color>
-    <color name="sakura_bg_secondary">#FCE7F3</color>
-    <color name="sakura_accent_from">#DB2777</color>
-    <color name="sakura_accent_to">#9333EA</color>
-
-    <!-- Dark Theme -->
-    <color name="dark_bg_primary">#090D16</color>
-    <color name="dark_bg_secondary">#111827</color>
-    <color name="dark_text_main">#F8FAFC</color>
+    <!-- Dark Theme (Soft Aurora Night) -->
+    <color name="dark_bg_primary">#0A0F1A</color>
+    <color name="dark_bg_secondary">#131C2D</color>
+    <color name="dark_text_main">#F1F5F9</color>
     <color name="dark_text_muted">#94A3B8</color>
-    <color name="dark_glass_surface">#C2111827</color>
-    <color name="dark_glass_card">#C71E293B</color>
-    <color name="dark_glass_border">#1FFFFFFF</color>
-    <color name="dark_accent_from">#6366F1</color>
-    <color name="dark_accent_to">#06B6D4</color>
+    <color name="dark_glass_surface">#99131B2C</color>
+    <color name="dark_glass_card">#AB1C273B</color>
+    <color name="dark_glass_border">#22FFFFFF</color>
+    <color name="dark_accent_from">#6E7CF2</color>
+    <color name="dark_accent_to">#47B8C4</color>
 
     <!-- Common accents -->
-    <color name="tv_focus_cyan">#06B6D4</color>
+    <color name="tv_focus_cyan">#47B8C4</color>
     <color name="player_amber">#FBBF24</color>
     <color name="rose_heart">#F43F5E</color>
     <color name="emerald_ok">#10B981</color>

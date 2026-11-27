@@ -838,6 +838,98 @@
         </LinearLayout>
     </FrameLayout>
 
+    <!-- Floating Translucent Liquid Glass Category ("Thể loại phim") Picker Overlay -->
+    <FrameLayout
+        android:id="@+id/floatingGenrePickerOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:elevation="21dp"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/genrePickerScrim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="true"
+            android:focusable="false" />
+
+        <LinearLayout
+            android:id="@+id/floatingGenrePickerContainer"
+            android:layout_width="360dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginVertical="28dp"
+            android:clickable="true"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/txtGenrePickerTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Thể loại phim"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btnSyncGenresNow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:paddingHorizontal="10dp"
+                    android:text="↻ Đồng bộ"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/btnCloseGenrePicker"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:contentDescription="Đóng thể loại phim"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:text="✕"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txtGenrePickerSyncStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="🟢 Đồng bộ theo thời gian thực từ nguồn Web"
+                android:textSize="11sp" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fadingEdgeLength="14dp"
+                android:overScrollMode="ifContentScrolls"
+                android:requiresFadingEdge="vertical"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/genrePickerGridContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
+    </FrameLayout>
+
     <!-- Floating Liquid Glass Toast Banner -->
     <TextView
         android:id="@+id/toastBanner"

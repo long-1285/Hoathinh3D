@@ -376,6 +376,27 @@ class PlayerActivity : AppCompatActivity() {
         val isPortrait = resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         val compactVertical = !isTvProfile && (isPortrait || resources.configuration.screenWidthDp < 520)
         val dp = resources.displayMetrics.density
+
+        // Cân chỉnh cụm nút Play / Tua ở giữa cho từng thiết bị (Điện thoại dọc, Ngang/PC, TV)
+        val playSize = ((if (isTvProfile) 88 else if (compactVertical) 64 else 76) * dp).toInt()
+        val seekSize = ((if (isTvProfile) 78 else if (compactVertical) 56 else 68) * dp).toInt()
+        val playMarginH = ((if (isTvProfile) 56 else if (compactVertical) 26 else 44) * dp).toInt()
+        binding.btnPlayPause.layoutParams = (binding.btnPlayPause.layoutParams as ViewGroup.MarginLayoutParams).apply {
+            width = playSize
+            height = playSize
+            marginStart = playMarginH
+            marginEnd = playMarginH
+        }
+        binding.btnRewind.layoutParams = binding.btnRewind.layoutParams.apply {
+            width = seekSize
+            height = seekSize
+        }
+        binding.btnForward.layoutParams = binding.btnForward.layoutParams.apply {
+            width = seekSize
+            height = seekSize
+        }
+        binding.txtPlayerTitle.textSize = if (compactVertical) 13.5f else if (isTvProfile) 16.5f else 15f
+
         val row = binding.bottomActionsRow
         for (i in 0 until row.childCount) {
             val btn = row.getChildAt(i) as? LinearLayout ?: continue
@@ -393,7 +414,7 @@ class PlayerActivity : AppCompatActivity() {
                 height = sz
             }
             label?.let { tv ->
-                tv.textSize = if (compactVertical) 9.5f else 12f
+                tv.textSize = if (compactVertical) 9f else if (isTvProfile) 12.5f else 11.5f
                 tv.layoutParams = (tv.layoutParams as LinearLayout.LayoutParams).apply {
                     marginStart = if (compactVertical) 0 else (6 * dp).toInt()
                     topMargin = if (compactVertical) (2 * dp).toInt() else 0

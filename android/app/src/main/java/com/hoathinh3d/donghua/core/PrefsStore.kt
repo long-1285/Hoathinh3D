@@ -33,6 +33,7 @@ object PrefsStore {
         const val AUDIO_DEFAULT_TM_MIGRATED = "hh3d_audio_default_tm_v1"
         const val SOURCES_V4_TWO_ONLY = "hh3d_sources_v4_yanhh3d_nguonc_only"
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
+        const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
     }
 
     private lateinit var prefs: SharedPreferences
@@ -412,7 +413,10 @@ object PrefsStore {
     fun getSettings(): AppSettings {
         val raw = prefs.getString(Keys.SETTINGS, null)
         if (raw == null) {
-            prefs.edit().putString(Keys.AUDIO_DEFAULT_TM_MIGRATED, "1").apply()
+            prefs.edit()
+                .putString(Keys.AUDIO_DEFAULT_TM_MIGRATED, "1")
+                .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+                .apply()
             return AppSettings()
         }
         return try {
@@ -444,17 +448,18 @@ object PrefsStore {
             )
             val darkModeRaw = obj.optString("darkMode", "")
             val darkMode = when (darkModeRaw) {
-                "light", "dark", "system" -> darkModeRaw
+                "light", "dark" -> darkModeRaw
                 else -> if (theme == "dark") "dark" else "light"
             }
 
-            AppSettings(
+            val needsV45Migration = !prefs.contains(Keys.APPEARANCE_DEFAULTS_V45)
+            val loaded = AppSettings(
                 deviceMode = obj.optString("deviceMode", "auto"),
                 theme = theme,
                 darkMode = darkMode,
-                glassBlur = obj.optInt("glassBlur", 24).coerceIn(8, 40),
-                glassOpacity = obj.optInt("glassOpacity", 35).coerceIn(10, 90),
-                ambientOrbs = obj.optBoolean("ambientOrbs", true),
+                glassBlur = if (needsV45Migration) 32 else obj.optInt("glassBlur", 32).coerceIn(8, 40),
+                glassOpacity = if (needsV45Migration) 52 else obj.optInt("glassOpacity", 52).coerceIn(10, 90),
+                ambientOrbs = if (needsV45Migration) true else obj.optBoolean("ambientOrbs", true),
                 preferredSource = preferredSource,
                 cloudAutoSync = obj.optBoolean("cloudAutoSync", true),
                 autoNext = obj.optBoolean("autoNext", true),
@@ -473,17 +478,27 @@ object PrefsStore {
                 autoClearCacheOnExit = obj.optBoolean("autoClearCacheOnExit", false),
                 autoUpdateApp = obj.optBoolean("autoUpdateApp", true),
                 updateManifestUrl = AppUpdateChecker.resolveEffectiveManifestUrl(obj.optString("updateManifestUrl", "")),
-                showHomeHero = obj.optBoolean("showHomeHero", true),
-                showHomeContinue = obj.optBoolean("showHomeContinue", true),
-                showHomeTrending = obj.optBoolean("showHomeTrending", true)
+                showHomeHero = if (needsV45Migration) true else obj.optBoolean("showHomeHero", true),
+                showHomeContinue = if (needsV45Migration) true else obj.optBoolean("showHomeContinue", true),
+                showHomeTrending = if (needsV45Migration) true else obj.optBoolean("showHomeTrending", true)
             )
+            if (needsV45Migration) {
+                prefs.edit()
+                    .putString(Keys.SETTINGS, settingsToJson(loaded).toString())
+                    .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+                    .apply()
+            }
+            loaded
         } catch (_: Exception) {
             AppSettings()
         }
     }
 
     fun saveSettings(updated: AppSettings): AppSettings {
-        prefs.edit().putString(Keys.SETTINGS, settingsToJson(updated).toString()).apply()
+        prefs.edit()
+            .putString(Keys.SETTINGS, settingsToJson(updated).toString())
+            .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+            .apply()
         return updated
     }
 
@@ -605,7 +620,10 @@ object PrefsStore {
             val srcs = payload.optJSONArray("sources") ?: payload.optJSONArray("sourcesList")
             srcs?.let { ed.putString(Keys.SOURCES, it.toString()) }
             payload.optJSONArray("customMovies")?.let { ed.putString(Keys.CUSTOM_MOVIES, it.toString()) }
-            payload.optJSONObject("settings")?.let { ed.putString(Keys.SETTINGS, it.toString()) }
+            payload.optJSONObject("settings")?.let {
+                ed.putString(Keys.SETTINGS, it.toString())
+                ed.putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+            }
             payload.optJSONObject("user")?.let { ed.putString(Keys.GOOGLE_USER, it.toString()) }
             payload.optJSONObject("watchedEpisodes")?.let { ed.putString(Keys.WATCHED_EPISODES, it.toString()) }
             payload.optJSONObject("skipIntroSec")?.let { ed.putString(Keys.SKIP_INTRO_MAP, it.toString()) }

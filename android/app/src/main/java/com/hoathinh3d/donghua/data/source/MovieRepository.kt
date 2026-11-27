@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 object MovieRepository {
     private const val CACHE_TTL_MS = 2L * 60L * 60L * 1000L
-    private const val CAT_CACHE_TTL_MS = 5L * 60L * 1000L
+    private const val CAT_CACHE_TTL_MS = 90L * 1000L
 
     private data class CacheEntry(val data: Any, val expiresAtMs: Long)
 
@@ -214,44 +214,40 @@ object MovieRepository {
         sourceId: String,
         genre: GenreItem,
         page: Int = 1,
-        limit: Int = 30
+        limit: Int = 30,
+        forceRefresh: Boolean = false
     ): CatalogPageResult {
-        val cacheKey = "src_genre_page_v6_${sourceId}_${genre.id}_${genre.sourceSlug ?: ""}_${genre.wpCategoryId ?: ""}_${genre.wpStatusId ?: ""}_$page"
-        getCached<CatalogPageResult>(cacheKey)?.let { if (it.movies.isNotEmpty()) return it }
+        val cacheKey = "src_genre_page_v7_${sourceId}_${genre.id}_${genre.sourceSlug ?: ""}_${genre.wpCategoryId ?: ""}_${genre.wpStatusId ?: ""}_$page"
+        if (!forceRefresh) {
+            getCached<CatalogPageResult>(cacheKey)?.let { if (it.movies.isNotEmpty()) return it }
+        }
 
         return try {
             val customSrc = PrefsStore.getSources().firstOrNull { it.id == sourceId && it.isCustom }
+            val topicSlug = genre.sourceSlug ?: ""
             val result: CatalogPageResult = if (customSrc != null) {
                 CustomSourceParser.fetchMoviesByCategory(customSrc, genre, page)
             } else if (sourceId == "YanHH3DNow") {
-                val nowPage = YanHh3dNowScraper.fetchMoviesByPath(
-                    path = genre.sourceSlug ?: "moi-cap-nhat",
-                    page = page,
-                    baseUrl = YanHh3dNowScraper.YAN_NOW_BASE,
-                    sourceName = "YanHH3D Now",
-                    forcedGenre = genre.id
-                )
-                CatalogPageResult(
-                    movies = nowPage.movies,
-                    page = page,
-                    totalPages = nowPage.totalPages.coerceAtLeast(if (nowPage.movies.isNotEmpty()) page else 1)
-                )
-            } else if (genre.sourceSlug == "yanhh3d-moi-cap-nhat" || genre.sourceSlug == "top-yanhh3d-xem-nhieu") {
+                resolveNowTopicPage(topicSlug, genre.id, page, forceRefresh)
+            } else if (topicSlug == "yanhh3d-moi-cap-nhat" || topicSlug == "top-yanhh3d-xem-nhieu") {
                 val wpPage = YanHh3dScraper.fetchArchiveHtmlPage(
                     baseUrl = YanHh3dScraper.YAN_BASE,
-                    path = genre.sourceSlug,
+                    path = topicSlug,
                     sourceName = "YanHH3D",
                     page = page,
-                    forcedGenre = genre.id
+                    forcedGenre = genre.id,
+                    bypassCache = forceRefresh || topicSlug == "top-yanhh3d-xem-nhieu"
                 )
                 CatalogPageResult(
                     movies = wpPage.movies,
                     page = page,
                     totalPages = wpPage.totalPages.coerceAtLeast(if (wpPage.movies.isNotEmpty()) page else 1)
                 )
+            } else if (topicSlug.startsWith("topic:")) {
+                resolveYanTopicPage(topicSlug, genre.id, page, limit, forceRefresh)
             } else {
-                val postOptsId = if (genre.sourceSlug?.startsWith("post_options:") == true) {
-                    genre.sourceSlug.substringAfter("post_options:").toIntOrNull()
+                val postOptsId = if (topicSlug.startsWith("post_options:")) {
+                    topicSlug.substringAfter("post_options:").toIntOrNull()
                 } else null
                 val res = YanHh3dScraper.fetchMovies(
                     baseUrl = YanHh3dScraper.YAN_BASE,
@@ -278,10 +274,143 @@ object MovieRepository {
                     totalPages = res.totalPages.coerceAtLeast(if (tagged.isNotEmpty()) page else 1)
                 )
             }
-            if (result.movies.isNotEmpty()) setCached(cacheKey, result)
+            if (result.movies.isNotEmpty()) setCached(cacheKey, result, CAT_CACHE_TTL_MS)
             result
-        } catch (_: Exception) {
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             CatalogPageResult(emptyList(), page, 1)
+        }
+    }
+
+    private suspend fun resolveNowTopicPage(
+        topicSlug: String,
+        genreLabel: String,
+        page: Int,
+        forceRefresh: Boolean
+    ): CatalogPageResult {
+        val base = YanHh3dNowScraper.YAN_NOW_BASE
+        val src = "YanHH3D Now"
+        return when (topicSlug) {
+            "topic:phim-hot" -> {
+                val topHot = if (page == 1) {
+                    runCatching { YanHh3dNowScraper.fetchRealtimeTrendingTop10(base, src) }.getOrDefault(emptyList())
+                } else emptyList()
+                val latest = YanHh3dNowScraper.fetchMoviesByPath(
+                    "moi-cap-nhat",
+                    page,
+                    base,
+                    src,
+                    forcedGenre = genreLabel,
+                    bypassCache = forceRefresh || page == 1
+                )
+                val merged = mergeCatalogPages(
+                    topHot.map { m -> m.copy(genres = (listOf(genreLabel) + m.genres).distinct()) },
+                    latest.movies
+                )
+                CatalogPageResult(merged, page, latest.totalPages.coerceAtLeast(1))
+            }
+            "topic:phim-chieu-rap" -> {
+                val direct = YanHh3dNowScraper.fetchMoviesByPath("phim-chieu-rap", page, base, src, genreLabel, forceRefresh)
+                if (direct.movies.isNotEmpty()) {
+                    CatalogPageResult(direct.movies, page, direct.totalPages)
+                } else {
+                    val ova = YanHh3dNowScraper.fetchMoviesByPath("phim-le", page, base, src, genreLabel, forceRefresh)
+                    val matched = if (page == 1 && ova.movies.isEmpty()) {
+                        YanHh3dNowScraper.searchMovies("movie", base, src).map {
+                            it.copy(genres = (listOf(genreLabel) + it.genres).distinct())
+                        }
+                    } else ova.movies
+                    CatalogPageResult(matched, page, ova.totalPages.coerceAtLeast(1))
+                }
+            }
+            "topic:phim-bo" -> {
+                val direct = YanHh3dNowScraper.fetchMoviesByPath("phim-bo", page, base, src, genreLabel, forceRefresh)
+                if (direct.movies.isNotEmpty()) {
+                    CatalogPageResult(direct.movies, page, direct.totalPages)
+                } else {
+                    val series = YanHh3dNowScraper.fetchMoviesByPath("dang-chieu", page, base, src, genreLabel, forceRefresh)
+                    CatalogPageResult(series.movies, page, series.totalPages.coerceAtLeast(1))
+                }
+            }
+            "topic:phim-hanh-dong" -> {
+                val direct = YanHh3dNowScraper.fetchMoviesByPath("the-loai/hanh-dong", page, base, src, genreLabel, forceRefresh)
+                if (direct.movies.isNotEmpty()) {
+                    CatalogPageResult(direct.movies, page, direct.totalPages)
+                } else {
+                    val kf = YanHh3dNowScraper.fetchMoviesByPath("the-loai/hhkungfu", page, base, src, genreLabel, forceRefresh)
+                    val kh = YanHh3dNowScraper.fetchMoviesByPath("the-loai/kiem-hiep", page, base, src, genreLabel, forceRefresh)
+                    val merged = mergeCatalogPages(kf.movies, kh.movies)
+                    CatalogPageResult(merged, page, maxOf(kf.totalPages, kh.totalPages, 1))
+                }
+            }
+            "topic:tinh-cam" -> {
+                val direct = YanHh3dNowScraper.fetchMoviesByPath("the-loai/tinh-cam", page, base, src, genreLabel, forceRefresh)
+                if (direct.movies.isNotEmpty()) {
+                    CatalogPageResult(direct.movies, page, direct.totalPages)
+                } else {
+                    val cotrang = YanHh3dNowScraper.fetchMoviesByPath("the-loai/co-trang", page, base, src, genreLabel, forceRefresh)
+                    val hiendai = YanHh3dNowScraper.fetchMoviesByPath("the-loai/hien-dai", page, base, src, genreLabel, forceRefresh)
+                    val merged = mergeCatalogPages(hiendai.movies, cotrang.movies)
+                    CatalogPageResult(merged, page, maxOf(cotrang.totalPages, hiendai.totalPages, 1))
+                }
+            }
+            else -> {
+                val nowPage = YanHh3dNowScraper.fetchMoviesByPath(
+                    path = topicSlug.ifBlank { "moi-cap-nhat" },
+                    page = page,
+                    baseUrl = base,
+                    sourceName = src,
+                    forcedGenre = genreLabel,
+                    bypassCache = forceRefresh
+                )
+                CatalogPageResult(
+                    movies = nowPage.movies,
+                    page = page,
+                    totalPages = nowPage.totalPages.coerceAtLeast(if (nowPage.movies.isNotEmpty()) page else 1)
+                )
+            }
+        }
+    }
+
+    private suspend fun resolveYanTopicPage(
+        topicSlug: String,
+        genreLabel: String,
+        page: Int,
+        limit: Int,
+        forceRefresh: Boolean
+    ): CatalogPageResult {
+        val base = YanHh3dScraper.YAN_BASE
+        val src = "YanHH3D"
+        return when (topicSlug) {
+            "topic:phim-chieu-rap", "topic:phim-le" -> {
+                val arch = YanHh3dScraper.fetchArchiveHtmlPage(base, "yanhh3d-moi-cap-nhat", src, page, genreLabel, forceRefresh)
+                val singleEp = arch.movies.filter { it.totalEp <= 2 }
+                val list = (if (singleEp.size >= 3) singleEp else arch.movies).map {
+                    it.copy(genres = (listOf(genreLabel) + it.genres).distinct())
+                }
+                CatalogPageResult(list, page, arch.totalPages)
+            }
+            "topic:phim-bo" -> {
+                val wp = YanHh3dScraper.fetchMovies(base, src, page, limit)
+                val list = wp.movies.filter { it.totalEp > 1 || it.latestEp > 1 }.ifEmpty { wp.movies }.map {
+                    it.copy(genres = (listOf(genreLabel) + it.genres).distinct())
+                }
+                CatalogPageResult(list, page, wp.totalPages.coerceAtLeast(1))
+            }
+            "topic:phim-hanh-dong" -> {
+                val wp = YanHh3dScraper.fetchMovies(base, src, page, limit, categoryId = 23)
+                val list = wp.movies.map { it.copy(genres = (listOf(genreLabel) + it.genres).distinct()) }
+                CatalogPageResult(list, page, wp.totalPages.coerceAtLeast(1))
+            }
+            "topic:tinh-cam" -> {
+                val wp = YanHh3dScraper.fetchMovies(base, src, page, limit, categoryId = 15)
+                val list = wp.movies.map { it.copy(genres = (listOf(genreLabel) + it.genres).distinct()) }
+                CatalogPageResult(list, page, wp.totalPages.coerceAtLeast(1))
+            }
+            else -> {
+                val wp = YanHh3dScraper.fetchMovies(base, src, page, limit)
+                CatalogPageResult(wp.movies, page, wp.totalPages.coerceAtLeast(1))
+            }
         }
     }
 

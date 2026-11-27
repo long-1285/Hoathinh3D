@@ -235,8 +235,8 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val desiredHeroH = ThemeManager.dp(
             ctx,
             when (st.resolvedDevice) {
-                ResolvedDeviceProfile.MOBILE -> 200f
-                ResolvedDeviceProfile.TABLET -> 230f
+                ResolvedDeviceProfile.MOBILE -> 188f
+                ResolvedDeviceProfile.TABLET -> 226f
                 ResolvedDeviceProfile.TV -> 244f
             }
         )
@@ -463,6 +463,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         }
 
         val activeSrcName = st.sources.firstOrNull { it.id == st.activeSourceId }?.name ?: st.activeSourceId
+        b.txtCatalogTitle.text = if (st.resolvedDevice == ResolvedDeviceProfile.MOBILE) "Kho Phim:" else "Kho Nguồn Phim:"
         b.txtCatalogTitle.setTextColor(p.textMain)
         b.txtCatalogSourceBadge.text = if (st.selectedGenre != "Tất cả" && !isSearchActive) {
             "$activeSrcName • ${st.selectedGenre}"
@@ -757,7 +758,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.rvContinue.adapter = continueAdapter
 
             trendingAdapter = MovieCardAdapter(
-                fixedWidthDp = 152,
+                fixedWidthDp = if (host?.getState()?.resolvedDevice == ResolvedDeviceProfile.TV) 166 else 142,
                 onSelect = { host?.openMovieDetail(it) },
                 onToggleFavorite = { host?.toggleFavorite(it.id) }
             )
@@ -767,7 +768,13 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.rvTrending.setItemViewCacheSize(if (DeviceProfileResolver.isUltraLowRamDevice(ctx)) 2 else 6)
             b.rvTrending.adapter = trendingAdapter
 
-            genreAdapter = GenreChipAdapter { g -> host?.selectGenre(g.id) }
+            genreAdapter = GenreChipAdapter { g ->
+                if (g.id == "Tất cả") {
+                    host?.openGenrePickerOverlay()
+                } else {
+                    host?.selectGenre(g.id)
+                }
+            }
             b.rvGenres.layoutManager = LinearLayoutManager(ctx, LinearLayoutManager.HORIZONTAL, false)
             b.rvGenres.setHasFixedSize(true)
             b.rvGenres.adapter = genreAdapter

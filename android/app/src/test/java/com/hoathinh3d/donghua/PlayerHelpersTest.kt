@@ -158,4 +158,40 @@ class PlayerHelpersTest {
         assertEquals("+01:25", PlayerUtils.formatSeekDelta(85_000L))
         assertEquals("0s", PlayerUtils.formatSeekDelta(0L))
     }
+
+    @Test
+    fun descendingEpisodeSortAndDeviceSpans_matchNewestFirstAnd3ColMobile() {
+        val eps = (1..120).map { EpisodeItem("Tập $it", "tap-$it") }
+        val descIndices = PlayerUtils.descendingEpisodeDisplayIndices(eps, eps.size)
+        assertEquals(119, descIndices.first())
+        assertEquals(0, descIndices.last())
+
+        val ranges = PlayerUtils.buildDescendingEpisodeRanges(descIndices, eps, 50)
+        assertEquals(3, ranges.size)
+        assertEquals("Tập 120 - 71", ranges[0].label)
+        assertEquals("Tập 70 - 21", ranges[1].label)
+        assertEquals("Tập 20 - 1", ranges[2].label)
+
+        val fallbackDesc = PlayerUtils.descendingEpisodeDisplayIndices(emptyList(), 5)
+        assertEquals(listOf(4, 3, 2, 1, 0), fallbackDesc)
+
+        assertEquals(
+            3,
+            com.hoathinh3d.donghua.core.DeviceProfileResolver.gridSpanCount(
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.MOBILE
+            )
+        )
+        assertEquals(
+            4,
+            com.hoathinh3d.donghua.core.DeviceProfileResolver.gridSpanCount(
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TABLET
+            )
+        )
+        assertEquals(
+            5,
+            com.hoathinh3d.donghua.core.DeviceProfileResolver.gridSpanCount(
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
+            )
+        )
+    }
 }

@@ -120,10 +120,9 @@ enum class ResolvedDeviceProfile(val wireValue: String) {
 }
 
 enum class ThemePreset(val wireValue: String, val displayName: String, val desc: String) {
-    PEARL("pearl", "Light Pearl (Mặc định)", "Trắng ngọc trai thanh lịch"),
-    AQUA("aqua", "Crystal Aqua", "Xanh băng thủy tinh mát dịu"),
-    SAKURA("sakura", "Sakura Glass", "Hồng phấn anh đào nhẹ nhàng"),
-    DARK("dark", "Dark Aurora", "Kính mờ đêm cực quang");
+    PEARL("pearl", "Ngọc Trai Dịu Nhẹ (Mặc định)", "Trắng ngọc thanh thoát, êm mắt"),
+    SAKURA("sakura", "Anh Đào Phấn Nhạt", "Hồng sương mai mềm mại, tinh tế"),
+    DARK("dark", "Đêm Cực Quang Dịu", "Kính mờ ban đêm dịu nhẹ");
 
     companion object {
         fun fromWire(value: String?): ThemePreset =
@@ -133,8 +132,7 @@ enum class ThemePreset(val wireValue: String, val displayName: String, val desc:
 
 enum class DarkModePreference(val wireValue: String, val label: String) {
     LIGHT("light", "☀ Sáng"),
-    DARK("dark", "🌙 Tối (Dark)"),
-    SYSTEM("system", "⚙ Hệ thống");
+    DARK("dark", "🌙 Tối (Dark)");
 
     companion object {
         fun fromWire(value: String?): DarkModePreference =
@@ -160,8 +158,8 @@ data class AppSettings(
     val deviceMode: String = "auto",
     val theme: String = "pearl",
     val darkMode: String = "light",
-    val glassBlur: Int = 24,
-    val glassOpacity: Int = 35,
+    val glassBlur: Int = 32,
+    val glassOpacity: Int = 52,
     val ambientOrbs: Boolean = true,
     val preferredSource: String = "YanHH3DNow",
     val cloudAutoSync: Boolean = true,

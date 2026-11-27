@@ -69,8 +69,14 @@ class PrefsStoreTest {
         assertEquals("Thuyết Minh", settings.defaultAudio)
         assertEquals("pearl", settings.theme)
         assertEquals("light", settings.darkMode)
-        assertEquals(35, settings.glassOpacity)
+        assertEquals(52, settings.glassOpacity)
+        assertEquals(32, settings.glassBlur)
+        assertTrue(settings.ambientOrbs)
         assertEquals(10, settings.seekStep)
+        assertEquals(listOf("pearl", "sakura", "dark"), com.hoathinh3d.donghua.data.model.ThemePreset.entries.map { it.wireValue })
+        assertEquals("pearl", com.hoathinh3d.donghua.data.model.ThemePreset.fromWire("aqua").wireValue)
+        assertEquals(listOf("light", "dark"), com.hoathinh3d.donghua.data.model.DarkModePreference.entries.map { it.wireValue })
+        assertEquals("light", com.hoathinh3d.donghua.data.model.DarkModePreference.fromWire("system").wireValue)
     }
 
     @Test
@@ -124,7 +130,9 @@ class PrefsStoreTest {
         val reset = PrefsStore.resetSettingsToDefaults()
         assertEquals("pearl", reset.theme)
         assertEquals("light", reset.darkMode)
-        assertEquals(35, reset.glassOpacity)
+        assertEquals(52, reset.glassOpacity)
+        assertEquals(32, reset.glassBlur)
+        assertTrue(reset.ambientOrbs)
         assertEquals(10, reset.seekStep)
         // Favorites preserved after settings reset
         assertTrue(PrefsStore.getFavorites().contains("dptk"))

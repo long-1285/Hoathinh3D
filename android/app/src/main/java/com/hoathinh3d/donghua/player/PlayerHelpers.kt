@@ -37,9 +37,51 @@ data class QualityTrackOption(
     val bitrate: Int
 )
 
+data class EpisodeRangeSlice(
+    val startPos: Int,
+    val endExclusive: Int,
+    val label: String
+)
+
 object PlayerUtils {
     const val EP_PAGE_SIZE = 50
     val SPEED_OPTIONS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
+    fun descendingEpisodeDisplayIndices(episodes: List<EpisodeItem>, fallbackCount: Int): List<Int> {
+        if (episodes.isEmpty()) {
+            val total = fallbackCount.coerceAtLeast(1)
+            return (total - 1 downTo 0).toList()
+        }
+        return episodes.indices.sortedWith(
+            Comparator { a, b ->
+                val epB = extractEpisodeNumber(episodes[b], b)
+                val epA = extractEpisodeNumber(episodes[a], a)
+                if (epB != epA) epB - epA else b - a
+            }
+        )
+    }
+
+    fun buildDescendingEpisodeRanges(
+        displayIndices: List<Int>,
+        episodes: List<EpisodeItem>,
+        pageSize: Int = EP_PAGE_SIZE
+    ): List<EpisodeRangeSlice> {
+        if (displayIndices.isEmpty()) return emptyList()
+        val size = pageSize.coerceAtLeast(1)
+        val slices = mutableListOf<EpisodeRangeSlice>()
+        var start = 0
+        while (start < displayIndices.size) {
+            val end = minOf(start + size, displayIndices.size)
+            val firstRealIdx = displayIndices[start]
+            val lastRealIdx = displayIndices[end - 1]
+            val firstNum = extractEpisodeNumber(episodes.getOrNull(firstRealIdx), firstRealIdx)
+            val lastNum = extractEpisodeNumber(episodes.getOrNull(lastRealIdx), lastRealIdx)
+            val label = if (firstNum == lastNum) "Tập $firstNum" else "Tập $firstNum - $lastNum"
+            slices.add(EpisodeRangeSlice(start, end, label))
+            start += size
+        }
+        return slices
+    }
 
     fun computeBufferedAheadSec(positionMs: Long, bufferedPositionMs: Long): Long {
         if (bufferedPositionMs <= positionMs || bufferedPositionMs <= 0L) return 0L

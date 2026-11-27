@@ -5,7 +5,6 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.text.format.DateFormat
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,7 +14,6 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,10 +39,8 @@ import com.hoathinh3d.donghua.player.HlsCacheProvider
 import com.hoathinh3d.donghua.ui.AppHost
 import com.hoathinh3d.donghua.ui.ChromeInsetsListener
 import com.hoathinh3d.donghua.ui.RefreshableTab
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.Locale
@@ -67,7 +63,6 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var isAddingSource = false
     private var isMeasuringPings = false
     private var lastProbeResult: CustomSourceParser.ProbeResult? = null
-    private var blurDebounceJob: Job? = null
 
     private val exportJsonLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -801,11 +796,12 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     }
 
     // =====================================================
-    // 5. Giao diện (4 Devices + 4 Themes + Blur + Orbs)
+    // 3. Giao diện (4 Devices + Sáng/Tối + 3 Tông màu dịu nhẹ)
     // =====================================================
     private fun renderAppearanceTab(p: ThemePalette) {
         val h = host ?: return
         val st = h.getState()
+        val isWide = st.resolvedDevice != ResolvedDeviceProfile.MOBILE
 
         val devBox = cardContainer(p)
         devBox.addView(headingText("Lựa Chọn Thiết Bị Phù Hợp", p, 15f))
@@ -817,34 +813,27 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         )
         val devModes = listOf(
             "auto" to "✨ Tự động (Auto)",
-            "mobile" to "📱 Điện thoại (2 Cột)",
-            "tablet" to "📲 Máy tính bảng (3 Cột)",
-            "tv" to "📺 Smart TV (5 Cột • Remote)"
+            "mobile" to "📱 Điện thoại (3 Cột)",
+            "tablet" to "📲 Tablet / PC (4 Cột)",
+            "tv" to "📺 Smart TV (5 Cột)"
         )
-        for ((mode, label) in devModes) {
+        val devButtons = devModes.map { (mode, label) ->
             val active = st.settings.deviceMode == mode
             val tagStr = "dev_$mode"
-            devBox.addView(
-                styledButton(if (active) "$label ✓" else label, p, active) {
-                    pendingFocusTag = tagStr
-                    h.updateSettings { it.copy(deviceMode = mode) }
-                    h.showToast("Đã chuyển chế độ thiết bị: $label")
-                }.apply {
-                    tag = tagStr
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { topMargin = ThemeManager.dp(context, 8f) }
-                }
-            )
+            styledButton(if (active) "$label ✓" else label, p, active) {
+                pendingFocusTag = tagStr
+                h.updateSettings { it.copy(deviceMode = mode) }
+                h.showToast("Đã chuyển chế độ thiết bị: $label")
+            }.apply { tag = tagStr }
         }
+        devBox.addView(buttonGrid(devButtons, columns = if (isWide) 2 else 1, topMarginDp = 10f))
         binding.settingsSubtabContent.addView(devBox)
 
         val themeBox = cardContainer(p)
-        themeBox.addView(headingText("Chế Độ Tối (Dark Mode) & Vật Liệu Liquid Glass", p, 15f))
+        themeBox.addView(headingText("Chế Độ Sáng / Tối & Tông Màu Liquid Glass", p, 15f))
         themeBox.addView(
             mutedText(
-                "Chọn nền Sáng, Chế độ Tối OLED hoặc theo hệ thống Android — kết hợp linh hoạt với mọi tông màu kính.",
+                "Chọn nền Sáng thanh thoát hoặc Chế độ Tối dịu mắt (kính trong suốt 52% • mờ nền 32%).",
                 p
             )
         )
@@ -852,7 +841,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val darkModeRow = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, ThemeManager.dp(context, 8f), 0, ThemeManager.dp(context, 4f))
+            setPadding(0, ThemeManager.dp(context, 10f), 0, ThemeManager.dp(context, 4f))
         }
         for ((idx, dm) in DarkModePreference.entries.withIndex()) {
             val active = st.settings.darkMode == dm.wireValue
@@ -876,7 +865,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         1f
                     ).apply {
-                        if (idx > 0) marginStart = ThemeManager.dp(context, 6f)
+                        if (idx > 0) marginStart = ThemeManager.dp(context, 8f)
                     }
                 }
             )
@@ -884,248 +873,46 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         themeBox.addView(darkModeRow)
 
         themeBox.addView(
-            headingText("Tông Màu Chủ Đề Liquid Glass", p, 13.5f).apply {
-                setPadding(0, ThemeManager.dp(context, 10f), 0, 0)
+            headingText("Tông Màu Chủ Đề Liquid Glass (3 Chủ Đề Dịu Nhẹ)", p, 13.5f).apply {
+                setPadding(0, ThemeManager.dp(context, 12f), 0, ThemeManager.dp(context, 2f))
             }
         )
-        for (preset in ThemePreset.entries) {
+        val themeButtons = ThemePreset.entries.map { preset ->
             val active = st.settings.theme == preset.wireValue
             val tagStr = "theme_${preset.wireValue}"
-            val darkTag = if (p.isDark && preset != ThemePreset.DARK) " • Nền tối" else ""
-            themeBox.addView(
-                styledButton(
-                    if (active) "${preset.displayName}$darkTag ✓ (${preset.desc})" else "${preset.displayName} — ${preset.desc}",
-                    p,
-                    active
-                ) {
-                    pendingFocusTag = tagStr
-                    h.updateSettings { cur ->
-                        val nextDarkMode = if (preset == ThemePreset.DARK) {
-                            DarkModePreference.DARK.wireValue
-                        } else {
-                            cur.darkMode
-                        }
-                        cur.copy(theme = preset.wireValue, darkMode = nextDarkMode)
+            val darkTag = if (p.isDark && preset != ThemePreset.DARK) " • Tối" else ""
+            styledButton(
+                if (active) "${preset.displayName}$darkTag ✓" else "${preset.displayName} — ${preset.desc}",
+                p,
+                active
+            ) {
+                pendingFocusTag = tagStr
+                h.updateSettings { cur ->
+                    val nextDarkMode = if (preset == ThemePreset.DARK) {
+                        DarkModePreference.DARK.wireValue
+                    } else {
+                        cur.darkMode
                     }
-                    h.showToast("Đã áp dụng tông màu: ${preset.displayName}")
-                }.apply {
-                    tag = tagStr
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { topMargin = ThemeManager.dp(context, 8f) }
+                    cur.copy(theme = preset.wireValue, darkMode = nextDarkMode)
                 }
-            )
+                h.showToast("Đã áp dụng tông màu: ${preset.displayName}")
+            }.apply { tag = tagStr }
         }
+        themeBox.addView(buttonGrid(themeButtons, columns = if (isWide) 3 else 1, topMarginDp = 8f))
 
-        val opacityLabel = headingText(
-            "Độ trong suốt Liquid Glass: ${st.settings.glassOpacity}%",
-            p,
-            13f
-        ).apply {
-            setPadding(0, ThemeManager.dp(context, 14f), 0, ThemeManager.dp(context, 2f))
-        }
-        val opacityHint = mutedText(
-            "Kéo phải để tăng độ xuyên nền kính (90% trong suốt) • Kéo trái để nền kính đục rõ chữ hơn (10%)",
-            p,
-            11f
-        )
-        val opacityBar = SeekBar(requireContext()).apply {
-            tag = "appearance_opacity_bar"
-            isFocusable = true
-            max = 80 // 10%..90%
-            progress = (st.settings.glassOpacity - 10).coerceIn(0, 80)
-            background = ThemeManager.pillDrawable(context, p, active = false, radiusDp = 12f)
-            setPadding(
-                ThemeManager.dp(context, 10f),
-                ThemeManager.dp(context, 8f),
-                ThemeManager.dp(context, 10f),
-                ThemeManager.dp(context, 8f)
-            )
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    val nextPct = progress + 10
-                    opacityLabel.text = "Độ trong suốt Liquid Glass: ${nextPct}%"
-                    if (fromUser) {
-                        val previewPalette = ThemeManager.palette(
-                            themeWire = st.settings.theme,
-                            glassBlurPx = st.settings.glassBlur,
-                            glassOpacityPct = nextPct,
-                            darkModeWire = st.settings.darkMode,
-                            isSystemDark = ThemeManager.isSystemDarkMode(requireContext())
-                        )
-                        themeBox.background = ThemeManager.glassPanelDrawable(requireContext(), previewPalette, 20f)
-                    }
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) = Unit
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    val v = (sb?.progress ?: 25) + 10
-                    pendingFocusTag = "appearance_opacity_bar"
-                    h.updateSettings { it.copy(glassOpacity = v) }
-                }
-            })
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN &&
-                    (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT)
-                ) {
-                    val step = if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 5 else -5
-                    val nextProg = (progress + step).coerceIn(0, max)
-                    if (nextProg != progress) {
-                        progress = nextProg
-                        val v = nextProg + 10
-                        opacityLabel.text = "Độ trong suốt Liquid Glass: ${v}%"
-                        blurDebounceJob?.cancel()
-                        blurDebounceJob = viewLifecycleOwner.lifecycleScope.launch {
-                            delay(200L)
-                            pendingFocusTag = "appearance_opacity_bar"
-                            h.updateSettings { it.copy(glassOpacity = v) }
-                        }
-                    }
-                    true
-                } else false
-            }
-        }
-        val opacityPresetRow = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, ThemeManager.dp(context, 6f), 0, 0)
-        }
-        val opacityPresets = listOf(20 to "Kính đục (20%)", 45 to "Cân bằng (45%)", 75 to "Trong suốt (75%)")
-        for ((idx, pair) in opacityPresets.withIndex()) {
-            val (pctVal, lbl) = pair
-            val active = kotlin.math.abs(st.settings.glassOpacity - pctVal) <= 5
-            val tagStr = "opacity_preset_$pctVal"
-            opacityPresetRow.addView(
-                styledButton(lbl, p, active) {
-                    pendingFocusTag = tagStr
-                    h.updateSettings { it.copy(glassOpacity = pctVal) }
-                    h.showToast("Độ trong suốt Liquid Glass: $pctVal%")
-                }.apply {
-                    tag = tagStr
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f
-                    ).apply {
-                        if (idx > 0) marginStart = ThemeManager.dp(context, 6f)
-                    }
-                }
-            )
-        }
-
-        val blurLabel = headingText("Độ mờ khúc xạ nền (Glass Blur): ${st.settings.glassBlur}px", p, 13f).apply {
-            setPadding(0, ThemeManager.dp(context, 12f), 0, ThemeManager.dp(context, 4f))
-        }
-        val blurBar = SeekBar(requireContext()).apply {
-            tag = "appearance_blur_bar"
-            isFocusable = true
-            max = 32 // 8..40
-            progress = (st.settings.glassBlur - 8).coerceIn(0, 32)
-            background = ThemeManager.pillDrawable(context, p, active = false, radiusDp = 12f)
-            setPadding(
-                ThemeManager.dp(context, 10f),
-                ThemeManager.dp(context, 8f),
-                ThemeManager.dp(context, 10f),
-                ThemeManager.dp(context, 8f)
-            )
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    val nextVal = progress + 8
-                    blurLabel.text = "Độ mờ khúc xạ nền (Glass Blur): ${nextVal}px"
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) = Unit
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    val v = (sb?.progress ?: 16) + 8
-                    pendingFocusTag = "appearance_blur_bar"
-                    h.updateSettings { it.copy(glassBlur = v) }
-                }
-            })
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN &&
-                    (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT)
-                ) {
-                    val step = if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) 2 else -2
-                    val nextProg = (progress + step).coerceIn(0, max)
-                    if (nextProg != progress) {
-                        progress = nextProg
-                        val v = nextProg + 8
-                        blurLabel.text = "Độ mờ khúc xạ nền (Glass Blur): ${v}px"
-                        blurDebounceJob?.cancel()
-                        blurDebounceJob = viewLifecycleOwner.lifecycleScope.launch {
-                            delay(200L)
-                            pendingFocusTag = "appearance_blur_bar"
-                            h.updateSettings { it.copy(glassBlur = v) }
-                        }
-                    }
-                    true
-                } else false
-            }
-        }
-        themeBox.addView(opacityLabel)
-        themeBox.addView(opacityHint)
-        themeBox.addView(opacityBar)
-        themeBox.addView(opacityPresetRow)
-        themeBox.addView(blurLabel)
-        themeBox.addView(blurBar)
-        val isWide = st.resolvedDevice != ResolvedDeviceProfile.MOBILE
         val isLowRam = DeviceProfileResolver.isLowRamDevice(requireContext())
         val liteHint = if (isLowRam) {
             "Tự bật trên TV Box RAM <= 2.5 GB để cuộn mượt"
         } else {
-            "Tắt giọt sáng, mờ kính, thu phóng thẻ & hoạt ảnh"
+            "Giảm tải hiệu ứng thu phóng & hoạt ảnh trên máy cấu hình thấp"
         }
-        addResponsiveRows(
-            themeBox,
-            listOf(
-                switchRow("Hiệu ứng Giọt Sáng Nền", "Tạo chiều sâu khúc xạ phía sau lớp kính", st.settings.ambientOrbs, p) { checked ->
-                    h.updateSettings { it.copy(ambientOrbs = checked) }
-                    h.showToast(if (checked) "Đã bật hiệu ứng Giọt Sáng Liquid" else "Đã tắt Giọt Sáng nền")
-                },
-                switchRow("🚀 Siêu tối ưu TV Box (Reduced Motion)", liteHint, st.settings.reducedMotion || isLowRam, p) { checked ->
-                    h.updateSettings { it.copy(reducedMotion = checked) }
-                    h.showToast(if (checked) "Đã bật chế độ Siêu tối ưu Reduced Motion" else "Đã tắt Reduced Motion")
-                }
-            ),
-            isWide
+        themeBox.addView(
+            switchRow("🚀 Siêu tối ưu TV Box (Reduced Motion)", liteHint, st.settings.reducedMotion || isLowRam, p) { checked ->
+                h.updateSettings { it.copy(reducedMotion = checked) }
+                h.showToast(if (checked) "Đã bật chế độ Siêu tối ưu Reduced Motion" else "Đã tắt Reduced Motion")
+            }
         )
         binding.settingsSubtabContent.addView(themeBox)
-
-        val homeCustomBox = cardContainer(p)
-        homeCustomBox.addView(headingText("Tùy Biến Bố Cục Trang Chủ", p, 15f))
-        homeCustomBox.addView(mutedText("Bật hoặc ẩn các phân khu trên Trang chủ cho gọn mắt trên TV / Điện thoại", p, 11.5f))
-        addResponsiveRows(
-            homeCustomBox,
-            listOf(
-                switchRow(
-                    "Banner Phim Nổi Bật (Hero)",
-                    "Khung đề cử phim lớn ở đầu Trang chủ",
-                    st.settings.showHomeHero,
-                    p
-                ) { checked ->
-                    h.updateSettings { it.copy(showHomeHero = checked) }
-                    h.showToast(if (checked) "Đã hiện Banner Hero Trang chủ" else "Đã ẩn Banner Hero Trang chủ")
-                },
-                switchRow(
-                    "Mục Tiếp Tục Xem",
-                    "Hàng phim đang xem dở ngay bên dưới Hero",
-                    st.settings.showHomeContinue,
-                    p
-                ) { checked ->
-                    h.updateSettings { it.copy(showHomeContinue = checked) }
-                    h.showToast(if (checked) "Đã hiện mục Tiếp tục xem" else "Đã ẩn mục Tiếp tục xem")
-                },
-                switchRow(
-                    "Top 10 BXH Thịnh Hành",
-                    "Hàng bảng xếp hạng phim xem nhiều nhất",
-                    st.settings.showHomeTrending,
-                    p
-                ) { checked ->
-                    h.updateSettings { it.copy(showHomeTrending = checked) }
-                    h.showToast(if (checked) "Đã hiện Top 10 BXH Thịnh Hành" else "Đã ẩn Top 10 BXH Thịnh Hành")
-                }
-            ),
-            isWide
-        )
-        binding.settingsSubtabContent.addView(homeCustomBox)
     }
 
     // =====================================================
@@ -1616,7 +1403,6 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     }
 
     override fun onDestroyView() {
-        blurDebounceJob?.cancel()
         _binding = null
         super.onDestroyView()
     }

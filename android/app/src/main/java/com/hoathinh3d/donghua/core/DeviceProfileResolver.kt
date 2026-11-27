@@ -40,8 +40,8 @@ object DeviceProfileResolver {
 
     fun gridSpanCount(profile: ResolvedDeviceProfile): Int {
         return when (profile) {
-            ResolvedDeviceProfile.MOBILE -> 2
-            ResolvedDeviceProfile.TABLET -> 3
+            ResolvedDeviceProfile.MOBILE -> 3
+            ResolvedDeviceProfile.TABLET -> 4
             ResolvedDeviceProfile.TV -> 5
         }
     }

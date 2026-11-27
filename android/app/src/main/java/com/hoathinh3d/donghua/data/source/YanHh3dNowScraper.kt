@@ -66,13 +66,18 @@ object YanHh3dNowScraper {
 
     val STATIC_CATEGORIES = listOf(
         GenreItem(id = "Tất cả", label = "Thể loại phim", icon = "grid", sourceSlug = "moi-cap-nhat"),
+        GenreItem(id = "Phim Hot", label = "Phim Hot", icon = "flame", sourceSlug = "topic:phim-hot"),
+        GenreItem(id = "Phim Chiếu Rạp", label = "Phim Chiếu Rạp", icon = "sparkles", sourceSlug = "topic:phim-chieu-rap"),
+        GenreItem(id = "Phim Lẻ", label = "Phim Lẻ", icon = "film", sourceSlug = "phim-le"),
+        GenreItem(id = "Phim Bộ", label = "Phim Bộ", icon = "grid", sourceSlug = "topic:phim-bo"),
+        GenreItem(id = "Phim Hoạt Hình", label = "Phim Hoạt Hình", icon = "dragon", sourceSlug = "hoat-hinh-3d"),
+        GenreItem(id = "Phim Hành Động", label = "Phim Hành Động", icon = "sword", sourceSlug = "topic:phim-hanh-dong"),
+        GenreItem(id = "Tình Cảm", label = "Tình Cảm", icon = "tag", sourceSlug = "topic:tinh-cam"),
         GenreItem(id = "Đang chiếu", label = "Đang chiếu", icon = "broadcast", sourceSlug = "dang-chieu"),
         GenreItem(id = "Hoàn thành", label = "Đã hoàn thành", icon = "check", sourceSlug = "hoan-thanh"),
         GenreItem(id = "Hoạt Hình 4K", label = "Hoạt Hình 4K", icon = "sparkles", sourceSlug = "hoat-hinh-4k"),
-        GenreItem(id = "Hoạt Hình 3D", label = "Hoạt Hình 3D", icon = "dragon", sourceSlug = "hoat-hinh-3d"),
         GenreItem(id = "Hoạt Hình 2D", label = "Hoạt Hình 2D", icon = "film", sourceSlug = "hoat-hinh-2d"),
         GenreItem(id = "Hoạt Hình AI", label = "Hoạt Hình AI", icon = "bolt", sourceSlug = "hoat-hinh-ai"),
-        GenreItem(id = "Phim Lẻ | OVA", label = "Phim lẻ | OVA", icon = "film", sourceSlug = "phim-le"),
         GenreItem(id = "Tiên Hiệp", label = "Tiên Hiệp", icon = "yinyang", sourceSlug = "the-loai/tien-hiep"),
         GenreItem(id = "Huyền Huyễn", label = "Huyền Huyễn", icon = "dragon", sourceSlug = "the-loai/huyen-huyen"),
         GenreItem(id = "Kiếm Hiệp", label = "Kiếm Hiệp", icon = "sword", sourceSlug = "the-loai/kiem-hiep"),
@@ -104,8 +109,11 @@ object YanHh3dNowScraper {
 
     fun parseCategoriesFromHtml(html: String): List<GenreItem> {
         val merged = LinkedHashMap<String, GenreItem>()
-        STATIC_CATEGORIES.forEach { it.sourceSlug?.let { sl -> merged[sl] = it } }
+        val usedIds = HashSet<String>()
+        merged["moi-cap-nhat"] = STATIC_CATEGORIES.first()
+        usedIds.add("tất cả")
 
+        // Ưu tiên đưa 7 chủ đề phổ biến lên đầu ngay sau nút "Thể loại phim"
         val doc = Jsoup.parse(html)
         val links = doc.select("nav a[href], header a[href], .menu a[href], a[href]")
         val exactSlugs = setOf(
@@ -113,6 +121,7 @@ object YanHh3dNowScraper {
             "hoat-hinh-ai", "hoan-thanh", "dang-chieu", "phim-le", "phim-bo",
             "phim-chieu-rap", "phim-hot", "hoat-hinh", "hanh-dong", "tinh-cam"
         )
+        val liveLinks = LinkedHashMap<String, GenreItem>()
         for (a in links) {
             val href = a.attr("href").trim()
             if (href.contains("page=") || href.contains("#")) continue
@@ -129,14 +138,46 @@ object YanHh3dNowScraper {
                 lowPath in exactSlugs
             if (isCategoryPath) {
                 val label = a.attr("title").ifBlank { a.text() }.trim()
-                if (label.isNotBlank() && label.length <= 42 && !merged.containsKey(cleanPath)) {
-                    merged[cleanPath] = GenreItem(
+                if (label.isNotBlank() && label.length <= 42 && !liveLinks.containsKey(cleanPath)) {
+                    liveLinks[cleanPath] = GenreItem(
                         id = label,
                         label = label,
                         icon = "tag",
                         sourceSlug = cleanPath
                     )
                 }
+            }
+        }
+
+        for (cat in STATIC_CATEGORIES.drop(1)) {
+            val liveMatch = liveLinks.values.firstOrNull { g ->
+                val l = g.label.lowercase()
+                val s = (g.sourceSlug ?: "").lowercase()
+                when (cat.id) {
+                    "Phim Hot" -> l.contains("phim hot") || s.contains("phim-hot")
+                    "Phim Chiếu Rạp" -> l.contains("chiếu rạp") || s.contains("chieu-rap")
+                    "Phim Lẻ" -> s == "phim-le" || l.contains("phim lẻ")
+                    "Phim Bộ" -> s == "phim-bo" || l.contains("phim bộ")
+                    "Phim Hoạt Hình" -> s == "hoat-hinh-3d" || s == "hoat-hinh" || l == "hoạt hình 3d"
+                    "Phim Hành Động" -> l.contains("hành động") || s.contains("hanh-dong")
+                    "Tình Cảm" -> l.contains("tình cảm") || s.contains("tinh-cam")
+                    else -> s == cat.sourceSlug
+                }
+            }
+            val chosen = if (liveMatch != null) {
+                cat.copy(sourceSlug = liveMatch.sourceSlug)
+            } else cat
+            val key = chosen.sourceSlug ?: chosen.id
+            if (usedIds.add(chosen.id.lowercase())) {
+                merged[key] = chosen
+            }
+        }
+
+        for ((path, g) in liveLinks) {
+            val normLabel = g.id.lowercase()
+            if (normLabel == "xem thêm" || normLabel == "mới cập nhật") continue
+            if (usedIds.add(normLabel) && !merged.containsKey(path)) {
+                merged[path] = g
             }
         }
         return merged.values.toList()
@@ -357,12 +398,15 @@ object YanHh3dNowScraper {
         page: Int = 1,
         baseUrl: String = YAN_NOW_BASE,
         sourceName: String = "YanHH3D Now",
-        forcedGenre: String? = null
+        forcedGenre: String? = null,
+        bypassCache: Boolean = false
     ): NowMoviesPage {
         val cleanBase = baseUrl.trimEnd('/')
         val cleanPath = path.trim().trim('/')
         val cacheKey = "now_list_${cleanBase}_${cleanPath}_${page}_${forcedGenre.orEmpty()}"
-        getCache<NowMoviesPage>(cacheKey)?.let { return it }
+        if (!bypassCache) {
+            getCache<NowMoviesPage>(cacheKey)?.let { return it }
+        }
 
         val targetUrl = buildString {
             append(cleanBase)
@@ -370,7 +414,12 @@ object YanHh3dNowScraper {
             if (page > 1) append("?page=$page")
         }
         return try {
-            val html = HttpClientProvider.getText(targetUrl, mapOf("Referer" to "$cleanBase/"), 8000L)
+            val headers = if (bypassCache) {
+                mapOf("Referer" to "$cleanBase/", "Cache-Control" to "no-cache", "Pragma" to "no-cache")
+            } else {
+                mapOf("Referer" to "$cleanBase/")
+            }
+            val html = HttpClientProvider.getText(targetUrl, headers, 8000L)
             val parsed = parseMoviesListHtml(html, cleanBase, sourceName, forcedGenre)
             if (parsed.movies.isNotEmpty()) setCache(cacheKey, parsed)
             parsed

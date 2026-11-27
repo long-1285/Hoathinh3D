@@ -77,6 +77,8 @@ interface AppHost {
     fun getChromeInsets(): Pair<Int, Int>
     fun onMainContentScroll(dy: Int, scrollY: Int)
     fun selectGenre(genreId: String)
+    fun openGenrePickerOverlay()
+    fun syncWebGenresNow()
     fun setCatalogStatusFilter(filter: CatalogStatusFilter)
     fun setCatalogAudioFilter(filter: CatalogAudioFilter)
     fun setCatalogSortMode(mode: CatalogSortMode)
@@ -115,6 +117,7 @@ data class MainState(
     val activeSourceId: String = "YanHH3DNow",
     val genres: List<GenreItem> = InitialData.GENRES_DATA,
     val selectedGenre: String = "Tất cả",
+    val genresLastSyncAtMs: Long = 0L,
     val searchQuery: String = "",
     val favorites: List<String> = emptyList(),
     val favoriteMetaMap: Map<String, FavoriteEpisodeMeta> = emptyMap(),
@@ -168,6 +171,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     private var isChromeCollapsed = false
     private var isSearchOverlayOpen = false
     private var isSourcePickerOpen = false
+    private var isGenrePickerOpen = false
     private var lastSourceTriggerView: View? = null
     private var pendingInstallManifest: com.hoathinh3d.donghua.core.UpdateManifest? = null
 
@@ -206,6 +210,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         ThemeManager.applyRoundedOutline(binding.bottomNavContainer, 30f)
         ThemeManager.applyRoundedOutline(binding.tvNavRail, 24f)
         ThemeManager.applyRoundedOutline(binding.floatingSourcePickerContainer, 22f)
+        ThemeManager.applyRoundedOutline(binding.floatingGenrePickerContainer, 22f)
         ThemeManager.applyRoundedOutline(binding.btnCollapsedSearch, 24f)
         ThemeManager.applyRoundedOutline(binding.btnCollapsedSource, 24f)
 
@@ -268,6 +273,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    isGenrePickerOpen -> closeGenrePickerOverlay()
                     isSourcePickerOpen -> closeSourcePickerOverlay()
                     isSearchOverlayOpen -> closeSearchOverlay()
                     state.searchQuery.trim().isNotEmpty() -> clearSearch()
@@ -330,6 +336,9 @@ class MainActivity : AppCompatActivity(), AppHost {
         binding.btnCollapsedSource.setOnClickListener { openSourcePickerOverlay(binding.btnCollapsedSource) }
         binding.sourcePickerScrim.setOnClickListener { closeSourcePickerOverlay() }
         binding.btnCloseSourcePicker.setOnClickListener { closeSourcePickerOverlay() }
+        binding.genrePickerScrim.setOnClickListener { closeGenrePickerOverlay() }
+        binding.btnCloseGenrePicker.setOnClickListener { closeGenrePickerOverlay() }
+        binding.btnSyncGenresNow.setOnClickListener { syncWebGenresNow() }
 
         binding.navHome.setOnClickListener { navigateTab(MainTab.HOME) }
         binding.navSchedule.setOnClickListener { navigateTab(MainTab.SCHEDULE) }
@@ -597,6 +606,7 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     private fun openSearchOverlay() {
         if (isSourcePickerOpen) closeSourcePickerOverlay()
+        if (isGenrePickerOpen) closeGenrePickerOverlay()
         isSearchOverlayOpen = true
         binding.floatingSearchContainer.animate().cancel()
         val dur = animDuration(180L)
@@ -780,6 +790,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             return
         }
         if (isSearchOverlayOpen) closeSearchOverlay()
+        if (isGenrePickerOpen) closeGenrePickerOverlay()
         if (isSourcePickerOpen) {
             closeSourcePickerOverlay()
             return
@@ -1032,23 +1043,49 @@ class MainActivity : AppCompatActivity(), AppHost {
     private fun syncRealtimeTrendingNow(sourceId: String) {
         realtimeTrendingJob?.cancel()
         realtimeTrendingJob = lifecycleScope.launch {
-            val (freshTop10, freshCats) = coroutineScope {
+            val activeSelected = state.selectedGenre
+            val genreObj = if (activeSelected != "Tất cả") {
+                state.genres.firstOrNull { it.id == activeSelected }
+            } else null
+
+            val (freshTop10, freshCats, freshGenreRes) = coroutineScope {
                 val topDef = async {
                     runCatching { MovieRepository.fetchRealtimeTrendingTop10(sourceId) }.getOrDefault(emptyList())
                 }
                 val catDef = async {
                     runCatching { MovieRepository.fetchCategoriesForSource(sourceId, forceRefresh = true) }.getOrDefault(emptyList())
                 }
-                topDef.await() to catDef.await()
+                val genreDef = async {
+                    if (genreObj != null) {
+                        runCatching {
+                            MovieRepository.fetchGenrePage(sourceId, genreObj, 1, 30, forceRefresh = true)
+                        }.getOrNull()
+                    } else null
+                }
+                Triple(topDef.await(), catDef.await(), genreDef.await())
             }
             var changed = false
+            val nowMs = System.currentTimeMillis()
             if (freshTop10.isNotEmpty() && freshTop10 != state.trendingTop10) {
                 state = state.copy(trendingTop10 = freshTop10)
                 changed = true
             }
-            if (freshCats.isNotEmpty() && freshCats != state.genres) {
-                state = state.copy(genres = freshCats)
-                changed = true
+            if (freshCats.isNotEmpty()) {
+                val catsChanged = freshCats != state.genres
+                state = state.copy(genres = freshCats, genresLastSyncAtMs = nowMs)
+                if (catsChanged) changed = true
+            }
+            if (freshGenreRes != null && freshGenreRes.movies.isNotEmpty() && state.selectedGenre == activeSelected && state.genrePage == 1) {
+                if (freshGenreRes.movies != state.activeGenreMovies) {
+                    state = state.copy(
+                        activeGenreMovies = freshGenreRes.movies,
+                        genreTotalPages = maxOf(state.genreTotalPages, freshGenreRes.totalPages)
+                    )
+                    changed = true
+                }
+            }
+            if (isGenrePickerOpen) {
+                renderGenrePickerContent()
             }
             if (changed && state.activeTab == MainTab.HOME) {
                 notifyActiveFragment()
@@ -1089,6 +1126,7 @@ class MainActivity : AppCompatActivity(), AppHost {
 
                 state = state.copy(
                     genres = genres,
+                    genresLastSyncAtMs = System.currentTimeMillis(),
                     allMovies = mergedCatalog,
                     trendingTop10 = if (top10Task.isNotEmpty()) top10Task else state.trendingTop10,
                     activeGenreMovies = null,
@@ -1182,6 +1220,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     }
 
     override fun selectGenre(genreId: String) {
+        if (isGenrePickerOpen) closeGenrePickerOverlay()
         state = state.copy(selectedGenre = genreId, isLoadingMore = false)
         genreJob?.cancel()
         loadMoreJob?.cancel()
@@ -1213,7 +1252,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         state = state.copy(isLoadingGenre = true, activeGenreMovies = null, genrePage = 1, genreTotalPages = 1)
         notifyActiveFragment()
         genreJob = lifecycleScope.launch {
-            val pageRes = MovieRepository.fetchGenrePage(state.activeSourceId, genreObj, 1, 30)
+            val pageRes = MovieRepository.fetchGenrePage(state.activeSourceId, genreObj, 1, 30, forceRefresh = true)
             state = state.copy(
                 activeGenreMovies = pageRes.movies,
                 genrePage = pageRes.page,
@@ -1221,6 +1260,198 @@ class MainActivity : AppCompatActivity(), AppHost {
                 isLoadingGenre = false
             )
             notifyActiveFragment()
+        }
+    }
+
+    override fun openGenrePickerOverlay() {
+        if (isSearchOverlayOpen) closeSearchOverlay()
+        if (isSourcePickerOpen) closeSourcePickerOverlay()
+        if (isGenrePickerOpen) {
+            closeGenrePickerOverlay()
+            return
+        }
+        isGenrePickerOpen = true
+
+        val p = getPalette()
+        val isTv = state.resolvedDevice == ResolvedDeviceProfile.TV
+        binding.genrePickerScrim.setBackgroundColor(
+            Color.argb(if (p.isDark) 82 else 36, 10, 15, 28)
+        )
+        binding.floatingGenrePickerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 22f)
+        binding.txtGenrePickerTitle.setTextColor(p.textMain)
+        binding.txtGenrePickerSyncStatus.setTextColor(p.accentFrom)
+        binding.btnSyncGenresNow.background = ThemeManager.pillDrawable(this, p, active = false, radiusDp = 12f)
+        binding.btnSyncGenresNow.setTextColor(p.accentFrom)
+        binding.btnCloseGenrePicker.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 12f)
+        binding.btnCloseGenrePicker.setTextColor(p.textMuted)
+
+        val dm = resources.displayMetrics
+        val maxAvailW = (dm.widthPixels - ThemeManager.dp(this, 24f)).coerceAtLeast(ThemeManager.dp(this, 260f))
+        val targetW = when (state.resolvedDevice) {
+            ResolvedDeviceProfile.MOBILE -> minOf(ThemeManager.dp(this, 390f), maxAvailW)
+            ResolvedDeviceProfile.TABLET -> minOf(ThemeManager.dp(this, 500f), maxAvailW)
+            ResolvedDeviceProfile.TV -> minOf(ThemeManager.dp(this, 600f), maxAvailW)
+        }
+        val maxH = (dm.heightPixels * 0.78f).toInt()
+        val lp = binding.floatingGenrePickerContainer.layoutParams as FrameLayout.LayoutParams
+        lp.width = targetW
+        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        lp.gravity = android.view.Gravity.CENTER
+        binding.floatingGenrePickerContainer.layoutParams = lp
+        (binding.genrePickerGridContainer.parent as? android.widget.ScrollView)?.let { sv ->
+            sv.layoutParams = sv.layoutParams.apply {
+                height = minOf(maxH, ThemeManager.dp(this@MainActivity, 440f))
+            }
+        }
+
+        val focusTarget = renderGenrePickerContent()
+        binding.floatingGenrePickerOverlay.visibility = View.VISIBLE
+        binding.floatingGenrePickerContainer.animate().cancel()
+        val dur = animDuration(165L)
+        if (dur == 0L) {
+            binding.floatingGenrePickerOverlay.alpha = 1f
+            binding.floatingGenrePickerContainer.apply { alpha = 1f; scaleX = 1f; scaleY = 1f }
+        } else {
+            binding.floatingGenrePickerOverlay.alpha = 0f
+            binding.floatingGenrePickerOverlay.animate().alpha(1f).setDuration(dur).start()
+            binding.floatingGenrePickerContainer.apply {
+                alpha = 0f
+                scaleX = 0.92f
+                scaleY = 0.92f
+                animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(dur).start()
+            }
+        }
+        if (isTv) focusTarget?.post { focusTarget.requestFocus() }
+        // Đồng bộ nền theo thời gian thực ngay khi mở bảng Thể loại phim
+        syncRealtimeTrendingNow(state.activeSourceId)
+    }
+
+    private fun renderGenrePickerContent(): View? {
+        val p = getPalette()
+        val srcName = state.sources.firstOrNull { it.id == state.activeSourceId }?.name ?: state.activeSourceId
+        val syncTimeStr = if (state.genresLastSyncAtMs > 0L) {
+            android.text.format.DateFormat.format("HH:mm:ss", java.util.Date(state.genresLastSyncAtMs)).toString()
+        } else {
+            "Đang kết nối"
+        }
+        binding.txtGenrePickerSyncStatus.text = "🟢 Đồng bộ từ $srcName • $syncTimeStr"
+
+        val cols = when (state.resolvedDevice) {
+            ResolvedDeviceProfile.MOBILE -> 2
+            ResolvedDeviceProfile.TABLET -> 3
+            ResolvedDeviceProfile.TV -> 4
+        }
+        val gap = ThemeManager.dp(this, 7f)
+        val container = binding.genrePickerGridContainer
+        container.removeAllViews()
+
+        val list = state.genres.ifEmpty { InitialData.GENRES_DATA }
+        var focusTarget: View? = null
+        list.chunked(cols).forEachIndexed { rIdx, rowItems ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { if (rIdx > 0) topMargin = gap }
+            }
+            for (c in 0 until cols) {
+                val item = rowItems.getOrNull(c)
+                if (item != null) {
+                    val active = state.selectedGenre == item.id
+                    val displayLabel = if (item.id == "Tất cả") "Tất cả phim" else item.label
+                    val chip = TextView(this).apply {
+                        text = if (active) "✓ $displayLabel" else displayLabel
+                        textSize = 12f
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                        setTypeface(null, if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                        setTextColor(if (active) Color.WHITE else p.textMain)
+                        background = ThemeManager.pillDrawable(this@MainActivity, p, active = active, radiusDp = 14f)
+                        gravity = android.view.Gravity.CENTER_VERTICAL
+                        isFocusable = true
+                        isClickable = true
+                        val padH = ThemeManager.dp(context, 10f)
+                        val padV = ThemeManager.dp(context, 9f)
+                        setPadding(padH, padV, padH, padV)
+                        setOnClickListener { selectGenre(item.id) }
+                    }
+                    if (active) focusTarget = chip
+                    if (focusTarget == null) focusTarget = chip
+                    row.addView(
+                        chip,
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            if (c > 0) marginStart = gap
+                        }
+                    )
+                } else {
+                    row.addView(
+                        View(this),
+                        LinearLayout.LayoutParams(0, 0, 1f).apply {
+                            if (c > 0) marginStart = gap
+                        }
+                    )
+                }
+            }
+            container.addView(row)
+        }
+        return focusTarget
+    }
+
+    private fun closeGenrePickerOverlay() {
+        if (!isGenrePickerOpen && binding.floatingGenrePickerOverlay.visibility != View.VISIBLE) return
+        isGenrePickerOpen = false
+        val dur = animDuration(130L)
+        binding.floatingGenrePickerOverlay.animate().cancel()
+        binding.floatingGenrePickerContainer.animate().cancel()
+        if (dur == 0L) {
+            binding.floatingGenrePickerOverlay.visibility = View.GONE
+            binding.floatingGenrePickerOverlay.alpha = 1f
+            binding.floatingGenrePickerContainer.apply { alpha = 1f; scaleX = 1f; scaleY = 1f }
+            return
+        }
+        binding.floatingGenrePickerContainer.animate()
+            .alpha(0f).scaleX(0.92f).scaleY(0.92f).setDuration(dur).start()
+        binding.floatingGenrePickerOverlay.animate()
+            .alpha(0f)
+            .setDuration(dur)
+            .withEndAction {
+                if (!isGenrePickerOpen) {
+                    binding.floatingGenrePickerOverlay.visibility = View.GONE
+                    binding.floatingGenrePickerOverlay.alpha = 1f
+                    binding.floatingGenrePickerContainer.apply { alpha = 1f; scaleX = 1f; scaleY = 1f }
+                }
+            }
+            .start()
+    }
+
+    override fun syncWebGenresNow() {
+        val srcName = state.sources.firstOrNull { it.id == state.activeSourceId }?.name ?: state.activeSourceId
+        binding.txtGenrePickerSyncStatus.text = "⏳ Đang đồng bộ từ $srcName..."
+        lifecycleScope.launch {
+            val freshCats = runCatching {
+                MovieRepository.fetchCategoriesForSource(state.activeSourceId, forceRefresh = true)
+            }.getOrDefault(emptyList())
+            if (freshCats.isNotEmpty()) {
+                state = state.copy(genres = freshCats, genresLastSyncAtMs = System.currentTimeMillis())
+                notifyActiveFragment()
+            }
+            val selectedObj = state.genres.firstOrNull { it.id == state.selectedGenre }
+            if (state.selectedGenre != "Tất cả" && selectedObj != null) {
+                val freshPage = runCatching {
+                    MovieRepository.fetchGenrePage(state.activeSourceId, selectedObj, 1, 30, forceRefresh = true)
+                }.getOrNull()
+                if (freshPage != null && freshPage.movies.isNotEmpty()) {
+                    state = state.copy(
+                        activeGenreMovies = freshPage.movies,
+                        genrePage = freshPage.page,
+                        genreTotalPages = freshPage.totalPages
+                    )
+                    notifyActiveFragment()
+                }
+            }
+            if (isGenrePickerOpen) renderGenrePickerContent()
+            showToast("Đã đồng bộ thể loại & phim mới từ $srcName")
         }
     }
 
@@ -1885,6 +2116,7 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     override fun navigateTab(tab: MainTab) {
         closeSearchOverlay()
+        closeGenrePickerOverlay()
         if (state.activeTab == tab) {
             setChromeCollapsed(false)
             return

@@ -136,6 +136,48 @@ class MovieCardAdapter(
         val meta = metaProvider(movie, position)
         val b = holder.b
         val ctx = b.root.context
+        val screenWdp = ctx.resources.configuration.screenWidthDp
+        val isCompactPhoneGrid = !isTvMode && fixedWidthDp == null && screenWdp < 600
+        val sizeModeKey = if (isCompactPhoneGrid) "compact3" else if (isTvMode) "tv" else "std"
+        if (b.posterFrame.getTag(R.id.posterFrame) != sizeModeKey) {
+            b.posterFrame.setTag(R.id.posterFrame, sizeModeKey)
+            val posterH = ThemeManager.dp(
+                ctx,
+                when {
+                    isCompactPhoneGrid -> 146f
+                    fixedWidthDp != null -> 182f
+                    isTvMode -> 196f
+                    else -> 190f
+                }
+            )
+            val frameMargin = ThemeManager.dp(ctx, if (isCompactPhoneGrid) 3f else 5f)
+            b.posterFrame.layoutParams = (b.posterFrame.layoutParams as ViewGroup.MarginLayoutParams).apply {
+                height = posterH
+                setMargins(frameMargin, frameMargin, frameMargin, frameMargin)
+            }
+            val rootMargin = ThemeManager.dp(ctx, if (isCompactPhoneGrid) 3f else 5f)
+            (b.cardRoot.layoutParams as? ViewGroup.MarginLayoutParams)?.let { rLp ->
+                rLp.setMargins(rootMargin, rootMargin, if (fixedWidthDp != null) ThemeManager.dp(ctx, 10f) else rootMargin, rootMargin)
+                b.cardRoot.layoutParams = rLp
+            }
+            val infoPad = ThemeManager.dp(ctx, if (isCompactPhoneGrid) 6f else 9f)
+            (b.txtMovieTitle.parent as? View)?.setPadding(infoPad, infoPad, infoPad, infoPad)
+            b.txtMovieTitle.textSize = if (isCompactPhoneGrid) 11.5f else 13f
+            b.txtMovieOrig.textSize = if (isCompactPhoneGrid) 9.5f else 11f
+            b.txtMovieViews.textSize = if (isCompactPhoneGrid) 9f else 10f
+            b.txtMovieStudio.textSize = if (isCompactPhoneGrid) 9f else 10f
+            val badgeSp = if (isCompactPhoneGrid) 8.5f else 10f
+            b.txtQualityBadge.textSize = badgeSp
+            b.txtEpBadge.textSize = badgeSp
+            b.txtRatingBadge.textSize = badgeSp
+            b.txtNewEpBadge.textSize = badgeSp
+            b.txtOfflineBadge.textSize = badgeSp
+            val heartSize = ThemeManager.dp(ctx, if (isCompactPhoneGrid) 28f else 34f)
+            b.btnFavHeart.layoutParams = b.btnFavHeart.layoutParams.apply {
+                width = heartSize
+                height = heartSize
+            }
+        }
 
         val cardKey = "${palette.preset.wireValue}_${palette.isDark}_${palette.glassOpacityPct}_${isTvMode}_$reducedMotion"
         if (cardKey != cachedCardKey || b.cardRoot.background == null) {
@@ -306,9 +348,13 @@ class GenreChipAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val g = getItem(position)
-        val active = g.id == selectedId
+        val active = g.id == selectedId || (g.id == "Tất cả" && selectedId != "Tất cả")
         val tv = holder.b.chipGenre
-        tv.text = g.label
+        tv.text = when {
+            g.id == "Tất cả" && selectedId != "Tất cả" -> "${g.label}: $selectedId ▾"
+            g.id == "Tất cả" -> "${g.label} ▾"
+            else -> g.label
+        }
         tv.background = ThemeManager.pillDrawable(tv.context, palette, active = active, radiusDp = 20f)
         tv.setTextColor(if (active) Color.WHITE else palette.textMain)
         tv.setOnClickListener { onSelectGenre(g) }

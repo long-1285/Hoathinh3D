@@ -146,4 +146,27 @@ class YanHh3dNowScraperTest {
         assertEquals("BXH #10", top10[9].views)
         assertTrue(top10[0].viewsNum > top10[9].viewsNum)
     }
+
+    @Test
+    fun parseCategoriesFromHtml_exposesCoreTopicsAndSyncsWebLinks() {
+        val navHtml = """
+            <nav>
+              <a href="https://yanhh3d.now/hoat-hinh-3d">Hoạt Hình 3D</a>
+              <a href="https://yanhh3d.now/phim-le">Phim Lẻ | OVA</a>
+              <a href="https://yanhh3d.now/the-loai/tien-hiep">Tiên Hiệp</a>
+              <a href="https://yanhh3d.now/the-loai/kiem-hiep">Kiếm Hiệp</a>
+            </nav>
+        """.trimIndent()
+        val cats = YanHh3dNowScraper.parseCategoriesFromHtml(navHtml)
+        assertEquals("Thể loại phim", cats.first().label)
+        val ids = cats.map { it.id }
+        assertTrue(ids.contains("Phim Hot"))
+        assertTrue(ids.contains("Phim Chiếu Rạp"))
+        assertTrue(ids.contains("Phim Lẻ"))
+        assertTrue(ids.contains("Phim Bộ"))
+        assertTrue(ids.contains("Phim Hoạt Hình"))
+        assertTrue(ids.contains("Phim Hành Động"))
+        assertTrue(ids.contains("Tình Cảm"))
+        assertTrue(ids.contains("Tiên Hiệp"))
+    }
 }

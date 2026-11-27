@@ -10,7 +10,7 @@ import android.widget.LinearLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -18,6 +18,7 @@ import com.hoathinh3d.donghua.core.ThemeManager
 import com.hoathinh3d.donghua.core.ThemePalette
 import com.hoathinh3d.donghua.data.model.DonghuaMovie
 import com.hoathinh3d.donghua.data.model.InitialData
+import com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile
 import com.hoathinh3d.donghua.data.source.MovieRepository
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.data.source.YanHh3dScraper
@@ -53,6 +54,7 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var yanDayMovies: List<DonghuaMovie> = emptyList()
     private var fetchJob: Job? = null
     private var lastDayTabsKey: String? = null
+    private var currentCols = 1
     private var restoreDayTabFocus = false
     private lateinit var adapter: ScheduleMovieAdapter
 
@@ -74,7 +76,8 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         super.onViewCreated(view, savedInstanceState)
         val h = host ?: return
         adapter = ScheduleMovieAdapter { h.openMovieDetail(it) }
-        binding.rvSchedule.layoutManager = LinearLayoutManager(requireContext())
+        currentCols = if (h.getState().resolvedDevice == ResolvedDeviceProfile.MOBILE) 1 else 2
+        binding.rvSchedule.layoutManager = GridLayoutManager(requireContext(), currentCols)
         binding.rvSchedule.adapter = adapter
         binding.rvSchedule.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -113,7 +116,12 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val h = host ?: return
         val p = h.getPalette()
         val st = h.getState()
-        val isTv = st.resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
+        val isTv = st.resolvedDevice == ResolvedDeviceProfile.TV
+        val desiredCols = if (st.resolvedDevice == ResolvedDeviceProfile.MOBILE) 1 else 2
+        if (desiredCols != currentCols) {
+            currentCols = desiredCols
+            (b.rvSchedule.layoutManager as? GridLayoutManager)?.spanCount = desiredCols
+        }
         val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.scheduleRoot.setPadding(hPad, chromeTop, hPad, 0)

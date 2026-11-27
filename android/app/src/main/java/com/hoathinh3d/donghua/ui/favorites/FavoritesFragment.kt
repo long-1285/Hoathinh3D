@@ -52,7 +52,8 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             onPlay = { h.playOfflineRecord(it) },
             onDelete = { h.removeOfflineRecord(it.key) }
         )
-        binding.rvOfflineEpisodes.layoutManager = LinearLayoutManager(requireContext())
+        val offlineCols = if (h.getState().resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.MOBILE) 1 else 2
+        binding.rvOfflineEpisodes.layoutManager = GridLayoutManager(requireContext(), offlineCols)
         binding.rvOfflineEpisodes.adapter = offlineAdapter
 
         favAdapter = MovieCardAdapter(
@@ -123,6 +124,8 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.offlineSectionPanel.visibility = View.GONE
         }
 
+        val offlineCols = if (st.resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.MOBILE) 1 else 2
+        (b.rvOfflineEpisodes.layoutManager as? GridLayoutManager)?.spanCount = offlineCols
         val desiredSpan = DeviceProfileResolver.gridSpanCount(st.resolvedDevice)
         if (desiredSpan != currentSpan) {
             currentSpan = desiredSpan

@@ -421,18 +421,75 @@ object YanHh3dScraper {
                     )
                     add(
                         GenreItem(
-                            id = "Mới Cập Nhật",
-                            label = "Mới Cập Nhật",
-                            icon = "bolt",
-                            sourceSlug = "yanhh3d-moi-cap-nhat"
+                            id = "Phim Hot",
+                            label = "Phim Hot",
+                            icon = "flame",
+                            sourceSlug = "top-yanhh3d-xem-nhieu"
+                        )
+                    )
+                    val cinemaCat = genreItems.firstOrNull {
+                        it.id.lowercase().contains("chiếu rạp") || (it.sourceSlug ?: "").contains("chieu-rap")
+                    }
+                    add(
+                        GenreItem(
+                            id = "Phim Chiếu Rạp",
+                            label = "Phim Chiếu Rạp",
+                            icon = "sparkles",
+                            sourceSlug = cinemaCat?.sourceSlug ?: "topic:phim-chieu-rap",
+                            wpCategoryId = cinemaCat?.wpCategoryId
+                        )
+                    )
+                    val leCat = genreItems.firstOrNull {
+                        val s = (it.sourceSlug ?: "").lowercase()
+                        s.contains("ova") || s.contains("phim-le") || it.id.lowercase().contains("phim lẻ")
+                    }
+                    add(
+                        GenreItem(
+                            id = "Phim Lẻ",
+                            label = "Phim Lẻ",
+                            icon = "film",
+                            sourceSlug = leCat?.sourceSlug ?: "topic:phim-le",
+                            wpCategoryId = leCat?.wpCategoryId
                         )
                     )
                     add(
                         GenreItem(
-                            id = "Top Xem Nhiều",
-                            label = "Top Xem Nhiều",
-                            icon = "crown",
-                            sourceSlug = "top-yanhh3d-xem-nhieu"
+                            id = "Phim Bộ",
+                            label = "Phim Bộ",
+                            icon = "grid",
+                            sourceSlug = "topic:phim-bo"
+                        )
+                    )
+                    add(
+                        GenreItem(
+                            id = "Phim Hoạt Hình",
+                            label = "Phim Hoạt Hình",
+                            icon = "dragon",
+                            sourceSlug = "yanhh3d-moi-cap-nhat"
+                        )
+                    )
+                    val actionCat = genreItems.firstOrNull {
+                        it.id.lowercase().contains("hành động") || (it.sourceSlug ?: "").contains("hanh-dong")
+                    }
+                    add(
+                        GenreItem(
+                            id = "Phim Hành Động",
+                            label = "Phim Hành Động",
+                            icon = "sword",
+                            sourceSlug = actionCat?.sourceSlug ?: "topic:phim-hanh-dong",
+                            wpCategoryId = actionCat?.wpCategoryId
+                        )
+                    )
+                    val romanceCat = genreItems.firstOrNull {
+                        it.id.lowercase().contains("tình cảm") || (it.sourceSlug ?: "").contains("tinh-cam")
+                    }
+                    add(
+                        GenreItem(
+                            id = "Tình Cảm",
+                            label = "Tình Cảm",
+                            icon = "tag",
+                            sourceSlug = romanceCat?.sourceSlug ?: "topic:tinh-cam",
+                            wpCategoryId = romanceCat?.wpCategoryId
                         )
                     )
                     add(
@@ -445,7 +502,11 @@ object YanHh3dScraper {
                         )
                     )
                     addAll(statusItems)
-                    addAll(genreItems)
+                    val coreLower = setOf(
+                        "phim hot", "phim chiếu rạp", "phim lẻ", "phim bộ",
+                        "phim hoạt hình", "phim hành động", "tình cảm"
+                    )
+                    addAll(genreItems.filterNot { it.id.lowercase() in coreLower })
                 }
 
                 val result = YanTaxonomyResult(genres, catMap, totalMovies)

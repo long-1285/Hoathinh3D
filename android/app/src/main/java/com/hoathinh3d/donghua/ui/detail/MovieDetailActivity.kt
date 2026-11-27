@@ -79,6 +79,17 @@ class MovieDetailActivity : AppCompatActivity() {
             ResolvedDeviceProfile.TABLET -> 6
             ResolvedDeviceProfile.TV -> 8
         }
+        val backdropFrame = binding.imgDetailBackdrop.parent as? android.view.ViewGroup
+        backdropFrame?.layoutParams = backdropFrame?.layoutParams?.apply {
+            height = ThemeManager.dp(
+                this@MovieDetailActivity,
+                when (resolvedDevice) {
+                    ResolvedDeviceProfile.MOBILE -> 212f
+                    ResolvedDeviceProfile.TABLET -> 244f
+                    ResolvedDeviceProfile.TV -> 260f
+                }
+            )
+        }
 
         binding.btnCloseDetail.setOnClickListener { finish() }
         ThemeManager.applyEdgeToEdgePadding(binding.detailRoot) { top, bottom, left, right ->
@@ -433,25 +444,20 @@ class MovieDetailActivity : AppCompatActivity() {
             binding.serverChipsContainer.addView(btn, lp)
         }
 
-        // 50-episode ranges
-        val ranges = mutableListOf<Pair<Int, Int>>()
-        var start = 0
-        while (start < totalEpCount) {
-            val end = minOf(start + PlayerUtils.EP_PAGE_SIZE, totalEpCount)
-            ranges.add(start to end)
-            start += PlayerUtils.EP_PAGE_SIZE
-        }
+        // Hiển thị số tập mới nhất trước theo thứ tự giảm dần (Tập N -> Tập 1)
+        val displayIndices = PlayerUtils.descendingEpisodeDisplayIndices(eps, totalEpCount)
+        val ranges = PlayerUtils.buildDescendingEpisodeRanges(displayIndices, eps, PlayerUtils.EP_PAGE_SIZE)
         if (epRangeIdx !in ranges.indices) epRangeIdx = 0
 
         binding.epRangeContainer.removeAllViews()
         if (ranges.size > 1) {
             binding.epRangeScroll.visibility = View.VISIBLE
-            ranges.forEachIndexed { idx, (s, e) ->
+            ranges.forEachIndexed { idx, slice ->
                 val active = idx == epRangeIdx
                 val rngTag = "detail_rng_$idx"
                 val btn = Button(this).apply {
                     tag = rngTag
-                    text = "Tập ${s + 1} - $e"
+                    text = slice.label
                     isAllCaps = false
                     textSize = 11f
                     minHeight = 0
@@ -481,11 +487,14 @@ class MovieDetailActivity : AppCompatActivity() {
             binding.epRangeScroll.visibility = View.GONE
         }
 
-        // Episode grid (đánh dấu tập đang xem, đã lưu offline & đã xem qua)
-        val (rStart, rEnd) = ranges.getOrElse(epRangeIdx) { 0 to totalEpCount }
+        // Episode grid (mới nhất trước; đánh dấu tập đang xem, đã lưu offline & đã xem qua)
+        val slice = ranges.getOrNull(epRangeIdx)
+        val rStart = slice?.startPos ?: 0
+        val rEnd = slice?.endExclusive ?: displayIndices.size
         val watchedEps = PrefsStore.getWatchedEpisodes(movie.id)
         binding.episodeGridContainer.removeAllViews()
-        for (idx in rStart until rEnd) {
+        for (pos in rStart until rEnd) {
+            val idx = displayIndices[pos]
             val ep = eps.getOrNull(idx)
             val epNum = PlayerUtils.extractEpisodeNumber(ep, idx)
             val isWatching = prog?.episode == epNum
