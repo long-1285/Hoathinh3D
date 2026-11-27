@@ -63,8 +63,10 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var lastHeroSlidesKey: String? = null
     private var lastHeroImgUrl: String? = null
     private var lastTvCarouselsKey: String? = null
-    private var lastTrendingRenderSig: String? = null
-    private var lastCatalogRenderSig: String? = null
+    private var lastTrendingThemeSig: String? = null
+    private var lastTrendingMetaSig: String? = null
+    private var lastCatalogThemeSig: String? = null
+    private var lastCatalogMetaSig: String? = null
     private var lastGenreBarKey: String? = null
     private var lastFilterBarKey: String? = null
     private var lastSearchSourceKey: String? = null
@@ -175,18 +177,20 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         )
         lastFilteredCount = filtered.size
 
-        val metaRenderSig = buildString {
+        val themeRenderSig = buildString {
             append(p.preset.wireValue).append('|')
             append(p.isDark).append('|')
             append(p.glassOpacityPct).append('|')
             append(p.glassBlurPx).append('|')
             append(isTv).append('|')
-            append(isLite).append('|')
+            append(isLite)
+        }
+        val metaRenderSig = buildString {
             append(st.favorites.joinToString(",")).append('|')
             append(st.watchHistory.entries.joinToString(",") { "${it.key}:${it.value.progressPct}" })
         }
 
-        bindHeaderContent(st, p, isTv, filtered.size, metaRenderSig)
+        bindHeaderContent(st, p, isTv, filtered.size, themeRenderSig, metaRenderSig)
 
         catalogAdapter.palette = p
         catalogAdapter.isTvMode = isTv
@@ -198,9 +202,18 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             )
         }
         catalogAdapter.submitList(filtered)
-        if (metaRenderSig != lastCatalogRenderSig) {
-            lastCatalogRenderSig = metaRenderSig
-            catalogAdapter.notifyDataSetChanged()
+        when {
+            themeRenderSig != lastCatalogThemeSig -> {
+                lastCatalogThemeSig = themeRenderSig
+                lastCatalogMetaSig = metaRenderSig
+                catalogAdapter.notifyDataSetChanged()
+            }
+            metaRenderSig != lastCatalogMetaSig -> {
+                lastCatalogMetaSig = metaRenderSig
+                if (catalogAdapter.itemCount > 0) {
+                    catalogAdapter.notifyItemRangeChanged(0, catalogAdapter.itemCount, MovieCardAdapter.PAYLOAD_META)
+                }
+            }
         }
 
         bindFooterContent(p, st, filtered.size, st.searchQuery.trim().isNotEmpty())
@@ -211,6 +224,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         p: ThemePalette,
         isTv: Boolean,
         filteredCount: Int,
+        themeRenderSig: String,
         metaRenderSig: String
     ) {
         val b = headerBinding ?: return
@@ -328,9 +342,18 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                     )
                 }
                 ta.submitList(trending)
-                if (metaRenderSig != lastTrendingRenderSig) {
-                    lastTrendingRenderSig = metaRenderSig
-                    ta.notifyDataSetChanged()
+                when {
+                    themeRenderSig != lastTrendingThemeSig -> {
+                        lastTrendingThemeSig = themeRenderSig
+                        lastTrendingMetaSig = metaRenderSig
+                        ta.notifyDataSetChanged()
+                    }
+                    metaRenderSig != lastTrendingMetaSig -> {
+                        lastTrendingMetaSig = metaRenderSig
+                        if (ta.itemCount > 0) {
+                            ta.notifyItemRangeChanged(0, ta.itemCount, MovieCardAdapter.PAYLOAD_META)
+                        }
+                    }
                 }
             }
         } else {
@@ -766,7 +789,8 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 lastGenreBarKey = null
                 lastFilterBarKey = null
                 lastHeroSlidesKey = null
-                lastTrendingRenderSig = null
+                lastTrendingThemeSig = null
+                lastTrendingMetaSig = null
             }
             return VH(b)
         }
@@ -776,16 +800,17 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             val st = h.getState()
             val p = h.getPalette()
             val isTv = st.resolvedDevice == ResolvedDeviceProfile.TV
+            val isLite = DeviceProfileResolver.shouldUseReducedMotion(
+                holder.b.root.context,
+                st.resolvedDevice,
+                st.settings.reducedMotion
+            )
+            val themeRenderSig = "${p.preset.wireValue}|${p.isDark}|${p.glassOpacityPct}|${p.glassBlurPx}|$isTv|$isLite"
             val metaRenderSig = buildString {
-                append(p.preset.wireValue).append('|')
-                append(p.isDark).append('|')
-                append(p.glassOpacityPct).append('|')
-                append(p.glassBlurPx).append('|')
-                append(isTv).append('|')
                 append(st.favorites.joinToString(",")).append('|')
                 append(st.watchHistory.entries.joinToString(",") { "${it.key}:${it.value.progressPct}" })
             }
-            bindHeaderContent(st, p, isTv, lastFilteredCount, metaRenderSig)
+            bindHeaderContent(st, p, isTv, lastFilteredCount, themeRenderSig, metaRenderSig)
         }
     }
 
@@ -813,8 +838,10 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         lastTvCarouselsKey = null
         lastHeroSlidesKey = null
         lastHeroImgUrl = null
-        lastTrendingRenderSig = null
-        lastCatalogRenderSig = null
+        lastTrendingThemeSig = null
+        lastTrendingMetaSig = null
+        lastCatalogThemeSig = null
+        lastCatalogMetaSig = null
         lastGenreBarKey = null
         lastFilterBarKey = null
         lastSearchSourceKey = null

@@ -102,7 +102,6 @@ interface AppHost {
     fun updateUser(user: UserProfile?)
     fun openGoogleLoginDialog()
     fun checkAppUpdate(manual: Boolean = false)
-    fun configureUpdateSourceDialog()
     fun navigateTab(tab: MainTab)
     fun setSettingsSubtab(subtab: SettingsSubtab)
     fun openSamplePlayer()
@@ -1123,7 +1122,7 @@ class MainActivity : AppCompatActivity(), AppHost {
                         loadLiveDonghuaFeed(sourceId, retryAttempt = 1, silentOnSuccess = silentOnSuccess)
                     }
                 } else {
-                    showToast("Chưa kết nối được nguồn $srcLabel — kiểm tra mạng hoặc Nhật ký")
+                    showToast("Chưa kết nối được nguồn $srcLabel — vui lòng kiểm tra lại kết nối mạng")
                 }
             } catch (e: Exception) {
                 com.hoathinh3d.donghua.core.AppDiagnostics.log("Feed", "Lỗi nạp feed ($sourceId): ${e.message}")
@@ -1721,45 +1720,6 @@ class MainActivity : AppCompatActivity(), AppHost {
             .show()
     }
 
-    override fun configureUpdateSourceDialog() {
-        val currentUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
-            state.settings.updateManifestUrl
-        )
-        val pad = ThemeManager.dp(this, 16f)
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-        }
-        val urlInput = EditText(this).apply {
-            hint = com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL
-            setText(currentUrl)
-            isSingleLine = true
-        }
-        container.addView(urlInput)
-        AlertDialog.Builder(this)
-            .setTitle("Cấu hình nguồn Auto Update")
-            .setMessage(
-                "Mặc định kiểm tra trực tiếp kho GitHub chính thức (${com.hoathinh3d.donghua.core.AppUpdateChecker.OFFICIAL_GITHUB_REPO}). " +
-                    "Cũng hỗ trợ JSON manifest khác, GitHub Releases API (/releases/latest) hoặc link .apk trực tiếp."
-            )
-            .setView(container)
-            .setNegativeButton("Hủy", null)
-            .setNeutralButton("Mặc định Git") { _, _ ->
-                updateSettings {
-                    it.copy(updateManifestUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.DEFAULT_MANIFEST_URL)
-                }
-                showToast("Đã khôi phục URL OTA GitHub mặc định")
-            }
-            .setPositiveButton("Lưu & Kiểm tra") { _, _ ->
-                val cleaned = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
-                    urlInput.text.toString()
-                )
-                updateSettings { it.copy(updateManifestUrl = cleaned) }
-                checkAppUpdate(manual = true)
-            }
-            .show()
-    }
-
     override fun checkAppUpdate(manual: Boolean) {
         val manifestUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
             state.settings.updateManifestUrl
@@ -1962,12 +1922,19 @@ class MainActivity : AppCompatActivity(), AppHost {
     }
 
     override fun onDestroy() {
+        searchJob?.cancel()
+        genreJob?.cancel()
+        loadMoreJob?.cancel()
+        realtimeTrendingJob?.cancel()
+        mainHandler.removeCallbacksAndMessages(null)
         LanSyncManager.stopLanSyncServer()
         if (isFinishing && state.settings.autoClearCacheOnExit) {
-            runCatching { com.hoathinh3d.donghua.player.HlsCacheProvider.clearCache(applicationContext) }
-            runCatching { com.bumptech.glide.Glide.get(applicationContext).clearMemory() }
+            val appCtx = applicationContext
+            runCatching { com.bumptech.glide.Glide.get(appCtx).clearMemory() }
             Thread {
-                runCatching { com.bumptech.glide.Glide.get(applicationContext).clearDiskCache() }
+                runCatching { com.hoathinh3d.donghua.player.HlsCacheProvider.clearCache(appCtx) }
+                runCatching { com.hoathinh3d.donghua.core.AppUpdateChecker.cleanupOldUpdates(appCtx) }
+                runCatching { com.bumptech.glide.Glide.get(appCtx).clearDiskCache() }
             }.start()
         }
         super.onDestroy()

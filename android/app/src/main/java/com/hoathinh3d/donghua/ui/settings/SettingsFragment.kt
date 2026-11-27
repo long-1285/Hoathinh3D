@@ -23,7 +23,6 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.hoathinh3d.donghua.BuildConfig
-import com.hoathinh3d.donghua.core.AppDiagnostics
 import com.hoathinh3d.donghua.core.DeviceProfileResolver
 import com.hoathinh3d.donghua.core.HttpClientProvider
 import com.hoathinh3d.donghua.core.LanSyncManager
@@ -1178,41 +1177,13 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 h.showToast(if (ok) "Đã dọn sạch bộ nhớ đệm HLS!" else "Không thể dọn cache")
                 refreshUi()
             },
-            styledButton("📋 Nhật ký lỗi (${AppDiagnostics.count()})", p, false) {
-                val dumpText = AppDiagnostics.dump()
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Nhật ký chẩn đoán mạng & hệ thống")
-                    .setMessage(dumpText)
-                    .setNegativeButton("Đóng", null)
-                    .setNeutralButton("Xóa log") { _, _ ->
-                        AppDiagnostics.clear()
-                        h.showToast("Đã xóa nhật ký chẩn đoán")
-                        refreshUi()
-                    }
-                    .setPositiveButton("Sao chép log") { _, _ ->
-                        val cm = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                        cm?.setPrimaryClip(android.content.ClipData.newPlainText("HH3D Diagnostics", dumpText))
-                        h.showToast("Đã sao chép nhật ký chẩn đoán!")
-                    }
-                    .show()
-            },
             styledButton("⬆ Kiểm tra cập nhật", p, true) {
                 h.checkAppUpdate(manual = true)
-            },
-            styledButton("⚙ URL cập nhật", p, false) {
-                h.configureUpdateSourceDialog()
             }
         )
         infoBox.addView(buttonGrid(diagButtons, columns = if (isWide) 3 else 2, topMarginDp = 10f))
         infoBox.addView(diagResultTv)
-        val updateUrl = com.hoathinh3d.donghua.core.AppUpdateChecker.resolveEffectiveManifestUrl(
-            st.settings.updateManifestUrl
-        )
-        val updateSub = if (com.hoathinh3d.donghua.core.AppUpdateChecker.isOfficialGitUrl(updateUrl)) {
-            "Tự kiểm tra bản mới trên GitHub (${com.hoathinh3d.donghua.core.AppUpdateChecker.OFFICIAL_GITHUB_REPO})"
-        } else {
-            "Kiểm tra APK mới khi mở app • $updateUrl"
-        }
+        val updateSub = "Tự kiểm tra & tải phiên bản mới nhất trên GitHub khi mở app"
         addResponsiveRows(
             infoBox,
             listOf(

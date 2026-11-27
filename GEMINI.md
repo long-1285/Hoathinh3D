@@ -21,13 +21,13 @@
 2. **An toàn bí mật:**
    - **TUYỆT ĐỐI KHÔNG** lưu GitHub token, mật khẩu, keystore hoặc thông tin xác thực vào mã nguồn, `.git/config`, `GEMINI.md` hay `PROJECT_MEMORY.md`.
 3. **Cuối phiên — Kiểm thử & Build Debug APK:**
-   - Chỉ chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` (tự động dò OpenJDK 21 & Android SDK, chạy `testDebugUnitTest` + `assembleDebug`, xuất ra `HoatHinh3D-Universal-debug.apk`).
+   - Chỉ chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` (tự động dò OpenJDK 21 & Android SDK, chạy `testDebugUnitTest` + `assembleDebug`, xuất ra `HoatHinh3d.apk`).
    - **KHÔNG** chạy `assembleRelease` / không tạo Release R8 APK.
    - Khi chạm tới API Android hoặc Scraper, chạy thêm `.\gradlew.bat lintDebug` để bảo đảm **0 lỗi `NewApi`** cho `minSdk 23`.
 4. **Chốt phiên — Cập nhật Memory, Xuất Bản OTA & Push Git:**
    - Tăng `versionCode` / `versionName` trong `android/app/build.gradle` tương ứng phiên mới.
    - Cập nhật `PROJECT_MEMORY.md` (mục 5 thêm phiên mới lên đầu, mục 6 Tổng kết bàn giao, mục 7 Prompt chuyển giao).
-   - Commit với thông điệp phiên bản rõ ràng (VD: `fix(v42): ...`), push lên `https://github.com/long-1285/Hoathinh3D.git`, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để tải `HoatHinh3D-Universal-debug.apk` lên GitHub Release `v<versionCode>`, sinh `version.json` và commit/push `version.json` lên `main` để thiết bị kiểm tra OTA luôn nhận được bản mới nhất.
+   - Commit với thông điệp phiên bản rõ ràng (VD: `fix(v44): ...`), push lên `https://github.com/long-1285/Hoathinh3D.git`, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để tải `HoatHinh3d.apk` lên GitHub Release `v<versionCode>`, sinh `version.json` và commit/push `version.json` lên `main` để thiết bị kiểm tra OTA luôn nhận được bản mới nhất.
 
 ---
 

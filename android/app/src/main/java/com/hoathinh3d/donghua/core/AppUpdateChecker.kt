@@ -263,7 +263,7 @@ object AppUpdateChecker {
     ): File? = withContext(Dispatchers.IO) {
         try {
             val dir = resolveUpdateDir(context)
-            val outFile = File(dir, "HoatHinh3D-update.apk")
+            val outFile = File(dir, "HoatHinh3d-update.apk")
             if (outFile.exists()) outFile.delete()
 
             val downloadClient = HttpClientProvider.okHttpClient.newBuilder()

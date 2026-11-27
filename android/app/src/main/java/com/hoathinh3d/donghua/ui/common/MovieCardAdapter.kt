@@ -47,11 +47,71 @@ class MovieCardAdapter(
     private var cachedCardKey: String = ""
     private var cachedCardBgColor: Int = 0
     private var cachedCardStrokeColor: Int = 0
+    private val cachedRankBgs = HashMap<Int, GradientDrawable>()
 
     companion object {
+        const val PAYLOAD_META = "payload_meta"
         private val DIFF = object : DiffUtil.ItemCallback<DonghuaMovie>() {
             override fun areItemsTheSame(a: DonghuaMovie, b: DonghuaMovie): Boolean = a.id == b.id
             override fun areContentsTheSame(a: DonghuaMovie, b: DonghuaMovie): Boolean = a == b
+        }
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(PAYLOAD_META)) {
+            bindMetaOnly(holder.b, getItem(position), position)
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
+    }
+
+    private fun bindMetaOnly(b: ItemMovieCardBinding, movie: DonghuaMovie, position: Int) {
+        val ctx = b.root.context
+        val meta = metaProvider(movie, position)
+        if (meta.rankBadge != null) {
+            b.txtRankBadge.visibility = View.VISIBLE
+            b.txtRankBadge.text = "#${meta.rankBadge}"
+            val rankBucket = if (meta.rankBadge in 1..3) meta.rankBadge else 4
+            val bg = cachedRankBgs.getOrPut(rankBucket) {
+                val rankColor = when (rankBucket) {
+                    1 -> Color.parseColor("#F59E0B")
+                    2 -> Color.parseColor("#64748B")
+                    3 -> Color.parseColor("#B45309")
+                    else -> Color.parseColor("#0F172A")
+                }
+                GradientDrawable().apply {
+                    cornerRadius = ThemeManager.dp(ctx, 8f).toFloat()
+                    setColor(rankColor)
+                }
+            }
+            b.txtRankBadge.background = bg.constantState?.newDrawable()?.mutate() ?: bg
+        } else {
+            b.txtRankBadge.visibility = View.GONE
+        }
+
+        if (meta.newEpBadge != null && meta.newEpBadge > 0) {
+            b.txtNewEpBadge.visibility = View.VISIBLE
+            b.txtNewEpBadge.text = "+${meta.newEpBadge} tập mới"
+        } else {
+            b.txtNewEpBadge.visibility = View.GONE
+        }
+
+        if (meta.offlineCount != null && meta.offlineCount > 0) {
+            b.txtOfflineBadge.visibility = View.VISIBLE
+            b.txtOfflineBadge.text = "⬇ ${meta.offlineCount} offline"
+        } else {
+            b.txtOfflineBadge.visibility = View.GONE
+        }
+
+        b.btnFavHeart.setImageResource(
+            if (meta.isFavorite) R.drawable.ic_fav_heart_filled else R.drawable.ic_fav_heart_outline
+        )
+
+        if (meta.progressPct != null && meta.progressPct > 0) {
+            b.progressWatchBar.visibility = View.VISIBLE
+            b.progressWatchBar.progress = meta.progressPct.coerceIn(0, 100)
+        } else {
+            b.progressWatchBar.visibility = View.GONE
         }
     }
 
@@ -146,48 +206,8 @@ class MovieCardAdapter(
         b.txtRatingBadge.text = "★ ${movie.rating}"
         b.txtRatingBadge.background = cachedRatingBg?.constantState?.newDrawable()?.mutate() ?: cachedRatingBg
 
-        if (meta.rankBadge != null) {
-            b.txtRankBadge.visibility = View.VISIBLE
-            b.txtRankBadge.text = "#${meta.rankBadge}"
-            val rankColor = when (meta.rankBadge) {
-                1 -> Color.parseColor("#F59E0B")
-                2 -> Color.parseColor("#64748B")
-                3 -> Color.parseColor("#B45309")
-                else -> Color.parseColor("#0F172A")
-            }
-            b.txtRankBadge.background = GradientDrawable().apply {
-                cornerRadius = ThemeManager.dp(ctx, 8f).toFloat()
-                setColor(rankColor)
-            }
-        } else {
-            b.txtRankBadge.visibility = View.GONE
-        }
-
-        if (meta.newEpBadge != null && meta.newEpBadge > 0) {
-            b.txtNewEpBadge.visibility = View.VISIBLE
-            b.txtNewEpBadge.text = "+${meta.newEpBadge} tập mới"
-        } else {
-            b.txtNewEpBadge.visibility = View.GONE
-        }
-
-        if (meta.offlineCount != null && meta.offlineCount > 0) {
-            b.txtOfflineBadge.visibility = View.VISIBLE
-            b.txtOfflineBadge.text = "⬇ ${meta.offlineCount} offline"
-        } else {
-            b.txtOfflineBadge.visibility = View.GONE
-        }
-
         b.btnFavHeart.setBackgroundColor(Color.TRANSPARENT)
-        b.btnFavHeart.setImageResource(
-            if (meta.isFavorite) R.drawable.ic_fav_heart_filled else R.drawable.ic_fav_heart_outline
-        )
-
-        if (meta.progressPct != null && meta.progressPct > 0) {
-            b.progressWatchBar.visibility = View.VISIBLE
-            b.progressWatchBar.progress = meta.progressPct.coerceIn(0, 100)
-        } else {
-            b.progressWatchBar.visibility = View.GONE
-        }
+        bindMetaOnly(b, movie, position)
 
         b.cardRoot.setOnClickListener { onSelect(movie) }
         b.cardRoot.setOnLongClickListener {
@@ -221,15 +241,19 @@ class ContinueWatchingAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemContinueCardBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        ThemeManager.applyRoundedOutline(b.continuePosterFrame, 12f)
         return VH(b)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val prog = getItem(position)
         val b = holder.b
-        b.continueCardRoot.background =
-            ThemeManager.glassPanelDrawable(b.root.context, palette, radiusDp = 16f, isCard = true)
-        ThemeManager.applyRoundedOutline(b.continuePosterFrame, 12f)
+        val cardKey = "${palette.preset.wireValue}_${palette.isDark}_${palette.glassOpacityPct}_$isTvMode"
+        if (b.continueCardRoot.background == null || b.continueCardRoot.getTag(R.id.continueCardRoot) != cardKey) {
+            b.continueCardRoot.background =
+                ThemeManager.glassPanelDrawable(b.root.context, palette, radiusDp = 16f, isCard = true)
+            b.continueCardRoot.setTag(R.id.continueCardRoot, cardKey)
+        }
         b.txtContinueTitle.text = prog.title
         b.txtContinueTitle.setTextColor(palette.textMain)
         b.txtContinueSub.text = com.hoathinh3d.donghua.player.PlayerUtils.formatContinueMeta(

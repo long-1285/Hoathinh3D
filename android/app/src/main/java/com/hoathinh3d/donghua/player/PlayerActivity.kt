@@ -501,6 +501,15 @@ class PlayerActivity : AppCompatActivity() {
                         preResolveNextEpisode()
                     }
                     Player.STATE_ENDED -> {
+                        val durMs = player.duration.coerceAtLeast(0L)
+                        if (durMs > 0L) {
+                            val epNum = currentEpisodeNum()
+                            if (lastWatchedMarkedEp != epNum) {
+                                lastWatchedMarkedEp = epNum
+                                PrefsStore.markEpisodeWatched(movie.id, epNum)
+                            }
+                            persistWatchProgressNow()
+                        }
                         updatePlayPauseButton()
                         if (settings.autoNext && currentEpIdx < totalEpisodesCount() - 1) {
                             startAutoNextCountdown()
@@ -1535,7 +1544,11 @@ class PlayerActivity : AppCompatActivity() {
         activeQualityIdx = opt.index
         val builder = ts.buildUponParameters()
         if (opt.index < 0 || opt.height <= 0) {
-            builder.clearVideoSizeConstraints()
+            if (DeviceProfileResolver.isLowRamDevice(this)) {
+                builder.setMaxVideoSize(1920, 1080).setMinVideoSize(0, 0)
+            } else {
+                builder.clearVideoSizeConstraints()
+            }
         } else {
             builder.setMaxVideoSize(Int.MAX_VALUE, opt.height)
             builder.setMinVideoSize(0, opt.height)
@@ -2572,8 +2585,15 @@ class PlayerActivity : AppCompatActivity() {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        mainHandler.removeCallbacks(progressTicker)
+        mainHandler.post(progressTicker)
+    }
+
     override fun onPause() {
         super.onPause()
+        mainHandler.removeCallbacks(progressTicker)
         persistWatchProgressNow()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) return
         exoPlayer?.pause()

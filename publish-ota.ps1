@@ -13,7 +13,7 @@ $projectRoot = $PSScriptRoot
 if (-not $projectRoot) { $projectRoot = (Get-Location).Path }
 
 $gradlePath = Join-Path $projectRoot "android\app\build.gradle"
-$apkPath = Join-Path $projectRoot "HoatHinh3D-Universal-debug.apk"
+$apkPath = Join-Path $projectRoot "HoatHinh3d.apk"
 $versionJsonPath = Join-Path $projectRoot "version.json"
 $repoSlug = "long-1285/Hoathinh3D"
 
@@ -88,7 +88,7 @@ $tagName = "v$versionCode"
 $apkFile = Get-Item -LiteralPath $apkPath
 $sha256 = (Get-FileHash -LiteralPath $apkPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $apkSize = [int64]$apkFile.Length
-$apkAssetName = "HoatHinh3D-Universal-debug.apk"
+$apkAssetName = "HoatHinh3d.apk"
 $apkUrl = "https://github.com/$repoSlug/releases/download/$tagName/$apkAssetName"
 $fallbackApkUrl = "https://github.com/$repoSlug/releases/latest/download/$apkAssetName"
 $releasedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")

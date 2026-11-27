@@ -89,12 +89,16 @@ Write-Host "`n[2/2] Đang biên dịch Android APK (assembleDebug)..." -Foregrou
 & .\gradlew.bat assembleDebug
 if ($LASTEXITCODE -ne 0) { throw "Gradle APK build failed!" }
 
-# 3. Sao chép APK ra thư mục gốc
+# 3. Sao chép APK ra thư mục gốc với tên gói chính thức HoatHinh3d.apk
 $sourceApk = "$projectRoot\android\app\build\outputs\apk\debug\app-debug.apk"
-$destApk = "$projectRoot\HoatHinh3D-Universal-debug.apk"
+$destApk = "$projectRoot\HoatHinh3d.apk"
 
 if (Test-Path $sourceApk) {
     Copy-Item -Path $sourceApk -Destination $destApk -Force
+    foreach ($legacyName in @("HoatHinh3D-Universal-debug.apk", "HoatHinh3D-Universal-v41-install-test.apk")) {
+        $legacyPath = Join-Path $projectRoot $legacyName
+        if (Test-Path $legacyPath) { Remove-Item -LiteralPath $legacyPath -Force -ErrorAction SilentlyContinue }
+    }
     $sizeMb = [math]::Round((Get-Item $destApk).Length / 1MB, 2)
     Write-Host "`n=========================================================" -ForegroundColor Green
     Write-Host "  BUILD NATIVE APK THÀNH CÔNG!" -ForegroundColor Green

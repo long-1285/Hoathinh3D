@@ -434,7 +434,7 @@ class NguonCApiAndRepoTest {
               "tag_name": "v42",
               "body": "versionCode: 42\nSHA-256: $ghSha",
               "assets": [
-                {"browser_download_url": "https://github.com/long-1285/Hoathinh3D/releases/download/v42/HoatHinh3D-Universal-debug.apk"}
+                {"browser_download_url": "https://github.com/long-1285/Hoathinh3D/releases/download/v42/HoatHinh3d.apk"}
               ]
             }
         """.trimIndent()
