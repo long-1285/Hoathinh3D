@@ -258,7 +258,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
         if (savedSettings.autoUpdateApp) {
             lifecycleScope.launch {
-                delay(2800L)
+                delay(4500L)
                 if (!isFinishing && !isDestroyed) {
                     checkAppUpdate(manual = false)
                 }
@@ -1124,8 +1124,9 @@ class MainActivity : AppCompatActivity(), AppHost {
                 } else {
                     showToast("Chưa kết nối được nguồn $srcLabel — vui lòng kiểm tra lại kết nối mạng")
                 }
-            } catch (e: Exception) {
-                com.hoathinh3d.donghua.core.AppDiagnostics.log("Feed", "Lỗi nạp feed ($sourceId): ${e.message}")
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                com.hoathinh3d.donghua.core.AppDiagnostics.log("Feed", "Lỗi nạp feed ($sourceId): ${t.javaClass.simpleName}: ${t.message}")
                 state = state.copy(isLoadingFeed = false, isLoadingMore = false)
                 notifyActiveFragment()
             }
@@ -1155,7 +1156,8 @@ class MainActivity : AppCompatActivity(), AppHost {
                 allMovies = map.values.toList(),
                 isSearching = false
             )
-        } catch (_: Exception) {
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             state = state.copy(isSearching = false)
         }
         notifyActiveFragment()

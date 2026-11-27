@@ -156,7 +156,8 @@ object YanHh3dNowScraper {
             val parsed = parseCategoriesFromHtml(html)
             if (parsed.isNotEmpty()) setCache(cacheKey, parsed)
             parsed.ifEmpty { STATIC_CATEGORIES }
-        } catch (_: Exception) {
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             STATIC_CATEGORIES
         }
     }
@@ -344,8 +345,9 @@ object YanHh3dNowScraper {
                 8000L
             )
             parseRealtimeRankingHtml(html, cleanBase, sourceName)
-        } catch (e: Exception) {
-            com.hoathinh3d.donghua.core.AppDiagnostics.log("YanNow", "Top10 err: ${e.message}")
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            com.hoathinh3d.donghua.core.AppDiagnostics.log("YanNow", "Top10 err: ${t.message}")
             emptyList()
         }
     }
@@ -372,8 +374,9 @@ object YanHh3dNowScraper {
             val parsed = parseMoviesListHtml(html, cleanBase, sourceName, forcedGenre)
             if (parsed.movies.isNotEmpty()) setCache(cacheKey, parsed)
             parsed
-        } catch (e: Exception) {
-            com.hoathinh3d.donghua.core.AppDiagnostics.log("YanNow", "List err ($path): ${e.message}")
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            com.hoathinh3d.donghua.core.AppDiagnostics.log("YanNow", "List err ($path): ${t.message}")
             NowMoviesPage(emptyList(), 1)
         }
     }

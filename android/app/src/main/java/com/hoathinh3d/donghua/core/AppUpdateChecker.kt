@@ -206,7 +206,8 @@ object AppUpdateChecker {
         return try {
             val parsed = try {
                 fetchAndParseManifest(cleanUrl)
-            } catch (primaryErr: Exception) {
+            } catch (primaryErr: Throwable) {
+                if (primaryErr is kotlinx.coroutines.CancellationException) throw primaryErr
                 if (cleanUrl.equals(DEFAULT_MANIFEST_URL, ignoreCase = true)) {
                     AppDiagnostics.log(
                         "Update",
@@ -222,9 +223,10 @@ object AppUpdateChecker {
             } else {
                 UpdateCheckResult.UpToDate(BuildConfig.VERSION_NAME)
             }
-        } catch (e: Exception) {
-            AppDiagnostics.log("Update", "Lỗi kiểm tra cập nhật: ${e.message}")
-            UpdateCheckResult.Error("Không thể kiểm tra cập nhật: ${e.message ?: "Lỗi mạng"}")
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            AppDiagnostics.log("Update", "Lỗi kiểm tra cập nhật: ${t.message}")
+            UpdateCheckResult.Error("Không thể kiểm tra cập nhật: ${t.message ?: "Lỗi mạng"}")
         }
     }
 

@@ -125,7 +125,9 @@ class MovieCardAdapter(
                 marginEnd = ThemeManager.dp(parent.context, 10f)
             }
         }
-        ThemeManager.applyRoundedOutline(b.posterFrame, 15f)
+        if (!com.hoathinh3d.donghua.core.DeviceProfileResolver.isUltraLowRamDevice(parent.context)) {
+            ThemeManager.applyRoundedOutline(b.posterFrame, 15f)
+        }
         return VH(b)
     }
 
@@ -135,14 +137,14 @@ class MovieCardAdapter(
         val b = holder.b
         val ctx = b.root.context
 
-        val cardKey = "${palette.preset.wireValue}_${palette.isDark}_${palette.glassOpacityPct}_$isTvMode"
+        val cardKey = "${palette.preset.wireValue}_${palette.isDark}_${palette.glassOpacityPct}_${isTvMode}_$reducedMotion"
         if (cardKey != cachedCardKey || b.cardRoot.background == null) {
             cachedCardKey = cardKey
             cachedCardBgColor = palette.glassCard
             cachedCardStrokeColor = palette.glassSubtleBorder
-            b.cardRoot.background = ThemeManager.glassPanelDrawable(ctx, palette, radiusDp = 20f, isCard = true)
+            b.cardRoot.background = ThemeManager.glassPanelDrawable(ctx, palette, radiusDp = 20f, isCard = true, liteRender = reducedMotion)
         } else if (b.cardRoot.getTag(R.id.cardRoot) != cardKey) {
-            b.cardRoot.background = ThemeManager.glassPanelDrawable(ctx, palette, radiusDp = 20f, isCard = true)
+            b.cardRoot.background = ThemeManager.glassPanelDrawable(ctx, palette, radiusDp = 20f, isCard = true, liteRender = reducedMotion)
         }
         b.cardRoot.setTag(R.id.cardRoot, cardKey)
 
@@ -241,17 +243,19 @@ class ContinueWatchingAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val b = ItemContinueCardBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        ThemeManager.applyRoundedOutline(b.continuePosterFrame, 12f)
+        if (!com.hoathinh3d.donghua.core.DeviceProfileResolver.isUltraLowRamDevice(parent.context)) {
+            ThemeManager.applyRoundedOutline(b.continuePosterFrame, 12f)
+        }
         return VH(b)
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val prog = getItem(position)
         val b = holder.b
-        val cardKey = "${palette.preset.wireValue}_${palette.isDark}_${palette.glassOpacityPct}_$isTvMode"
+        val cardKey = "${palette.preset.wireValue}_${palette.isDark}_${palette.glassOpacityPct}_${isTvMode}_$reducedMotion"
         if (b.continueCardRoot.background == null || b.continueCardRoot.getTag(R.id.continueCardRoot) != cardKey) {
             b.continueCardRoot.background =
-                ThemeManager.glassPanelDrawable(b.root.context, palette, radiusDp = 16f, isCard = true)
+                ThemeManager.glassPanelDrawable(b.root.context, palette, radiusDp = 16f, isCard = true, liteRender = reducedMotion)
             b.continueCardRoot.setTag(R.id.continueCardRoot, cardKey)
         }
         b.txtContinueTitle.text = prog.title

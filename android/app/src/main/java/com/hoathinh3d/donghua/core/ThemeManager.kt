@@ -249,7 +249,8 @@ object ThemeManager {
         context: Context,
         palette: ThemePalette,
         radiusDp: Float = 24f,
-        isCard: Boolean = false
+        isCard: Boolean = false,
+        liteRender: Boolean = false
     ): StateListDrawable {
         if (!isCard) return liquidGlassSheetDrawable(context, palette, radiusDp)
         val radiusPx = dp(context, radiusDp).toFloat()
@@ -260,14 +261,22 @@ object ThemeManager {
             setColor(palette.glassCard)
             setStroke(dp(context, 1f).coerceAtLeast(1), palette.glassSubtleBorder)
         }
-        val normal = LayerDrawable(arrayOf(normalBase, specularSheenLayer(palette, radiusPx, strongSpecular = false)))
         val focusedBase = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
             setColor(palette.glassCard)
             setStroke(dp(context, 2.5f).coerceAtLeast(3), Color.parseColor("#06B6D4"))
         }
-        val focused = LayerDrawable(arrayOf(focusedBase, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        val normal: Drawable = if (liteRender) {
+            normalBase
+        } else {
+            LayerDrawable(arrayOf(normalBase, specularSheenLayer(palette, radiusPx, strongSpecular = false)))
+        }
+        val focused: Drawable = if (liteRender) {
+            focusedBase
+        } else {
+            LayerDrawable(arrayOf(focusedBase, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
             addState(intArrayOf(), normal)

@@ -116,7 +116,8 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         )
         binding.rvHomeFeed.layoutManager = glm
         binding.rvHomeFeed.adapter = concatAdapter
-        binding.rvHomeFeed.setItemViewCacheSize(if (isUltraLow) 4 else if (isLite) 8 else 16)
+        binding.rvHomeFeed.setItemViewCacheSize(if (isUltraLow) 2 else if (isLite) 6 else 14)
+        sharedTvCardPool.setMaxRecycledViews(0, if (isUltraLow) 6 else 12)
 
         binding.rvHomeFeed.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
@@ -363,8 +364,9 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         if (isTv && !isSearchActive && st.selectedGenre == "Tất cả") {
             val tvLite = DeviceProfileResolver.shouldUseReducedMotion(ctx, st.resolvedDevice, st.settings.reducedMotion)
             val isUltraLow = DeviceProfileResolver.isUltraLowRamDevice(ctx)
-            val maxRowItems = if (isUltraLow) 6 else if (tvLite) 8 else 12
-            val tvKey = "${p.preset.wireValue}_${p.isDark}_${tvLite}_${maxRowItems}_${st.allMovies.take(24).joinToString(",") { it.id }}"
+            val maxRowItems = if (isUltraLow) 5 else if (tvLite) 8 else 12
+            val maxRows = if (isUltraLow) 1 else 3
+            val tvKey = "${p.preset.wireValue}_${p.isDark}_${tvLite}_${maxRowItems}_${maxRows}_${st.allMovies.take(24).joinToString(",") { it.id }}"
             if (tvKey != lastTvCarouselsKey) {
                 lastTvCarouselsKey = tvKey
                 b.tvCarouselsContainer.removeAllViews()
@@ -379,7 +381,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                     Triple("🐉 Huyền Huyễn • Nghịch Thiên", "D-Pad Trái/Phải") { m: DonghuaMovie ->
                         m.genres.any { it.lowercase().contains("huyền huyễn") || it.lowercase().contains("trùng sinh") }
                     }
-                )
+                ).take(maxRows)
                 var anyTvRow = false
                 for ((title, hint, pred) in rowDefs) {
                     val items = st.allMovies.filter(pred).take(maxRowItems)
@@ -761,10 +763,13 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             )
             b.rvTrending.layoutManager = LinearLayoutManager(ctx, LinearLayoutManager.HORIZONTAL, false)
             b.rvTrending.setRecycledViewPool(sharedTvCardPool)
+            b.rvTrending.setHasFixedSize(true)
+            b.rvTrending.setItemViewCacheSize(if (DeviceProfileResolver.isUltraLowRamDevice(ctx)) 2 else 6)
             b.rvTrending.adapter = trendingAdapter
 
             genreAdapter = GenreChipAdapter { g -> host?.selectGenre(g.id) }
             b.rvGenres.layoutManager = LinearLayoutManager(ctx, LinearLayoutManager.HORIZONTAL, false)
+            b.rvGenres.setHasFixedSize(true)
             b.rvGenres.adapter = genreAdapter
 
             b.btnHomeClearSearch.setOnClickListener { host?.clearSearch() }
