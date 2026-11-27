@@ -1,11 +1,11 @@
 {
-    "versionCode":  41,
-    "versionName":  "3.5.1-v41",
-    "tag":  "v41",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v41/HoatHinh3D-Universal-debug.apk",
+    "versionCode":  42,
+    "versionName":  "3.5.2-v42",
+    "tag":  "v42",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v42/HoatHinh3D-Universal-debug.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3D-Universal-debug.apk",
-    "sha256":  "0aab55162af61e4c70abce354eded6b1060f93738e1a6d9cbc9770a3124da2a4",
-    "apkSizeBytes":  13311097,
-    "changelog":  "Phiên 41: Thiết lập OTA mặc định GitHub (version.json + Releases API fallback), chống cache CDN, kiểm tra SHA-256 + magic APK và tương thích Android 6.0.1 (Xiaomi MiTV4-ANSM0).",
-    "releasedAt":  "2026-11-27T07:36:17Z"
+    "sha256":  "8439544e6517625582bde777d3cc6f54aa2faca644422442b442482fe247d2ce",
+    "apkSizeBytes":  13311091,
+    "changelog":  "Phiên 42: Bản nâng cấp kiểm thử OTA (v3.5.2-v42, build 42) — kiểm tra tự động phát hiện từ v41, tải về, xác thực SHA-256 và cài đặt.",
+    "releasedAt":  "2026-11-27T07:47:01Z"
 }
