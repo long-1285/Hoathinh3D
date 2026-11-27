@@ -1,11 +1,11 @@
 {
-    "versionCode":  45,
-    "versionName":  "3.5.5-v45",
-    "tag":  "v45",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v45/HoatHinh3d.apk",
+    "versionCode":  46,
+    "versionName":  "3.5.6-v46",
+    "tag":  "v46",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v46/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "14b98c99da8ff0e1ba82ce2f2e7c1420df338c89d5a53c8dcd4be284a6706de1",
-    "apkSizeBytes":  14471602,
-    "changelog":  "Phiên 45: Tập mới nhất trước, Thể loại phim thời gian thực, Điện thoại 3 cột, 3 chủ đề dịu nhẹ \u0026 tối ưu đa thiết bị.",
-    "releasedAt":  "2026-11-27T12:35:44Z"
+    "sha256":  "b1f26eb57521a13f2676aa85953c8ad30b35311acd57e84db1ccabcbfb91ba80",
+    "apkSizeBytes":  14474398,
+    "changelog":  "Phiên 46: Đồng bộ lưới Lịch sử giống Yêu thích, nổi bật \u0026 hiệu ứng chạm 5 biểu tượng điều hướng kính, chủ đề Hoàng Hôn Đêm Sâu.",
+    "releasedAt":  "2026-11-27T13:12:40Z"
 }
