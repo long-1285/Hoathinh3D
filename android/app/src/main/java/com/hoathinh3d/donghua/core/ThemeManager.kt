@@ -547,18 +547,21 @@ object ThemeManager {
     }
 
     fun attachTvCardFocusEffect(view: View, enableScale: Boolean) {
+        if (!enableScale) {
+            view.animate().cancel()
+            view.scaleX = 1.0f
+            view.scaleY = 1.0f
+            view.elevation = 0f
+            view.onFocusChangeListener = null
+            return
+        }
         view.setOnFocusChangeListener { v, hasFocus ->
-            if (enableScale) {
-                val targetScale = if (hasFocus) 1.035f else 1.0f
-                v.animate()
-                    .scaleX(targetScale)
-                    .scaleY(targetScale)
-                    .setDuration(120L)
-                    .start()
-            } else {
-                v.scaleX = 1.0f
-                v.scaleY = 1.0f
-            }
+            val targetScale = if (hasFocus) 1.035f else 1.0f
+            v.animate()
+                .scaleX(targetScale)
+                .scaleY(targetScale)
+                .setDuration(120L)
+                .start()
             v.elevation = if (hasFocus) dp(v.context, 8f).toFloat() else 0f
         }
     }

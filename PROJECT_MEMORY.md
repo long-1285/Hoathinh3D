@@ -132,12 +132,14 @@ E:\Project\3_HoatHinh3D\
   3. **Tắt `Hero Auto-Rotate`, `clipToOutline` & `RecyclerView.itemAnimator` trên TV ([HomeFragment.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/home/HomeFragment.kt), [ScheduleFragment.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/schedule/ScheduleFragment.kt), [HistoryFragment.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/history/HistoryFragment.kt), [FavoritesFragment.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/ui/favorites/FavoritesFragment.kt)):**
      - Dừng `startHeroAutoRotate()` khi `isLite == true` (không tự xoay tải ảnh Glide nền liên tục trên TV); bỏ `applyRoundedOutline(b.heroCard, 24f)` khi `isLite == true`.
      - Đặt `itemAnimator = null` trên tất cả `RecyclerView` (`rvHomeFeed`, `rvTrending`, `rvGenres`, `rvContinue`, `rvSchedule`, `rvHistory`, `rvFavorites`) khi `isLite == true`.
-  4. **Tắt animation `btnSkipIntro` ở Player trên TV ([PlayerActivity.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/player/PlayerActivity.kt)):**
-     - Kiểm tra `shouldUseReducedMotion` trong `maybeShowSkipIntroForFiveSeconds()` để ẩn/hiện tức thì nút Bỏ qua Intro mà không chạy alpha animation.
-- **Kiểm thử & Build:**
-  - `testDebugUnitTest`: **49/49 tests PASSED** (0 failures, 0 errors, 0 skipped).
-  - `lintDebug`: **BUILD SUCCESSFUL** (0 errors). *(Chưa cài được lên MiTV4-ANSM0 do ADB `192.168.2.9:5555` đang `offline`, chờ người dùng xác nhận trên TV để cài đặt và test runtime).*
-  - APK mới nhất: `E:\Duan\01_HH3D\HoatHinh3d.apk` (**13.84 MB**, `14,515,523 bytes`, `SHA-256: 69695c654bded901bbdac142147132083cf9cc04779d8614db464c7dda407004`).
+  4. **Tắt animation `btnSkipIntro` ở Player & bỏ `elevation` shadow khi đổi focus D-Pad ([PlayerActivity.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/player/PlayerActivity.kt), [ThemeManager.kt](file:///E:/Duan/01_HH3D/android/app/src/main/java/com/hoathinh3d/donghua/core/ThemeManager.kt)):**
+     - Kiểm tra `shouldUseReducedMotion` trong `maybeShowSkipIntroForFiveSeconds()` để ẩn/hiện tức thì nút Bỏ qua Intro.
+     - Trong `ThemeManager.attachTvCardFocusEffect`: khi `enableScale = false` (chế độ TV/Lite), gỡ hẳn `OnFocusChangeListener` và giữ `elevation = 0f` (tránh vẽ bóng đổ động trên GPU Mali-450 mỗi lần bấm phím D-Pad).
+- **Kiểm thử & Build (bao gồm kiểm thử trực tiếp trên Xiaomi MiTV4-ANSM0 qua ADB `192.168.2.9:5555`):**
+  - Thiết bị thật xác nhận: `MiTV4-ANSM0`, Android `6.0.1` (API `23`), `armeabi-v7a`, `1920x1080` (`density 320`), RAM `1.62 GB` (`1,663,176 kB`, trống ~`882 MB`), bộ nhớ `/data` `5.0 GB` (trống `1.9 GB`).
+  - Kết quả đo runtime sau tối ưu: **0 crash / 0 ANR**, `TOTAL PSS = 164.0 MB`, `TextureCache = 3.67 MB`, `LayerCache = 0`, `Slow UI thread = 0`, `Slow bitmap uploads = 0` trong phiên D-Pad kiểm thử.
+  - `testDebugUnitTest`: **49/49 tests PASSED** (0 failures, 0 errors, 0 skipped); `lintDebug`: **BUILD SUCCESSFUL** (0 errors).
+  - APK mới nhất: `E:\Duan\01_HH3D\HoatHinh3d.apk` (**13.90 MB**, `14,571,088 bytes`, `SHA-256: 2560468b88a6c0739852c200c700d9ed26fa4e495f3271d1499893c862fc6867`).
 
 ### [2026-11-27] - Phiên 49: Tìm Kiếm Thông Minh (Lịch Sử & Từ Khóa Hot), Kéo Để Làm Mới (Pull-to-Refresh), Khóa Màn Hình Tự Ẩn 3s & Chia Sẻ Nhanh (`v3.5.9-v49`)
 - **Yêu cầu người dùng:**
@@ -1248,7 +1250,7 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `E:\Duan\01_HH3D\HoatHinh3d.apk` (**13.84 MB**, `14,515,523 bytes`, `SHA-256: 69695c654bded901bbdac142147132083cf9cc04779d8614db464c7dda407004`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 17 và xuất bản OTA lên GitHub Release `v50` + `version.json`.
+- **File APK mới nhất:** `E:\Duan\01_HH3D\HoatHinh3d.apk` (**13.90 MB**, `14,571,088 bytes`, `SHA-256: 2560468b88a6c0739852c200c700d9ed26fa4e495f3271d1499893c862fc6867`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 17, đã cài và đo thực tế trên **MiTV4-ANSM0** (`164.0 MB` PSS, `0` Slow UI thread, `0` crash) và xuất bản OTA lên GitHub Release `v50` + `version.json`.
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
   1. Hoàn tất bắt tay ADB `192.168.2.9:5555` (bật/tắt lại ADB Debugging hoặc bấm Allow trên TV), cài đặt **`HoatHinh3d.apk` (`v3.6.0-v50`)** trực tiếp lên **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) và kiểm thử thực tế logcat/FPS/RAM.
 
