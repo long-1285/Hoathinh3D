@@ -1,11 +1,11 @@
 {
-    "versionCode":  44,
-    "versionName":  "3.5.4-v44",
-    "tag":  "v44",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v44/HoatHinh3d.apk",
+    "versionCode":  45,
+    "versionName":  "3.5.5-v45",
+    "tag":  "v45",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v45/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "70f02511c53ddafa147fd9691baff8e0702bef6ce0e386faeb75f753843fc227",
-    "apkSizeBytes":  14457442,
-    "changelog":  "Phiên 44: Sửa triệt để lỗi văng app sau 1s trên Xiaomi MiTV4-ANSM0 (Android 6.0.1 API 23) do Jsoup 1.18.3 thiếu coreLibraryDesugaring, bổ sung Root CA Sectigo E46/R46, giảm tải HWUI GPU Mali-450 \u0026 bảo vệ coroutine Throwable.",
-    "releasedAt":  "2026-11-27T10:49:13Z"
+    "sha256":  "14b98c99da8ff0e1ba82ce2f2e7c1420df338c89d5a53c8dcd4be284a6706de1",
+    "apkSizeBytes":  14471602,
+    "changelog":  "Phiên 45: Tập mới nhất trước, Thể loại phim thời gian thực, Điện thoại 3 cột, 3 chủ đề dịu nhẹ \u0026 tối ưu đa thiết bị.",
+    "releasedAt":  "2026-11-27T12:35:44Z"
 }
