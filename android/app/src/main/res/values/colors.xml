@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#4F46E5</color>
+    <color name="colorPrimaryDark">#3730A3</color>
+    <color name="colorAccent">#06B6D4</color>
+
+    <!-- Pearl Theme -->
+    <color name="pearl_bg_primary">#F4F7FB</color>
+    <color name="pearl_bg_secondary">#EEF2FF</color>
+    <color name="pearl_text_main">#0F172A</color>
+    <color name="pearl_text_muted">#64748B</color>
+    <color name="pearl_glass_surface">#B8FFFFFF</color>
+    <color name="pearl_glass_card">#D9FFFFFF</color>
+    <color name="pearl_glass_border">#EBFFFFFF</color>
+    <color name="pearl_accent_from">#4F46E5</color>
+    <color name="pearl_accent_to">#06B6D4</color>
+
+    <!-- Aqua Theme -->
+    <color name="aqua_bg_primary">#F0FDFA</color>
+    <color name="aqua_bg_secondary">#E0F2FE</color>
+    <color name="aqua_accent_from">#0284C7</color>
+    <color name="aqua_accent_to">#14B8A6</color>
+
+    <!-- Sakura Theme -->
+    <color name="sakura_bg_primary">#FFF5F7</color>
+    <color name="sakura_bg_secondary">#FCE7F3</color>
+    <color name="sakura_accent_from">#DB2777</color>
+    <color name="sakura_accent_to">#9333EA</color>
+
+    <!-- Dark Theme -->
+    <color name="dark_bg_primary">#090D16</color>
+    <color name="dark_bg_secondary">#111827</color>
+    <color name="dark_text_main">#F8FAFC</color>
+    <color name="dark_text_muted">#94A3B8</color>
+    <color name="dark_glass_surface">#C2111827</color>
+    <color name="dark_glass_card">#C71E293B</color>
+    <color name="dark_glass_border">#1FFFFFFF</color>
+    <color name="dark_accent_from">#6366F1</color>
+    <color name="dark_accent_to">#06B6D4</color>
+
+    <!-- Common accents -->
+    <color name="tv_focus_cyan">#06B6D4</color>
+    <color name="player_amber">#FBBF24</color>
+    <color name="rose_heart">#F43F5E</color>
+    <color name="emerald_ok">#10B981</color>
+</resources>

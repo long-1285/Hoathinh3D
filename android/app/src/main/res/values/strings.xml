@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HoatHinh3D</string>
+    <string name="title_activity_main">HoatHinh3D</string>
+    <string name="package_name">com.hoathinh3d.donghua</string>
+    <string name="custom_url_scheme">com.hoathinh3d.donghua</string>
+</resources>

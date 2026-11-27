@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/cardRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="5dp"
+    android:focusable="true"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:id="@+id/posterFrame"
+        android:layout_width="match_parent"
+        android:layout_height="205dp"
+        android:layout_margin="5dp">
+
+        <ImageView
+            android:id="@+id/imgPoster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#0F172A"
+            android:contentDescription="Poster"
+            android:scaleType="centerCrop" />
+
+        <!-- Top-Left Badges Stack -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="7dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txtRankBadge"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_marginBottom="4dp"
+                android:background="#F59E0B"
+                android:gravity="center"
+                android:text="#1"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtQualityBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#B3000000"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="4K 60FPS"
+                android:textColor="#67E8F9"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtEpBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="#CC312E81"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="Tập 1/24"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtNewEpBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="#10B981"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="+2 tập mới"
+                android:textColor="#0F172A"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtOfflineBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:background="#FBBF24"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:text="⬇ 1 offline"
+                android:textColor="#0F172A"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Favorite Heart Button (trong suốt mặc định, đỏ rực khi yêu thích) -->
+        <ImageView
+            android:id="@+id/btnFavHeart"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="6dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Yêu thích"
+            android:focusable="true"
+            android:padding="5dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_fav_heart_outline" />
+
+        <!-- Rating Badge -->
+        <TextView
+            android:id="@+id/txtRatingBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_margin="7dp"
+            android:background="#B3000000"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:text="★ 9.8"
+            android:textColor="#FBBF24"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <!-- Watch Progress Bar -->
+        <ProgressBar
+            android:id="@+id/progressWatchBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom"
+            android:max="100"
+            android:progress="0"
+            android:progressBackgroundTint="#99000000"
+            android:progressTint="#06B6D4"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="9dp">
+
+        <TextView
+            android:id="@+id/txtMovieTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Đấu Phá Thương Khung"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtMovieOrig"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Battle Through The Heavens"
+            android:textSize="11sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/txtMovieViews"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👁 18.8M"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/txtMovieStudio"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:maxLines="1"
+                android:text="YanHH3D 4K"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

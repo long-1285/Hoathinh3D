@@ -1,0 +1,247 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --glass-blur: 24px;
+  --bg-primary: #f4f7fb;
+  --bg-secondary: #eef2ff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --glass-card: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.92);
+  --glass-subtle-border: rgba(148, 163, 184, 0.22);
+  --glass-shadow: 0 12px 36px -8px rgba(30, 41, 59, 0.08), 0 4px 14px -4px rgba(99, 102, 241, 0.06);
+  --accent-from: #4f46e5;
+  --accent-to: #06b6d4;
+}
+
+/* Theme Presets */
+body.theme-aqua {
+  --bg-primary: #f0fdfa;
+  --bg-secondary: #e0f2fe;
+  --accent-from: #0284c7;
+  --accent-to: #14b8a6;
+}
+
+body.theme-sakura {
+  --bg-primary: #fff5f7;
+  --bg-secondary: #fce7f3;
+  --accent-from: #db2777;
+  --accent-to: #9333ea;
+}
+
+body.theme-dark {
+  --bg-primary: #090d16;
+  --bg-secondary: #111827;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --glass-surface: rgba(17, 24, 39, 0.76);
+  --glass-card: rgba(30, 41, 59, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-subtle-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.55);
+  --accent-from: #6366f1;
+  --accent-to: #06b6d4;
+}
+
+body {
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.35s ease, color 0.25s ease;
+}
+
+.font-heading {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+}
+
+/* Liquid Glass Core Styles */
+.liquid-glass,
+.glass-panel {
+  background: var(--glass-surface);
+  backdrop-filter: blur(var(--glass-blur)) saturate(190%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(190%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.liquid-card,
+.glass-card {
+  background: var(--glass-card);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.8)) saturate(180%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.8)) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-card:hover,
+.glass-card:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px -10px rgba(79, 70, 229, 0.16), 0 6px 16px -4px rgba(6, 182, 212, 0.12);
+}
+
+.liquid-pill,
+.glass-pill {
+  background: var(--glass-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+.liquid-pill:hover,
+.glass-pill:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.liquid-pill.active {
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px -3px rgba(79, 70, 229, 0.4);
+  font-weight: 700;
+}
+
+.liquid-nav,
+.glass-nav {
+  background: var(--glass-surface);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.12);
+}
+
+.liquid-input {
+  background: var(--glass-card);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: var(--text-main);
+  transition: all 0.2s ease;
+}
+
+.liquid-input:focus {
+  border-color: var(--accent-from);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  outline: none;
+}
+
+.text-main {
+  color: var(--text-main);
+}
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Liquid Ambient Floating Orbs */
+.liquid-orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.45s ease;
+}
+.orb-1 {
+  top: -100px;
+  left: -80px;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0) 70%);
+}
+.orb-2 {
+  top: 35%;
+  right: -120px;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.2) 0%, rgba(6, 182, 212, 0) 70%);
+}
+.orb-3 {
+  bottom: 5%;
+  left: 15%;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.18) 0%, rgba(236, 72, 153, 0) 70%);
+}
+
+/* Ambient Cinema Glow around video player */
+.cinema-ambient-glow {
+  box-shadow: 0 0 65px -5px rgba(79, 70, 229, 0.45), 0 0 110px -15px rgba(6, 182, 212, 0.38) !important;
+}
+
+/* AI HDR Upscale Filter on Video */
+.video-ai-upscale {
+  filter: contrast(1.08) saturate(1.16) brightness(1.03);
+}
+
+/* Ambient light glow (inside video container) */
+.ambient-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.35;
+  z-index: 0;
+}
+
+/* TV Focus ring styling for D-Pad Remote */
+.tv-focus-target:focus-visible {
+  outline: 3px solid #06b6d4 !important;
+  outline-offset: 3px;
+  transform: scale(1.02) !important;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.55) !important;
+}
+
+/* Device layout modes */
+body[data-resolved-device="mobile"] #main-app-container,
+body[data-resolved-device="mobile"] #header-inner-container {
+  max-width: 480px !important;
+}
+
+body[data-resolved-device="tablet"] #main-app-container,
+body[data-resolved-device="tablet"] #header-inner-container {
+  max-width: 960px !important;
+}
+
+body[data-resolved-device="tv"] {
+  font-size: 105%;
+}
+body[data-resolved-device="tv"] #main-app-container,
+body[data-resolved-device="tv"] #header-inner-container {
+  max-width: 1440px !important;
+}
+
+/* Hide scrollbars cleanly */
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.32);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.65);
+}

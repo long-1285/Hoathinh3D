@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/catalogFooterContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="12dp"
+    android:layout_marginBottom="8dp"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingVertical="6dp">
+
+    <Button
+        android:id="@+id/btnLoadMoreCatalog"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:focusable="true"
+        android:minHeight="0dp"
+        android:paddingHorizontal="20dp"
+        android:text="⬇ Tải thêm phim"
+        android:textAllCaps="false"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtCatalogFooterInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="11sp" />
+</LinearLayout>

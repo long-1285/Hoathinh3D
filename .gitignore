@@ -1,0 +1,32 @@
+# Node / Web build artifacts (legacy Vite/Capacitor reference)
+node_modules/
+dist/
+tsconfig.tsbuildinfo
+
+# Android / Gradle / Kotlin caches & build outputs
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.apk
+*.aab
+*.ap_
+*.aar
+*.dex
+*.class
+*.hprof
+captures/
+
+# Signing & Secrets (NEVER commit tokens, keys, or keystores)
+*.keystore
+*.jks
+.env
+.env.*
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+*.log

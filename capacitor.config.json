@@ -1,0 +1,23 @@
+{
+  "appId": "com.hoathinh3d.donghua",
+  "appName": "HoatHinh3D",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false,
+    "minSdkVersion": 23,
+    "targetSdkVersion": 35,
+    "flavorABI": "universal",
+    "supportedDevices": [
+      "phone",
+      "tablet",
+      "android_tv_leanback"
+    ]
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

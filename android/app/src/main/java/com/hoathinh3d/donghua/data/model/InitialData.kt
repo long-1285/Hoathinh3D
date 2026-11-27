@@ -1,0 +1,243 @@
+package com.hoathinh3d.donghua.data.model
+
+object InitialData {
+    val DEFAULT_BUILT_IN_SOURCES = listOf(
+        DonghuaSource(
+            id = "YanHH3DNow",
+            name = "YanHH3D Now",
+            url = "https://yanhh3d.now",
+            type = "Laravel Scraper + StreamRPT",
+            ping = "11ms",
+            quality = "4K HDR",
+            desc = "Kho Hoạt Hình 3D 4K/1080p Thuyết Minh & Vietsub trực tiếp, đủ server & đủ tập",
+            enabled = true,
+            isCustom = false
+        ),
+        DonghuaSource(
+            id = "YanHH3D",
+            name = "YanHH3D VIP",
+            url = "https://yanhh3d.ee",
+            type = "WP Scraper + AJAX",
+            ping = "14ms",
+            quality = "4K 60FPS",
+            desc = "Chuyên Hoạt Hình 3D Trung Quốc Vietsub & Thuyết minh 4K Niên Phiên",
+            enabled = true,
+            isCustom = false
+        )
+    )
+
+    val GENRES_DATA = listOf(
+        GenreItem(id = "Tất cả", label = "Thể loại phim", icon = "grid"),
+        GenreItem(id = "Tu Tiên", label = "Tu Tiên / Tiên Hiệp", icon = "sparkles"),
+        GenreItem(id = "Huyền Huyễn", label = "Huyền Huyễn", icon = "dragon"),
+        GenreItem(id = "Xuyên Không", label = "Xuyên Không", icon = "hurricane"),
+        GenreItem(id = "Trùng Sinh", label = "Trùng Sinh / Nghịch Thiên", icon = "flame"),
+        GenreItem(id = "Kiếm Hiệp", label = "Kiếm Hiệp / Võ Hiệp", icon = "sword"),
+        GenreItem(id = "Khoa Huyễn", label = "Khoa Huyễn / Cơ Giáp", icon = "astronaut"),
+        GenreItem(id = "Thần Thoại", label = "Thần Thoại / Cổ Đại", icon = "crown"),
+        GenreItem(id = "Luyện Cấp", label = "Hài Hước / Luyện Cấp", icon = "bolt")
+    )
+
+    val NGUONC_GENRES = listOf(
+        GenreItem(id = "Tất cả", label = "Thể loại phim", icon = "grid", sourceSlug = "the-loai:hoat-hinh"),
+        GenreItem(id = "Thuyết Minh", label = "Thuyết Minh", icon = "mic", sourceSlug = "hoat-hinh:lang=thuyet-minh"),
+        GenreItem(id = "Lồng Tiếng", label = "Lồng Tiếng", icon = "volume", sourceSlug = "hoat-hinh:lang=long-tieng"),
+        GenreItem(id = "Vietsub", label = "Vietsub", icon = "captions", sourceSlug = "hoat-hinh:lang=vietsub"),
+        GenreItem(id = "Donghua Trung Quốc", label = "Trung Quốc (3D)", icon = "dragon", sourceSlug = "hoat-hinh:country=trung-quoc"),
+        GenreItem(id = "Anime Nhật Bản", label = "Nhật Bản (Anime)", icon = "sparkles", sourceSlug = "hoat-hinh:country=nhat-ban"),
+        GenreItem(id = "Cổ Trang", label = "Cổ Trang", icon = "crown", sourceSlug = "hoat-hinh:cat=co-trang"),
+        GenreItem(id = "Hành Động", label = "Hành Động", icon = "sword", sourceSlug = "hoat-hinh:cat=hanh-dong"),
+        GenreItem(id = "Phiêu Lưu", label = "Phiêu Lưu", icon = "compass", sourceSlug = "hoat-hinh:cat=phieu-luu"),
+        GenreItem(id = "Thần Thoại", label = "Giả Tưởng / Thần Thoại", icon = "dragon", sourceSlug = "hoat-hinh:cat=than-thoai"),
+        GenreItem(id = "Viễn Tưởng", label = "Viễn Tưởng", icon = "astronaut", sourceSlug = "hoat-hinh:cat=vien-tuong"),
+        GenreItem(id = "Võ Thuật", label = "Võ Thuật / Kiếm Hiệp", icon = "sword", sourceSlug = "hoat-hinh:cat=vo-thuat"),
+        GenreItem(id = "Hài Hước", label = "Hài Hước", icon = "laugh", sourceSlug = "hoat-hinh:cat=hai-huoc"),
+        GenreItem(id = "Bí Ẩn", label = "Bí Ẩn", icon = "mask", sourceSlug = "hoat-hinh:cat=bi-an"),
+        GenreItem(id = "Khoa Học", label = "Khoa Học", icon = "astronaut", sourceSlug = "hoat-hinh:cat=khoa-hoc"),
+        GenreItem(id = "Học Đường", label = "Học Đường", icon = "tag", sourceSlug = "hoat-hinh:cat=hoc-duong"),
+        GenreItem(id = "Tình Cảm", label = "Tình Cảm", icon = "tag", sourceSlug = "hoat-hinh:cat=tinh-cam"),
+        GenreItem(id = "Kinh Dị", label = "Kinh Dị", icon = "mask", sourceSlug = "hoat-hinh:cat=kinh-di")
+    )
+
+    val STREAM_URLS = listOf(
+        "https://v7.kkphimplayer7.com/20260907/Owm6iUL9/index.m3u8",
+        "https://s3.phim1280.tv/20240715/6VEHSDxf/index.m3u8",
+        "https://s4.phim1280.tv/20240902/nkndLrz4/index.m3u8",
+        "https://s5.phim1280.tv/20250303/xZEA0QQm/index.m3u8"
+    )
+
+    val SCHEDULE_DAYS = listOf(
+        "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"
+    )
+
+    val INITIAL_DONGHUA_CATALOG = listOf(
+        DonghuaMovie(
+            id = "dptk",
+            slug = "dau-pha-thuong-khung",
+            title = "Đấu Phá Thương Khung",
+            originalTitle = "Battle Through The Heavens (dptk)",
+            studio = "Motion Magic • Tencent Video",
+            latestEp = 135,
+            totalEp = 156,
+            rating = 9.9,
+            views = "18.8M",
+            viewsNum = 18.8,
+            quality = "4K 60FPS",
+            audioModes = listOf("Vietsub", "Thuyết Minh"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Tu Tiên", "Huyền Huyễn", "Xuyên Không", "Luyện Cấp"),
+            scheduleDay = "Chủ Nhật",
+            scheduleTime = "09:00",
+            poster = "https://phimimg.com/upload/vod/20231201-1/28004f285854bb69335ef000414e277d.jpg",
+            thumb = "https://phimimg.com/upload/vod/20231201-1/28004f285854bb69335ef000414e277d.jpg",
+            streamIndex = 0
+        ),
+        DonghuaMovie(
+            id = "pntt",
+            slug = "pham-nhan-tu-tien",
+            title = "Phàm Nhân Tu Tiên",
+            originalTitle = "A Record of a Mortal's Journey to Immortality (pntt)",
+            studio = "Original Force • Bilibili",
+            latestEp = 128,
+            totalEp = 201,
+            rating = 9.9,
+            views = "16.2M",
+            viewsNum = 16.2,
+            quality = "4K HDR",
+            audioModes = listOf("Vietsub", "Thuyết Minh"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Tu Tiên", "Kiếm Hiệp", "Luyện Cấp"),
+            scheduleDay = "Thứ 7",
+            scheduleTime = "10:00",
+            poster = "https://phimimg.com/upload/vod/20231205-1/992455f5dd00f3f338d388656113b28b.jpg",
+            thumb = "https://phimimg.com/upload/vod/20231205-1/992455f5dd00f3f338d388656113b28b.jpg",
+            streamIndex = 1
+        ),
+        DonghuaMovie(
+            id = "tiennghich",
+            slug = "tien-nghich",
+            title = "Tiên Nghịch (Xian Ni)",
+            originalTitle = "Renegade Immortal • Vương Lâm Nghịch Thiên",
+            studio = "zhuBe Animation • Tencent Video",
+            latestEp = 168,
+            totalEp = 168,
+            rating = 9.9,
+            views = "19.5M",
+            viewsNum = 19.5,
+            quality = "4K 60FPS",
+            audioModes = listOf("Vietsub", "Thuyết Minh"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Tu Tiên", "Huyền Huyễn", "Trùng Sinh"),
+            scheduleDay = "Thứ 2",
+            scheduleTime = "09:30",
+            poster = "https://phimimg.com/upload/vod/20230925-1/593eb46a51d8b675be8c5eeebecb1b4c.jpg",
+            thumb = "https://phimimg.com/upload/vod/20230925-1/593eb46a51d8b675be8c5eeebecb1b4c.jpg",
+            streamIndex = 2
+        ),
+        DonghuaMovie(
+            id = "tghm",
+            slug = "the-gioi-hoan-my",
+            title = "Thế Giới Hoàn Mỹ",
+            originalTitle = "Perfect World • Hoang Thiên Đế Thạch Hạo",
+            studio = "Foch Film • Tencent Video",
+            latestEp = 288,
+            totalEp = 300,
+            rating = 9.8,
+            views = "22.1M",
+            viewsNum = 22.1,
+            quality = "4K 60FPS",
+            audioModes = listOf("Vietsub", "Thuyết Minh"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Huyền Huyễn", "Tu Tiên", "Thần Thoại"),
+            scheduleDay = "Thứ 6",
+            scheduleTime = "09:00",
+            poster = "https://phimimg.com/upload/vod/20231128-1/3652c676d1e4e2a8757041ca9828d581.jpg",
+            thumb = "https://phimimg.com/upload/vod/20231128-1/3652c676d1e4e2a8757041ca9828d581.jpg",
+            streamIndex = 3
+        ),
+        DonghuaMovie(
+            id = "tptk",
+            slug = "thon-phe-tinh-khong",
+            title = "Thôn Phệ Tinh Không",
+            originalTitle = "Swallowed Star 3D • La Phong",
+            studio = "Sparkly Key • Tencent Video",
+            latestEp = 154,
+            totalEp = 251,
+            rating = 9.8,
+            views = "17.4M",
+            viewsNum = 17.4,
+            quality = "4K HDR",
+            audioModes = listOf("Vietsub", "Thuyết Minh"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Khoa Huyễn", "Tu Tiên", "Luyện Cấp"),
+            scheduleDay = "Thứ 4",
+            scheduleTime = "10:00",
+            poster = "https://phimimg.com/upload/vod/20231128-1/a248f21e544606775fc4c9f16d76bb37.jpg",
+            thumb = "https://phimimg.com/upload/vod/20231128-1/a248f21e544606775fc4c9f16d76bb37.jpg",
+            streamIndex = 0
+        ),
+        DonghuaMovie(
+            id = "giathien",
+            slug = "gia-thien",
+            title = "Già Thiên (Shrouding The Heavens)",
+            originalTitle = "Zhe Tian 3D • Diệp Phàm Cửu Long Kéo Hòm",
+            studio = "Sparkly Key • Tencent Video",
+            latestEp = 94,
+            totalEp = 150,
+            rating = 9.7,
+            views = "13.9M",
+            viewsNum = 13.9,
+            quality = "4K 60FPS",
+            audioModes = listOf("Vietsub", "Thuyết Minh"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Huyền Huyễn", "Tu Tiên", "Thần Thoại"),
+            scheduleDay = "Thứ 4",
+            scheduleTime = "09:30",
+            poster = "https://phimimg.com/upload/vod/20240411-1/0a4084fdfad19ecab9f1f53d629bf422.jpg",
+            thumb = "https://phimimg.com/upload/vod/20240411-1/0a4084fdfad19ecab9f1f53d629bf422.jpg",
+            streamIndex = 1
+        ),
+        DonghuaMovie(
+            id = "vangioidocton",
+            slug = "van-gioi-doc-ton",
+            title = "Vạn Giới Độc Tôn",
+            originalTitle = "Ten Thousand Worlds 3D",
+            studio = "Ruo Hong Culture",
+            latestEp = 500,
+            totalEp = 500,
+            rating = 9.6,
+            views = "15.7M",
+            viewsNum = 15.7,
+            quality = "1080p 60FPS",
+            audioModes = listOf("Vietsub"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Tu Tiên", "Trùng Sinh", "Huyền Huyễn"),
+            scheduleDay = "Thứ 3",
+            scheduleTime = "10:00",
+            poster = "https://phimimg.com/upload/vod/20250308-1/25c9c7486b5de820475bd8fe0ccb316e.jpg",
+            thumb = "https://phimimg.com/upload/vod/20250308-1/25c9c7486b5de820475bd8fe0ccb316e.jpg",
+            streamIndex = 2
+        ),
+        DonghuaMovie(
+            id = "luyenkhi",
+            slug = "luyen-khi-muoi-van-nam",
+            title = "Luyện Khí Mười Vạn Năm",
+            originalTitle = "One Hundred Thousand Years of Qi Refining",
+            studio = "Suoyi Tech",
+            latestEp = 240,
+            totalEp = 300,
+            rating = 9.7,
+            views = "14.3M",
+            viewsNum = 14.3,
+            quality = "1080p 60FPS",
+            audioModes = listOf("Vietsub"),
+            sources = listOf("YanHH3D Now", "YanHH3D VIP"),
+            genres = listOf("Tu Tiên", "Hài Hước / Luyện Cấp"),
+            scheduleDay = "Thứ 5",
+            scheduleTime = "10:00",
+            poster = "https://phimimg.com/upload/vod/20250219-1/0ddffeb590aa6bad556a0724302487ad.jpg",
+            thumb = "https://phimimg.com/upload/vod/20250219-1/0ddffeb590aa6bad556a0724302487ad.jpg",
+            streamIndex = 3
+        )
+    )
+}

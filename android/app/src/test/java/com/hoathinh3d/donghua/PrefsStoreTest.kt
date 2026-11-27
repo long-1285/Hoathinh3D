@@ -1,0 +1,250 @@
+package com.hoathinh3d.donghua
+
+import android.content.SharedPreferences
+import com.hoathinh3d.donghua.core.LanSyncManager
+import com.hoathinh3d.donghua.core.PrefsStore
+import com.hoathinh3d.donghua.data.model.AppSettings
+import com.hoathinh3d.donghua.data.model.WatchProgress
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+class PrefsStoreTest {
+
+    private class InMemorySharedPrefs : SharedPreferences {
+        private val map = HashMap<String, Any?>()
+
+        override fun getAll(): MutableMap<String, *> = HashMap(map)
+        override fun getString(key: String?, defValue: String?): String? = (map[key] as? String) ?: defValue
+        override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? = defValues
+        override fun getInt(key: String?, defValue: Int): Int = (map[key] as? Int) ?: defValue
+        override fun getLong(key: String?, defValue: Long): Long = (map[key] as? Long) ?: defValue
+        override fun getFloat(key: String?, defValue: Float): Float = (map[key] as? Float) ?: defValue
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean = (map[key] as? Boolean) ?: defValue
+        override fun contains(key: String?): Boolean = map.containsKey(key)
+        override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+        override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+
+        override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor {
+            private val pending = HashMap<String, Any?>()
+            private val removals = HashSet<String>()
+            private var clearAll = false
+
+            override fun putString(key: String?, value: String?) = apply { if (key != null) pending[key] = value }
+            override fun putStringSet(key: String?, values: MutableSet<String>?) = apply { }
+            override fun putInt(key: String?, value: Int) = apply { if (key != null) pending[key] = value }
+            override fun putLong(key: String?, value: Long) = apply { if (key != null) pending[key] = value }
+            override fun putFloat(key: String?, value: Float) = apply { if (key != null) pending[key] = value }
+            override fun putBoolean(key: String?, value: Boolean) = apply { if (key != null) pending[key] = value }
+            override fun remove(key: String?) = apply { if (key != null) removals.add(key) }
+            override fun clear() = apply { clearAll = true }
+            override fun commit(): Boolean {
+                apply()
+                return true
+            }
+            override fun apply() {
+                if (clearAll) map.clear()
+                removals.forEach { map.remove(it) }
+                map.putAll(pending)
+            }
+        }
+    }
+
+    @Before
+    fun setUp() {
+        PrefsStore.initForTest(InMemorySharedPrefs())
+    }
+
+    @Test
+    fun defaultSourcesAndSettings_matchWebDefaults() {
+        val sources = PrefsStore.getSources()
+        assertEquals(2, sources.size)
+        assertEquals("YanHH3DNow", sources[0].id)
+        assertEquals("YanHH3D", sources[1].id)
+
+        val settings = PrefsStore.getSettings()
+        assertEquals("YanHH3DNow", settings.preferredSource)
+        assertEquals("Thuyết Minh", settings.defaultAudio)
+        assertEquals("pearl", settings.theme)
+        assertEquals("light", settings.darkMode)
+        assertEquals(35, settings.glassOpacity)
+        assertEquals(10, settings.seekStep)
+    }
+
+    @Test
+    fun exportAndImportBackup_roundTripsHistoryFavoritesAndSettings() {
+        PrefsStore.saveProgress(
+            WatchProgress(
+                donghuaId = "dptk",
+                title = "Đấu Phá Thương Khung",
+                poster = "https://img.test/dptk.jpg",
+                episode = 12,
+                currentTime = 320.5,
+                duration = 1200.0,
+                progressPct = 27,
+                server = "NguonC • Lồng Tiếng",
+                audio = "Thuyết Minh",
+                updatedAt = 1700000000000L
+            )
+        )
+        assertTrue(PrefsStore.toggleFavorite("dptk"))
+        PrefsStore.saveSettings(AppSettings(theme = "sakura", darkMode = "dark", glassOpacity = 75, seekStep = 15))
+
+        val exported = PrefsStore.exportFullBackup()
+        assertTrue(exported.contains("3.5.0-universal"))
+
+        // Reset store and re-import
+        PrefsStore.initForTest(InMemorySharedPrefs())
+        assertTrue(PrefsStore.getHistory().isEmpty())
+        assertFalse(PrefsStore.getFavorites().contains("dptk"))
+
+        assertTrue(PrefsStore.importFullBackup(exported))
+        assertEquals(12, PrefsStore.getHistory()["dptk"]?.episode)
+        assertTrue(PrefsStore.getFavorites().contains("dptk"))
+        assertEquals("sakura", PrefsStore.getSettings().theme)
+        assertEquals("dark", PrefsStore.getSettings().darkMode)
+        assertEquals(75, PrefsStore.getSettings().glassOpacity)
+        assertEquals(15, PrefsStore.getSettings().seekStep)
+    }
+
+    @Test
+    fun cloudSnapshotStats_and_resetSettingsToDefaults_workCorrectly() {
+        PrefsStore.toggleFavorite("dptk")
+        PrefsStore.saveSettings(AppSettings(theme = "dark", darkMode = "system", glassOpacity = 80, seekStep = 30, glassBlur = 36))
+        PrefsStore.saveCloudSnapshot()
+
+        val stats = PrefsStore.getCloudSnapshotStats()
+        assertTrue(stats != null)
+        assertEquals(1, stats?.favoritesCount)
+        assertEquals(0, stats?.historyCount)
+        assertEquals(0, stats?.customSourcesCount)
+
+        val reset = PrefsStore.resetSettingsToDefaults()
+        assertEquals("pearl", reset.theme)
+        assertEquals("light", reset.darkMode)
+        assertEquals(35, reset.glassOpacity)
+        assertEquals(10, reset.seekStep)
+        // Favorites preserved after settings reset
+        assertTrue(PrefsStore.getFavorites().contains("dptk"))
+    }
+
+    @Test
+    fun watchedEpisodes_skipIntroSec_and_compactSyncCode_roundTripProperly() {
+        PrefsStore.markEpisodeWatched("tiennghich", 1)
+        PrefsStore.markEpisodeWatched("tiennghich", 2)
+        PrefsStore.markEpisodeWatched("tiennghich", 1) // duplicate ignored
+        PrefsStore.setMovieSkipIntroSec("tiennghich", 105)
+        PrefsStore.toggleFavorite("tiennghich")
+
+        assertEquals(setOf(1, 2), PrefsStore.getWatchedEpisodes("tiennghich"))
+        assertEquals(105, PrefsStore.getMovieSkipIntroSec("tiennghich"))
+        assertEquals(85, PrefsStore.getMovieSkipIntroSec("other_movie"))
+
+        val syncCode = PrefsStore.exportCompactSyncCode()
+        assertTrue(syncCode.startsWith("HH3D1:"))
+
+        PrefsStore.initForTest(InMemorySharedPrefs())
+        assertTrue(PrefsStore.getWatchedEpisodes("tiennghich").isEmpty())
+
+        assertTrue(PrefsStore.importCompactSyncCode(syncCode))
+        assertEquals(setOf(1, 2), PrefsStore.getWatchedEpisodes("tiennghich"))
+        assertEquals(105, PrefsStore.getMovieSkipIntroSec("tiennghich"))
+        assertTrue(PrefsStore.getFavorites().contains("tiennghich"))
+
+        assertEquals(
+            "http://192.168.1.25:8765/sync?pin=4821",
+            LanSyncManager.normalizeLanSyncUrl("192.168.1.25", "4821")
+        )
+        assertEquals(
+            "http://192.168.1.25:8766/sync?pin=9999",
+            LanSyncManager.normalizeLanSyncUrl("http://192.168.1.25:8766/sync?pin=9999", "")
+        )
+    }
+
+    @Test
+    fun reducedMotionAndNightDrc_persistAndReset_and_lanDiscoveryPacketParses() {
+        val updated = PrefsStore.saveSettings(AppSettings(reducedMotion = true, nightModeDrc = true))
+        assertTrue(updated.reducedMotion)
+        assertTrue(updated.nightModeDrc)
+
+        val reloaded = PrefsStore.getSettings()
+        assertTrue(reloaded.reducedMotion)
+        assertTrue(reloaded.nightModeDrc)
+
+        val reset = PrefsStore.resetSettingsToDefaults()
+        assertFalse(reset.reducedMotion)
+        assertFalse(reset.nightModeDrc)
+
+        val validPeer = LanSyncManager.parseDiscoveryPacket(
+            """{"app":"HH3D","device":"Pixel 8","ip":"192.168.1.50","port":8765}"""
+        )
+        assertEquals("Pixel 8", validPeer?.deviceName)
+        assertEquals("192.168.1.50", validPeer?.ip)
+        assertEquals(8765, validPeer?.port)
+
+        assertEquals(null, LanSyncManager.parseDiscoveryPacket("""{"app":"OTHER","ip":"1.2.3.4","port":8765}"""))
+        assertEquals(null, LanSyncManager.parseDiscoveryPacket("""{"app":"HH3D","ip":"","port":8765}"""))
+        assertEquals(null, LanSyncManager.parseDiscoveryPacket("not-json"))
+    }
+
+    @Test
+    fun removeHistoryItem_deletesSingleEntryOnly_and_quarterSpeedPersists() {
+        PrefsStore.saveProgress(
+            WatchProgress("a", "Phim A", "", 1, 10.0, 100.0, 10, "Srv", "Thuyết Minh", 100L)
+        )
+        PrefsStore.saveProgress(
+            WatchProgress("b", "Phim B", "", 2, 20.0, 100.0, 20, "Srv", "Vietsub", 200L)
+        )
+        PrefsStore.removeHistoryItem("a")
+        val hist = PrefsStore.getHistory()
+        assertFalse(hist.containsKey("a"))
+        assertTrue(hist.containsKey("b"))
+
+        val saved = PrefsStore.saveSettings(AppSettings(playbackSpeed = 0.25f))
+        assertEquals(0.25f, saved.playbackSpeed, 0.001f)
+        assertEquals(0.25f, PrefsStore.getSettings().playbackSpeed, 0.001f)
+    }
+
+    @Test
+    fun autoClearCacheAndAutoUpdate_persistAndReset_andSubtabsRenumbered() {
+        val saved = PrefsStore.saveSettings(
+            AppSettings(
+                autoClearCacheOnExit = true,
+                autoUpdateApp = false,
+                updateManifestUrl = "https://example.com/hh3d/version.json",
+                showHomeHero = false,
+                showHomeContinue = false,
+                showHomeTrending = true
+            )
+        )
+        assertTrue(saved.autoClearCacheOnExit)
+        assertFalse(saved.autoUpdateApp)
+        assertEquals("https://example.com/hh3d/version.json", saved.updateManifestUrl)
+        assertFalse(saved.showHomeHero)
+        assertFalse(saved.showHomeContinue)
+        assertTrue(saved.showHomeTrending)
+
+        val reloaded = PrefsStore.getSettings()
+        assertTrue(reloaded.autoClearCacheOnExit)
+        assertFalse(reloaded.autoUpdateApp)
+        assertEquals("https://example.com/hh3d/version.json", reloaded.updateManifestUrl)
+        assertFalse(reloaded.showHomeHero)
+        assertFalse(reloaded.showHomeContinue)
+        assertTrue(reloaded.showHomeTrending)
+
+        val reset = PrefsStore.resetSettingsToDefaults()
+        assertFalse(reset.autoClearCacheOnExit)
+        assertTrue(reset.autoUpdateApp)
+        assertEquals("", reset.updateManifestUrl)
+        assertTrue(reset.showHomeHero)
+        assertTrue(reset.showHomeContinue)
+        assertTrue(reset.showHomeTrending)
+
+        val tabs = com.hoathinh3d.donghua.data.model.SettingsSubtab.values()
+        assertEquals(5, tabs.size)
+        assertEquals("1. Trình phát tích hợp", tabs.first().label)
+        assertEquals("5. Tiện ích mở rộng", tabs.last().label)
+    }
+}
