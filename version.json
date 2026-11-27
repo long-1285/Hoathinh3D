@@ -1,11 +1,11 @@
 {
-    "versionCode":  47,
-    "versionName":  "3.5.7-v47",
-    "tag":  "v47",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v47/HoatHinh3d.apk",
+    "versionCode":  48,
+    "versionName":  "3.5.8-v48",
+    "tag":  "v48",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v48/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "4b3c3fb253a8aa71cc4e09c6eeee9c999e296184db592f1df114a09f23e0f262",
-    "apkSizeBytes":  14482892,
-    "changelog":  "v3.5.7-v47: Thiet ke lai giao dien Cai dat dang danh sach phan nhom tren Dien thoai giong mau thiet ke (2 nhom the kinh, o icon 36dp, vach ngan inset, dieu huong 2 tang va quay lai muot ma), giu nguyen bo cuc ngang tren Tablet/PC/TV.",
-    "releasedAt":  "2026-11-27T13:40:14Z"
+    "sha256":  "1a92bfb8001cdee51f36e8fd339ea395c84ba031c375bdfd0c0bf21e9b6ed3cc",
+    "apkSizeBytes":  14487587,
+    "changelog":  "v3.5.8-v48: Sua triet de loi trung lap phim va mat poster tren Trang chu, thay sach anh phimimg.com hong bang poster song + placeholder chuan API 23, hop nhat khu trung slug/ten \u0026 may chu, toi uu bo cuc 5 tab + chi tiet phim + drawer tap moi nhat truoc cho Dien thoai, PC/Tablet va Android TV.",
+    "releasedAt":  "2026-11-27T13:59:18Z"
 }
