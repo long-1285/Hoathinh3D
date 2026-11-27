@@ -4,8 +4,8 @@
     "tag":  "v50",
     "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v50/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "69695c654bded901bbdac142147132083cf9cc04779d8614db464c7dda407004",
-    "apkSizeBytes":  14515523,
-    "changelog":  "Phien 50: Tat 100% hieu ung giao dien dong o che do TV (Ripple, specular sheen, orbs, hero auto-rotate, itemAnimator, skip intro anim) toi uu muot ma cho MiTV4.",
-    "releasedAt":  "2026-11-27T16:08:20Z"
+    "sha256":  "2560468b88a6c0739852c200c700d9ed26fa4e495f3271d1499893c862fc6867",
+    "apkSizeBytes":  14571088,
+    "changelog":  "Phien 50: Tat 100% giao dien dong che do TV \u0026 bong do focus D-Pad, da kiem thu thuc te tren MiTV4-ANSM0 (164 MB RAM, 0 crash).",
+    "releasedAt":  "2026-11-27T16:21:01Z"
 }
