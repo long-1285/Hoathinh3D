@@ -135,11 +135,19 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         refreshUi()
     }
 
+    private fun homeHorizontalPadPx(profile: ResolvedDeviceProfile): Int = ThemeManager.dp(
+        requireContext(),
+        when (profile) {
+            ResolvedDeviceProfile.MOBILE -> 14f
+            ResolvedDeviceProfile.TABLET -> 18f
+            ResolvedDeviceProfile.TV -> 22f
+        }
+    )
+
     override fun onChromeInsetsChanged(topPx: Int, bottomPx: Int) {
         val b = _binding ?: return
         val h = host ?: return
-        val isTv = h.getState().resolvedDevice == ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 16f else 14f)
+        val hPad = homeHorizontalPadPx(h.getState().resolvedDevice)
         b.rvHomeFeed.setPadding(hPad, topPx, hPad, bottomPx)
     }
 
@@ -155,7 +163,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             st.settings.reducedMotion
         )
 
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 16f else 14f)
+        val hPad = homeHorizontalPadPx(st.resolvedDevice)
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.rvHomeFeed.setPadding(hPad, chromeTop, hPad, chromeBot)
 
@@ -235,9 +243,9 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val desiredHeroH = ThemeManager.dp(
             ctx,
             when (st.resolvedDevice) {
-                ResolvedDeviceProfile.MOBILE -> 188f
-                ResolvedDeviceProfile.TABLET -> 226f
-                ResolvedDeviceProfile.TV -> 244f
+                ResolvedDeviceProfile.MOBILE -> 186f
+                ResolvedDeviceProfile.TABLET -> 232f
+                ResolvedDeviceProfile.TV -> 248f
             }
         )
         if (b.heroCard.layoutParams.height != desiredHeroH) {
@@ -684,7 +692,8 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             val heroH = if (isUltraLow) 360 else 540
             val optHero = com.hoathinh3d.donghua.data.source.MovieRepository.getOptimizedPosterUrl(imgUrl, if (isUltraLow) 640 else 800)
             val req = Glide.with(b.imgHeroBg)
-                .load(optHero)
+                .load(optHero.ifBlank { imgUrl })
+                .placeholder(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
                 .override(heroW, heroH)
                 .format(com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565)
                 .error(
@@ -692,6 +701,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                         .load(hero.poster)
                         .override(heroW, heroH)
                         .format(com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565)
+                        .error(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
                 )
             if (isUltraLow) req.dontAnimate().into(b.imgHeroBg) else req.into(b.imgHeroBg)
         }
@@ -758,7 +768,11 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.rvContinue.adapter = continueAdapter
 
             trendingAdapter = MovieCardAdapter(
-                fixedWidthDp = if (host?.getState()?.resolvedDevice == ResolvedDeviceProfile.TV) 166 else 142,
+                fixedWidthDp = when (host?.getState()?.resolvedDevice) {
+                    ResolvedDeviceProfile.TV -> 172
+                    ResolvedDeviceProfile.TABLET -> 156
+                    else -> 136
+                },
                 onSelect = { host?.openMovieDetail(it) },
                 onToggleFavorite = { host?.toggleFavorite(it.id) }
             )

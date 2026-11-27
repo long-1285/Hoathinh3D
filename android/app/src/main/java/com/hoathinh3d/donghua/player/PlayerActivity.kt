@@ -120,7 +120,7 @@ class PlayerActivity : AppCompatActivity() {
     private var serverGroups: List<ServerGroup> = emptyList()
     private var activeServerIdx: Int = 0
     private var currentEpIdx: Int = 0
-    private var epRangeIdx: Int = 0
+    private var epRangeIdx: Int = -1
     private var initialEpisode: Int = 1
     private var initialServerIdx: Int = -1
     private var initialResumeSec: Double = -1.0
@@ -375,12 +375,13 @@ class PlayerActivity : AppCompatActivity() {
     private fun applyResponsivePlayerBars() {
         val isPortrait = resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         val compactVertical = !isTvProfile && (isPortrait || resources.configuration.screenWidthDp < 520)
+        val isTabletPc = deviceProfile == ResolvedDeviceProfile.TABLET
         val dp = resources.displayMetrics.density
 
         // Cân chỉnh cụm nút Play / Tua ở giữa cho từng thiết bị (Điện thoại dọc, Ngang/PC, TV)
-        val playSize = ((if (isTvProfile) 88 else if (compactVertical) 64 else 76) * dp).toInt()
-        val seekSize = ((if (isTvProfile) 78 else if (compactVertical) 56 else 68) * dp).toInt()
-        val playMarginH = ((if (isTvProfile) 56 else if (compactVertical) 26 else 44) * dp).toInt()
+        val playSize = ((if (isTvProfile) 88 else if (compactVertical) 64 else if (isTabletPc) 78 else 72) * dp).toInt()
+        val seekSize = ((if (isTvProfile) 78 else if (compactVertical) 56 else if (isTabletPc) 68 else 62) * dp).toInt()
+        val playMarginH = ((if (isTvProfile) 56 else if (compactVertical) 24 else if (isTabletPc) 48 else 38) * dp).toInt()
         binding.btnPlayPause.layoutParams = (binding.btnPlayPause.layoutParams as ViewGroup.MarginLayoutParams).apply {
             width = playSize
             height = playSize
@@ -395,26 +396,26 @@ class PlayerActivity : AppCompatActivity() {
             width = seekSize
             height = seekSize
         }
-        binding.txtPlayerTitle.textSize = if (compactVertical) 13.5f else if (isTvProfile) 16.5f else 15f
+        binding.txtPlayerTitle.textSize = if (compactVertical) 13.5f else if (isTvProfile) 16.5f else if (isTabletPc) 15.5f else 14.5f
 
         val row = binding.bottomActionsRow
         for (i in 0 until row.childCount) {
             val btn = row.getChildAt(i) as? LinearLayout ?: continue
             btn.orientation = if (compactVertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             btn.layoutParams = btn.layoutParams.apply {
-                height = ((if (compactVertical) 48 else 38) * dp).toInt()
+                height = ((if (compactVertical) 48 else if (isTvProfile) 42 else if (isTabletPc) 40 else 38) * dp).toInt()
             }
-            val padH = ((if (compactVertical) 2 else 6) * dp).toInt()
+            val padH = ((if (compactVertical) 2 else if (isTabletPc) 8 else 6) * dp).toInt()
             btn.setPadding(padH, 0, padH, 0)
             val icon = btn.getChildAt(0) as? ImageView
             val label = btn.getChildAt(1) as? TextView
             icon?.layoutParams = icon?.layoutParams?.apply {
-                val sz = ((if (compactVertical) 16 else 18) * dp).toInt()
+                val sz = ((if (compactVertical) 16 else if (isTvProfile) 19 else 18) * dp).toInt()
                 width = sz
                 height = sz
             }
             label?.let { tv ->
-                tv.textSize = if (compactVertical) 9f else if (isTvProfile) 12.5f else 11.5f
+                tv.textSize = if (compactVertical) 9f else if (isTvProfile) 12.5f else if (isTabletPc) 12f else 11.5f
                 tv.layoutParams = (tv.layoutParams as LinearLayout.LayoutParams).apply {
                     marginStart = if (compactVertical) 0 else (6 * dp).toInt()
                     topMargin = if (compactVertical) (2 * dp).toInt() else 0
@@ -983,7 +984,7 @@ class PlayerActivity : AppCompatActivity() {
         hasSkippedIntro = false
         skipIntroShownEpKey = null
         hideSkipIntroPillImmediate()
-        epRangeIdx = safeEpIdx() / PlayerUtils.EP_PAGE_SIZE
+        epRangeIdx = -1
 
         // Check offline file first!
         val offlineKey = HlsOfflineManager.buildEpisodeKey(movie.id, epNum)
@@ -1710,21 +1711,20 @@ class PlayerActivity : AppCompatActivity() {
         val total = totalEpisodesCount()
         binding.txtDrawerTitle.text = "Danh sách tập ($total tập)"
 
-        val ranges = mutableListOf<Pair<Int, Int>>()
-        var start = 0
-        while (start < total) {
-            val end = minOf(start + PlayerUtils.EP_PAGE_SIZE, total)
-            ranges.add(start to end)
-            start += PlayerUtils.EP_PAGE_SIZE
+        // Hiển thị số tập mới nhất trước (đồng nhất với Chi tiết phim)
+        val displayIndices = PlayerUtils.descendingEpisodeDisplayIndices(eps, total)
+        val ranges = PlayerUtils.buildDescendingEpisodeRanges(displayIndices, eps, PlayerUtils.EP_PAGE_SIZE)
+        if (epRangeIdx !in ranges.indices) {
+            val curDisplayPos = displayIndices.indexOf(safeEpIdx()).coerceAtLeast(0)
+            epRangeIdx = (curDisplayPos / PlayerUtils.EP_PAGE_SIZE).coerceIn(0, (ranges.size - 1).coerceAtLeast(0))
         }
-        if (epRangeIdx !in ranges.indices) epRangeIdx = 0
 
         if (ranges.size > 1) {
             binding.drawerRangeScroll.visibility = View.VISIBLE
-            ranges.forEachIndexed { idx, (s, e) ->
+            ranges.forEachIndexed { idx, slice ->
                 val active = idx == epRangeIdx
                 val btn = Button(this).apply {
-                    text = "${s + 1} - $e"
+                    text = slice.label
                     isAllCaps = false
                     textSize = 11f
                     minHeight = 0
@@ -1748,7 +1748,9 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
 
-        val (rStart, rEnd) = ranges.getOrElse(epRangeIdx) { 0 to total }
+        val slice = ranges.getOrNull(epRangeIdx)
+        val rStart = slice?.startPos ?: 0
+        val rEnd = slice?.endExclusive ?: displayIndices.size
         val cols = if (isTvProfile || deviceProfile == ResolvedDeviceProfile.TABLET) 5 else 4
         val grid = GridLayout(this).apply { columnCount = cols }
         val offlineMap = PrefsStore.getOfflineEpisodes()
@@ -1756,7 +1758,8 @@ class PlayerActivity : AppCompatActivity() {
         var focusTarget: View? = null
         var firstBtn: View? = null
 
-        for (realIdx in rStart until rEnd) {
+        for (pos in rStart until rEnd) {
+            val realIdx = displayIndices[pos]
             val ep = eps.getOrNull(realIdx)
             val epNum = PlayerUtils.extractEpisodeNumber(ep, realIdx)
             val isCurrent = realIdx == safeEpIdx()

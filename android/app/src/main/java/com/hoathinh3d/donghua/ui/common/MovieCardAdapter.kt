@@ -145,10 +145,10 @@ class MovieCardAdapter(
             val posterH = ThemeManager.dp(
                 ctx,
                 when {
-                    isCompactPhoneGrid -> 146f
-                    fixedWidthDp != null -> 182f
-                    isTvMode -> 196f
-                    else -> 190f
+                    isCompactPhoneGrid -> 148f
+                    fixedWidthDp != null -> if (isTvMode) 192f else 180f
+                    isTvMode -> 198f
+                    else -> 192f
                 }
             )
             val frameMargin = ThemeManager.dp(ctx, if (isCompactPhoneGrid) 3f else 5f)
@@ -197,6 +197,7 @@ class MovieCardAdapter(
         b.txtMovieStudio.setTextColor(palette.accentFrom)
 
         val optUrl = MovieRepository.getOptimizedPosterUrl(movie.poster, if (reducedMotion) 280 else 400)
+        val rawUrl = movie.poster.takeUnless { MovieRepository.isDeadOrBlankPoster(it) }.orEmpty()
         val targetW = if (reducedMotion) 260 else 380
         val targetH = if (reducedMotion) 368 else 540
         val decodeFmt = if (reducedMotion) {
@@ -204,21 +205,32 @@ class MovieCardAdapter(
         } else {
             com.bumptech.glide.load.DecodeFormat.PREFER_ARGB_8888
         }
-        val req = Glide.with(b.imgPoster)
-            .load(optUrl)
-            .override(targetW, targetH)
-            .format(decodeFmt)
-            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-            .error(
+        if (optUrl.isBlank() && rawUrl.isBlank()) {
+            Glide.with(b.imgPoster).clear(b.imgPoster)
+            b.imgPoster.setImageResource(R.drawable.bg_poster_placeholder)
+        } else {
+            val primaryUrl = optUrl.ifBlank { rawUrl }
+            val fallbackReq = if (rawUrl.isNotBlank() && rawUrl != primaryUrl) {
                 Glide.with(b.imgPoster)
-                    .load(movie.poster)
+                    .load(rawUrl)
                     .override(targetW, targetH)
                     .format(decodeFmt)
-            )
-        if (reducedMotion) {
-            req.dontAnimate().into(b.imgPoster)
-        } else {
-            req.into(b.imgPoster)
+                    .error(R.drawable.bg_poster_placeholder)
+            } else {
+                Glide.with(b.imgPoster).load(R.drawable.bg_poster_placeholder)
+            }
+            val req = Glide.with(b.imgPoster)
+                .load(primaryUrl)
+                .placeholder(R.drawable.bg_poster_placeholder)
+                .override(targetW, targetH)
+                .format(decodeFmt)
+                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                .error(fallbackReq)
+            if (reducedMotion) {
+                req.dontAnimate().into(b.imgPoster)
+            } else {
+                req.into(b.imgPoster)
+            }
         }
 
         if (lastBadgeKey != "v1" || cachedQualityBg == null) {
@@ -319,12 +331,20 @@ class ContinueWatchingAdapter(
         } else {
             com.bumptech.glide.load.DecodeFormat.PREFER_ARGB_8888
         }
-        val req = Glide.with(b.imgContinuePoster)
-            .load(MovieRepository.getOptimizedPosterUrl(prog.poster, 300))
-            .override(260, 146)
-            .format(decodeFmt)
-            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-        if (reducedMotion) req.dontAnimate().into(b.imgContinuePoster) else req.into(b.imgContinuePoster)
+        val optContinue = MovieRepository.getOptimizedPosterUrl(prog.poster, 300)
+        if (optContinue.isBlank() && MovieRepository.isDeadOrBlankPoster(prog.poster)) {
+            Glide.with(b.imgContinuePoster).clear(b.imgContinuePoster)
+            b.imgContinuePoster.setImageResource(R.drawable.bg_poster_placeholder)
+        } else {
+            val req = Glide.with(b.imgContinuePoster)
+                .load(optContinue.ifBlank { prog.poster })
+                .placeholder(R.drawable.bg_poster_placeholder)
+                .override(260, 146)
+                .format(decodeFmt)
+                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                .error(R.drawable.bg_poster_placeholder)
+            if (reducedMotion) req.dontAnimate().into(b.imgContinuePoster) else req.into(b.imgContinuePoster)
+        }
         b.continueCardRoot.setOnClickListener { onQuickPlay(prog) }
         ThemeManager.attachTvCardFocusEffect(b.continueCardRoot, enableScale = isTvMode && !reducedMotion)
     }

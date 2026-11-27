@@ -508,4 +508,60 @@ class NguonCApiAndRepoTest {
         assertTrue(apiCats.any { it.label == "Phim Chiếu Rạp" })
         assertTrue(apiCats.any { it.label == "Tình Cảm" })
     }
+
+    @Test
+    fun mergeCatalogPages_replacesDeadPosterAndDeduplicatesSameTitleOrSlug() {
+        val deadStub = com.hoathinh3d.donghua.data.model.DonghuaMovie(
+            id = "tghm",
+            slug = "the-gioi-hoan-my",
+            title = "Thế Giới Hoàn Mỹ",
+            originalTitle = "Perfect World",
+            studio = "Foch Film",
+            latestEp = 288,
+            totalEp = 300,
+            rating = 9.8,
+            views = "22.1M",
+            viewsNum = 22.1,
+            quality = "4K 60FPS",
+            audioModes = listOf("Thuyết Minh"),
+            sources = listOf("YanHH3D Now"),
+            genres = listOf("Huyền Huyễn"),
+            scheduleDay = "Thứ 6",
+            scheduleTime = "09:00",
+            poster = "https://phimimg.com/upload/vod/20231128-1/dead.jpg"
+        )
+        val liveCard = deadStub.copy(
+            id = "yannow_the-gioi-hoan-my-thuyet-minh-tieng-viet",
+            slug = "the-gioi-hoan-my-thuyet-minh-tieng-viet",
+            poster = "https://yanhh3d.now/storage/movies/the-gioi-hoan-my-1782129775.png",
+            thumb = "https://yanhh3d.now/storage/movies/the-gioi-hoan-my-1782129775.png"
+        )
+
+        val merged = MovieRepository.mergeCatalogPages(listOf(deadStub), listOf(liveCard))
+        assertEquals(1, merged.size)
+        assertEquals("https://yanhh3d.now/storage/movies/the-gioi-hoan-my-1782129775.png", merged.first().poster)
+        assertEquals("yannow_the-gioi-hoan-my-thuyet-minh-tieng-viet", merged.first().id)
+
+        // Mọi phim mặc định trong InitialData đều phải dùng link poster sống hợp lệ (không dùng link phimimg đã chết)
+        assertTrue(
+            com.hoathinh3d.donghua.data.model.InitialData.INITIAL_DONGHUA_CATALOG.none {
+                MovieRepository.isDeadOrBlankPoster(it.poster)
+            }
+        )
+    }
+
+    @Test
+    fun extractPosterUrl_ignoresDataUriAndResolvesRelativeLazyAttrs() {
+        val html = """
+            <div>
+              <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                   data-lazy-src="/storage/movies/demo-poster.jpg" />
+            </div>
+        """.trimIndent()
+        val img = org.jsoup.Jsoup.parse(html, "https://yanhh3d.now").selectFirst("img")
+        assertEquals(
+            "https://yanhh3d.now/storage/movies/demo-poster.jpg",
+            MovieRepository.extractPosterUrl(img, "https://yanhh3d.now")
+        )
+    }
 }

@@ -146,8 +146,14 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     override fun onChromeInsetsChanged(topPx: Int, bottomPx: Int) {
         val b = _binding ?: return
         val h = host ?: return
-        val isTv = h.getState().resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (h.getState().resolvedDevice) {
+                ResolvedDeviceProfile.TV -> 22f
+                ResolvedDeviceProfile.TABLET -> 18f
+                ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         b.settingsScroll.setPadding(hPad, topPx, hPad, bottomPx)
     }
 
@@ -158,7 +164,14 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val p = h.getPalette()
         val isTv = st.resolvedDevice == ResolvedDeviceProfile.TV
         val isMobile = st.resolvedDevice == ResolvedDeviceProfile.MOBILE
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (st.resolvedDevice) {
+                ResolvedDeviceProfile.TV -> 22f
+                ResolvedDeviceProfile.TABLET -> 18f
+                ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.settingsScroll.setPadding(hPad, chromeTop, hPad, chromeBot)
 
@@ -982,7 +995,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                                     genres = listOf("Tu Tiên"),
                                     scheduleDay = "Hàng ngày",
                                     scheduleTime = "10:00",
-                                    poster = "https://phimimg.com/upload/vod/20231201-1/28004f285854bb69335ef000414e277d.jpg",
+                                    poster = "",
                                     streamIndex = 0,
                                     serverGroups = listOf(directGrp),
                                     customWebUrl = normalized

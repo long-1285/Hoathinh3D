@@ -101,8 +101,14 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     override fun onChromeInsetsChanged(topPx: Int, bottomPx: Int) {
         val b = _binding ?: return
         val h = host ?: return
-        val isTv = h.getState().resolvedDevice == ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (h.getState().resolvedDevice) {
+                ResolvedDeviceProfile.TV -> 22f
+                ResolvedDeviceProfile.TABLET -> 18f
+                ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         b.historyScroll.setPadding(hPad, topPx, hPad, bottomPx)
     }
 
@@ -112,7 +118,14 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val st = h.getState()
         val p = h.getPalette()
         val isTv = st.resolvedDevice == ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (st.resolvedDevice) {
+                ResolvedDeviceProfile.TV -> 22f
+                ResolvedDeviceProfile.TABLET -> 18f
+                ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.historyScroll.setPadding(hPad, chromeTop, hPad, chromeBot)
 

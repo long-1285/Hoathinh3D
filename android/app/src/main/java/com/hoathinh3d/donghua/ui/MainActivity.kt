@@ -1150,19 +1150,10 @@ class MainActivity : AppCompatActivity(), AppHost {
                 val moviesTask = pageRes.movies
 
                 val mergedCatalog = if (moviesTask.isNotEmpty()) {
-                    val map = LinkedHashMap<String, DonghuaMovie>()
-                    PrefsStore.getCustomMovies().forEach { map[it.slug ?: it.id] = it }
-                    moviesTask.forEach { m ->
-                        val key = m.slug ?: m.id
-                        if (!map.containsKey(key)) map[key] = m
+                    val customOnly = PrefsStore.getCustomMovies().filter {
+                        !MovieRepository.isDeadOrBlankPoster(it.poster) || !it.customWebUrl.isNullOrBlank()
                     }
-                    if (sourceId == "YanHH3D" || sourceId == "YanHH3DNow") {
-                        PrefsStore.getAllMovies().forEach { m ->
-                            val key = m.slug ?: m.id
-                            if (!map.containsKey(key)) map[key] = m
-                        }
-                    }
-                    map.values.toList()
+                    MovieRepository.mergeCatalogPages(customOnly, moviesTask)
                 } else state.allMovies
 
                 state = state.copy(
@@ -1217,22 +1208,10 @@ class MainActivity : AppCompatActivity(), AppHost {
         notifyActiveFragment()
         try {
             val results = MovieRepository.searchDonghua(query)
-            val map = LinkedHashMap<String, DonghuaMovie>()
-            state.allMovies.forEach { map[it.slug ?: it.id] = it }
-            results.forEach { m ->
-                val key = m.slug ?: m.id
-                val existing = map[key]
-                if (existing == null) map[key] = m
-                else map[key] = existing.copy(
-                    yanPostId = existing.yanPostId ?: m.yanPostId,
-                    yanUrl = existing.yanUrl ?: m.yanUrl,
-                    wpSources = (existing.wpSources.orEmpty() + m.wpSources.orEmpty()),
-                    sources = (existing.sources + m.sources).distinct()
-                )
-            }
+            val mergedCatalog = MovieRepository.mergeCatalogPages(state.allMovies, results)
             state = state.copy(
                 remoteSearchResults = results,
-                allMovies = map.values.toList(),
+                allMovies = mergedCatalog,
                 isSearching = false
             )
         } catch (t: Throwable) {
@@ -1625,7 +1604,12 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     override fun resolveMovieForProgress(progress: WatchProgress): DonghuaMovie {
         state.allMovies.firstOrNull { it.id == progress.donghuaId }?.let { return it }
-        state.allMovies.firstOrNull { it.title.equals(progress.title, ignoreCase = true) }?.let { return it }
+        val normTitle = VietnameseSearch.removeVietnameseTones(progress.title)
+        state.allMovies.firstOrNull {
+            it.title.equals(progress.title, ignoreCase = true) ||
+                (normTitle.isNotBlank() && VietnameseSearch.removeVietnameseTones(it.title) == normTitle)
+        }?.let { return it }
+        val safePoster = if (MovieRepository.isDeadOrBlankPoster(progress.poster)) "" else progress.poster
         val guessedSlug = when {
             progress.donghuaId.startsWith("yannow_") -> progress.donghuaId.removePrefix("yannow_")
             progress.donghuaId.startsWith("yan_") -> progress.donghuaId.removePrefix("yan_")
@@ -1648,8 +1632,8 @@ class MainActivity : AppCompatActivity(), AppHost {
             genres = listOf("Tu Tiên"),
             scheduleDay = "Hàng ngày",
             scheduleTime = "10:00",
-            poster = progress.poster,
-            thumb = progress.poster,
+            poster = safePoster,
+            thumb = safePoster,
             streamIndex = 0
         )
     }
@@ -1898,7 +1882,7 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     override fun refreshCustomMovies() {
         val custom = PrefsStore.getCustomMovies()
-        val merged = (custom + state.allMovies).distinctBy { it.slug ?: it.id }
+        val merged = MovieRepository.mergeCatalogPages(custom, state.allMovies)
         state = state.copy(allMovies = merged)
         maybeAutoCloudSync()
         notifyActiveFragment()
@@ -1921,7 +1905,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             favoriteMetaMap = PrefsStore.getFavoriteMetaMap(),
             offlineEpisodes = PrefsStore.getOfflineEpisodes(),
             watchHistory = PrefsStore.getHistory(),
-            allMovies = (PrefsStore.getCustomMovies() + state.allMovies).distinctBy { it.slug ?: it.id },
+            allMovies = MovieRepository.mergeCatalogPages(PrefsStore.getCustomMovies(), state.allMovies),
             user = PrefsStore.getUser(),
             resolvedDevice = DeviceProfileResolver.resolve(this, savedSettings.deviceMode)
         )

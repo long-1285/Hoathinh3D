@@ -84,11 +84,19 @@ class MovieDetailActivity : AppCompatActivity() {
             height = ThemeManager.dp(
                 this@MovieDetailActivity,
                 when (resolvedDevice) {
-                    ResolvedDeviceProfile.MOBILE -> 212f
-                    ResolvedDeviceProfile.TABLET -> 244f
-                    ResolvedDeviceProfile.TV -> 260f
+                    ResolvedDeviceProfile.MOBILE -> 216f
+                    ResolvedDeviceProfile.TABLET -> 250f
+                    ResolvedDeviceProfile.TV -> 266f
                 }
             )
+        }
+        val posterSizeDp = when (resolvedDevice) {
+            ResolvedDeviceProfile.MOBILE -> 104f to 144f
+            ResolvedDeviceProfile.TABLET, ResolvedDeviceProfile.TV -> 118f to 162f
+        }
+        binding.imgDetailPoster.layoutParams = binding.imgDetailPoster.layoutParams.apply {
+            width = ThemeManager.dp(this@MovieDetailActivity, posterSizeDp.first)
+            height = ThemeManager.dp(this@MovieDetailActivity, posterSizeDp.second)
         }
 
         binding.btnCloseDetail.setOnClickListener { finish() }
@@ -187,8 +195,11 @@ class MovieDetailActivity : AppCompatActivity() {
                             serverGroups = fast.serverGroups
                             activeServerIdx = MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
                             epRangeIdx = 0
+                            val freshPoster = fast.poster?.takeUnless { MovieRepository.isDeadOrBlankPoster(it) }
                             movie = movie.copy(
                                 description = fast.description ?: movie.description,
+                                poster = freshPoster ?: movie.poster,
+                                thumb = freshPoster ?: movie.thumb,
                                 latestEp = fast.latestEp ?: movie.latestEp,
                                 totalEp = fast.totalEp ?: movie.totalEp,
                                 serverGroups = serverGroups
@@ -206,8 +217,11 @@ class MovieDetailActivity : AppCompatActivity() {
                     activeServerIdx = MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
                     epRangeIdx = 0
                 }
+                val freshPoster = detail.poster?.takeUnless { MovieRepository.isDeadOrBlankPoster(it) }
                 movie = movie.copy(
                     description = detail.description ?: movie.description,
+                    poster = freshPoster ?: movie.poster,
+                    thumb = freshPoster ?: movie.thumb,
                     latestEp = detail.latestEp ?: movie.latestEp,
                     totalEp = detail.totalEp ?: movie.totalEp,
                     serverGroups = if (serverGroups.isNotEmpty()) serverGroups else movie.serverGroups
@@ -261,16 +275,32 @@ class MovieDetailActivity : AppCompatActivity() {
         val isLite = DeviceProfileResolver.isLowRamDevice(this)
         val isUltraLow = DeviceProfileResolver.isUltraLowRamDevice(this)
         val decodeFmt = if (isLite) com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565 else com.bumptech.glide.load.DecodeFormat.PREFER_ARGB_8888
-        Glide.with(this)
-            .load(movie.thumb ?: movie.poster)
-            .override(if (isUltraLow) 640 else 960, if (isUltraLow) 360 else 540)
-            .format(decodeFmt)
-            .into(binding.imgDetailBackdrop)
-        Glide.with(this)
-            .load(movie.poster)
-            .override(if (isUltraLow) 260 else 360, if (isUltraLow) 368 else 520)
-            .format(decodeFmt)
-            .into(binding.imgDetailPoster)
+        val safeBackdropUrl = (movie.thumb ?: movie.poster).takeUnless { MovieRepository.isDeadOrBlankPoster(it) }.orEmpty()
+        val safePosterUrl = movie.poster.takeUnless { MovieRepository.isDeadOrBlankPoster(it) }.orEmpty()
+        if (safeBackdropUrl.isBlank()) {
+            Glide.with(this).clear(binding.imgDetailBackdrop)
+            binding.imgDetailBackdrop.setImageResource(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+        } else {
+            Glide.with(this)
+                .load(safeBackdropUrl)
+                .placeholder(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+                .override(if (isUltraLow) 640 else 960, if (isUltraLow) 360 else 540)
+                .format(decodeFmt)
+                .error(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+                .into(binding.imgDetailBackdrop)
+        }
+        if (safePosterUrl.isBlank()) {
+            Glide.with(this).clear(binding.imgDetailPoster)
+            binding.imgDetailPoster.setImageResource(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+        } else {
+            Glide.with(this)
+                .load(safePosterUrl)
+                .placeholder(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+                .override(if (isUltraLow) 260 else 360, if (isUltraLow) 368 else 520)
+                .format(decodeFmt)
+                .error(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+                .into(binding.imgDetailPoster)
+        }
 
         binding.txtDetailQuality.text = movie.quality
         binding.txtDetailEpBadge.text = "Tập ${movie.latestEp}/${movie.totalEp}"

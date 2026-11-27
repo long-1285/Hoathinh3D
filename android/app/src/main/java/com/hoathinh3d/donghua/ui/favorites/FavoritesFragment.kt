@@ -75,8 +75,14 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     override fun onChromeInsetsChanged(topPx: Int, bottomPx: Int) {
         val b = _binding ?: return
         val h = host ?: return
-        val isTv = h.getState().resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (h.getState().resolvedDevice) {
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV -> 22f
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TABLET -> 18f
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         b.favoritesScroll.setPadding(hPad, topPx, hPad, bottomPx)
     }
 
@@ -86,7 +92,14 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val st = h.getState()
         val p = h.getPalette()
         val isTv = st.resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (st.resolvedDevice) {
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV -> 22f
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TABLET -> 18f
+                com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.favoritesScroll.setPadding(hPad, chromeTop, hPad, chromeBot)
 

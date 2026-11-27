@@ -33,7 +33,7 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** HoatHinh3D Universal (Donghua 3D Aggregator & Native Cinema Player)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 47`, `versionName "3.5.7-v47"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 48`, `versionName "3.5.8-v48"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -116,6 +116,24 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-27] - Phiên 48: Sửa Triệt Để Lỗi Trùng Phim & Mất Poster Trang Chủ, Tối Ưu Toàn Diện Giao Diện & Nguồn Phát Đa Thiết Bị (`v3.5.8-v48`)
+- **Yêu cầu người dùng:**
+  1. Xử lý lỗi hiện trùng lặp phim nhưng không hiện poster phim trên giao diện màn hình chính (theo ảnh minh họa: *Đấu Phá Thương Khung*, *Tiên Nghịch*, *Thế Giới Hoàn Mỹ*, *Thôn Phệ Tinh Không* xen giữa các hàng phim thật nhưng trống ảnh bìa).
+  2. Tối ưu lại một lần nữa nguồn phát, giao diện Trang chủ, bố cục các mục con và Trình phát khoa học & hài hòa nhất cho Điện thoại (`MOBILE`), Giả lập PC/Tablet (`TABLET`) và Android TV (`TV`).
+- **Thay đổi đã thực hiện:**
+  1. **Xử lý tận gốc lỗi trùng phim & mất poster (`MainActivity.kt`, `InitialData.kt`, `MovieRepository.kt`, `YanHh3dNowScraper.kt`, `YanHh3dScraper.kt`, `CustomSourceParser.kt`, `SettingsFragment.kt`, `MovieCardAdapter.kt`, `bg_poster_placeholder.xml`):**
+     - **Loại bỏ chèn dữ liệu tĩnh sau feed sống (`MainActivity.loadLiveDonghuaFeed`):** Xóa đoạn gọi `PrefsStore.getAllMovies()` khi đã nhận được danh sách phim từ Web (`moviesTask.isNotEmpty()`); chỉ giữ phim `+Web` người dùng tự thêm (`customWebUrl`) rồi gộp qua `MovieRepository.mergeCatalogPages(...)`. Đồng bộ áp dụng hợp nhất tương tự cho `runLiveSearch`, `refreshCustomMovies`, `reloadAllPersistedState`, `resolveMovieForProgress` và `ScheduleFragment`.
+     - **Thay toàn bộ link ảnh `phimimg.com` đã chết (HTTP 404) & cập nhật slug chuẩn (`InitialData.kt`, `CustomSourceParser.kt`, `SettingsFragment.kt`):** Cập nhật 8 mục dự phòng `INITIAL_DONGHUA_CATALOG` dùng ảnh sống xác thực từ `yanhh3d.now/storage/movies/...` + slug thật trên `YanHH3D Now`; xóa mọi link `phimimg.com/upload/vod/202...` cứng còn sót trong parser/thêm nguồn.
+     - **Chuẩn hóa trích xuất ảnh & khử trùng lặp hợp nhất (`MovieRepository.kt`, `YanHh3dNowScraper.kt`, `YanHh3dScraper.kt`):** Viết helper dùng chung `isDeadOrBlankPoster`, `normalizePosterUrl`, `extractPosterUrl` (ưu tiên `data-src` / `data-lazy-src` / `data-original` / `data-url` / `src` / `srcset`, bỏ qua `data:image/` và `blank.gif`), và thống nhất logic gộp `mergeMoviePair` cho `mergeMovieLists`, `mergeCatalogPages` & `CatalogQueryEngine` (khử trùng theo slug chuẩn hóa lẫn tiêu đề chuẩn hóa khi có bản ghi dùng ảnh chết, luôn giữ poster sống tốt hơn).
+     - **Placeholder ảnh chuyên biệt API 23+ (`bg_poster_placeholder.xml`, `MovieCardAdapter.kt`, `ScheduleFragment.kt`, `MovieDetailActivity.kt`, `HomeFragment.kt`):** Tạo vector `bg_poster_placeholder.xml` gọn nhẹ và gắn `.placeholder(...)`/`.error(...)` + xóa tải Glide cũ khi URL trống/hỏng, không còn ô trống đen trên mọi màn hình.
+  2. **Tối ưu Nguồn phát, Trang chủ, Mục con & Trình phát đa thiết bị (`MovieRepository.kt`, `PlayerActivity.kt`, `MovieDetailActivity.kt`, `HomeFragment.kt`, `MovieCardAdapter.kt`, `ScheduleFragment.kt`, `FavoritesFragment.kt`, `HistoryFragment.kt`, `SettingsFragment.kt`):**
+     - **Nguồn phát & Chi tiết phim:** `fetchMovieDetailFast` cập nhật poster sống từ nguồn phụ nếu nguồn đầu trống/hỏng và khử trùng các `ServerGroup` trùng tên; `MovieDetailActivity` đồng bộ cập nhật poster mới từ detail, cân kích thước backdrop (`216dp` / `250dp` / `266dp`) & poster (`104×144dp` / `118×162dp`) theo Mobile / PC-Tablet / TV.
+     - **Trang chủ & Mục con:** Đồng bộ lề ngang `hPad` theo thiết bị (`14dp` Mobile / `18dp` Tablet-PC / `22dp` TV) trên cả 5 tab (`Home`, `Schedule`, `History`, `Favorites`, `Settings`), cân tỷ lệ Hero Banner (`186dp` / `232dp` / `248dp`), chiều rộng card Top 10 BXH (`136dp` / `156dp` / `172dp`) và chiều cao card lưới `MovieCardAdapter` (`148dp` / `192dp` / `198dp`).
+     - **Trình phát (`PlayerActivity`):** Đồng bộ Drawer danh sách tập (`renderEpisodesDrawer`) theo thứ tự **mới nhất trước** (`Tập N -> Tập 1`) bằng `PlayerUtils.descendingEpisodeDisplayIndices` & `buildDescendingEpisodeRanges`, tự mở đúng trang chứa tập đang phát; cân chỉnh cụm nút giữa & thanh đáy riêng cho Điện thoại dọc/ngang, Giả lập PC/Tablet và TV.
+- **Kiểm thử & Build:**
+  - Bổ sung 2 test hồi quy vào `NguonCApiAndRepoTest.kt` (`mergeCatalogPages_replacesDeadPosterAndDeduplicatesSameTitleOrSlug`, `extractPosterUrl_ignoresDataUriAndResolvesRelativeLazyAttrs`).
+  - `testDebugUnitTest`: **47/47 tests PASSED** (0 failures, 0 errors, 0 skipped); `lintDebug`: **BUILD SUCCESSFUL** (0 errors). *(Chưa kiểm thử trực tiếp trên thiết bị thật qua ADB ở phiên này).*
 
 ### [2026-11-27] - Phiên 47: Thiết Kế Lại Giao Diện Cài Đặt Dạng Danh Sách Phân Nhóm Trên Điện Thoại (`v3.5.7-v47`)
 - **Yêu cầu người dùng:**
@@ -1146,12 +1164,14 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 47).
-- **Phiên bản hiện tại:** `versionCode 47` / `versionName "3.5.7-v47"`.
+- **Ngày chốt phiên:** `2026-11-27` (sau Phiên 48).
+- **Phiên bản hiện tại:** `versionCode 48` / `versionName "3.5.8-v48"`.
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
 - **Quy tắc Build & Xuất bản OTA (Phiên 41+):** Không tạo Release R8 APK; cuối mỗi phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
-- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **45/45 unit tests** (`NguonCApiAndRepoTest` 14, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
+- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **47/47 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 9, `PrefsStoreTest` 7, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
 - **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
+  - **Sửa trùng lặp phim & mất poster, tối ưu đa thiết bị & nguồn phát (Phiên 48):**
+    - Không còn trộn `InitialData.INITIAL_DONGHUA_CATALOG` vào feed sống (`loadLiveDonghuaFeed`), thay sạch URL `phimimg.com` chết (404) bằng link `yanhh3d.now` xác thực + `bg_poster_placeholder.xml`, hợp nhất khử trùng lặp (`mergeMoviePair`, `extractPosterUrl`) theo slug/tiêu đề & khử trùng `ServerGroup`; đồng bộ lề ngang (`14/18/22dp`), kích thước card/hero/chi tiết phim cho Mobile / PC-Tablet / TV và sắp xếp tập mới nhất trước trong Drawer của `PlayerActivity`.
   - **Menu Cài đặt phân nhóm 2 tầng trên Điện thoại (Phiên 47):**
     - `SettingsFragment` + `MainActivity` (`MainState.isSettingsDetailOpen`, `closeSettingsDetail`) hiển thị riêng trên `MOBILE` menu phân nhóm **TRẢI NGHIỆM & PHÁT** (*Trình phát tích hợp*, *Giao diện*, *Tiện ích mở rộng*) và **HỆ THỐNG & DỮ LIỆU** (*Nguồn phim (+Web)*, *Cập nhật và Sao lưu*) trong thẻ kính bo góc `18dp` kèm ô biểu tượng `36dp`, vạch ngăn inset, mũi tên phải `›` và nút Back quay lại đúng luồng; vẫn giữ thanh 5 pill ngang cho Tablet/PC và TV.
   - **Đồng bộ `Lịch sử` giống `Yêu thích`, Thanh điều hướng nổi bật & `Hoàng Hôn Đêm Sâu` (Phiên 46):**
@@ -1176,9 +1196,9 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.81 MB**, `14,482,892 bytes`, `SHA-256: 4b3c3fb253a8aa71cc4e09c6eeee9c999e296184db592f1df114a09f23e0f262`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v47` + `version.json`.
+- **File APK mới nhất:** `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (**13.82 MB**, `14,487,587 bytes`, `SHA-256: 1a92bfb8001cdee51f36e8fd339ea395c84ba031c375bdfd0c0bf21e9b6ed3cc`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` với OpenJDK 21 và xuất bản OTA lên GitHub Release `v48` + `version.json`.
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
-  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.7-v47`)** trên **Điện thoại Android**, **Giả lập PC** và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận giao diện Cài đặt phân nhóm 2 tầng trên Điện thoại (kèm Back từ trang chi tiết & deep-link `Quản lý nguồn Web`), thanh pill ngang giữ nguyên trên PC/TV và nâng cấp OTA từ `v46` → `v47`.
+  1. Kiểm thử thực tế **`HoatHinh3d.apk` (`v3.5.8-v48`)** trên **Điện thoại Android**, **Giả lập PC** và **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận không còn phim trùng/mất poster trên Trang chủ, bố cục 5 tab + Chi tiết phim + Drawer tập mới nhất trước trong Trình phát và nâng cấp OTA từ `v47` → `v48`.
 
 ---
 
@@ -1187,11 +1207,12 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer) tại `E:\Project\3_HoatHinh3D`.
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 47, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `E:\Project\3_HoatHinh3D\PROJECT_MEMORY.md` và `GEMINI.md` để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc dùng OpenJDK 21 qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 48, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 47:
-- Phiên bản hiện tại: `versionCode 47`, `versionName "3.5.7-v47"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.81 MB, `14,482,892 bytes`), đã qua **45/45 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v47` + `version.json`.
+Tóm tắt hiện trạng sau Phiên 48:
+- Phiên bản hiện tại: `versionCode 48`, `versionName "3.5.8-v48"`. Mã nguồn Android Native nằm tại `E:\Project\3_HoatHinh3D\android` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `E:\Project\3_HoatHinh3D\HoatHinh3d.apk` (13.82 MB, `14,487,587 bytes`), đã qua **47/47 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v48` + `version.json`.
+- **Phiên 48 (Khắc phục trùng phim/mất poster & tối ưu toàn app):** Bỏ trộn `INITIAL_DONGHUA_CATALOG` vào feed sống (`loadLiveDonghuaFeed`), thay toàn bộ link `phimimg.com` 404 bằng poster xác thực + vector `bg_poster_placeholder.xml`, hợp nhất khử trùng slug/tiêu đề & ưu tiên poster sống trong `MovieRepository`, khử trùng `ServerGroup`, đồng bộ `hPad` (`14/18/22dp`), kích thước card/hero/detail cho Mobile/PC/TV và xếp tập mới nhất trước trong Drawer của `PlayerActivity`.
 - **Phiên 47 (Menu Cài Đặt Mobile Phân Nhóm):** Trên **Điện thoại (`MOBILE`)**, tab Cài đặt hiển thị giao diện danh sách phân nhóm 2 thẻ kính (`TRẢI NGHIỆM & PHÁT` + `HỆ THỐNG & DỮ LIỆU`) kèm ô icon bo góc `36dp`, vạch chia inset, mũi tên phải `›` và điều hướng 2 tầng (`isSettingsDetailOpen`, nút Back phần cứng & thanh `← <Tiêu đề>`); **Tablet/PC** và **TV** giữ nguyên thanh 5 pill ngang.
 - **Phiên 46 (Đồng nhất Lịch sử, Thanh điều hướng & Hoàng Hôn Đêm Sâu):** Lưới `Lịch sử` dùng chung `MovieCardAdapter` giống `Yêu thích` (chạm phát tiếp ngay, nhấn giữ mở menu); thanh điều hướng kính đáy & TV Rail bọc `RippleDrawable`, `navFeatureIconDrawable` làm nổi bật 5 icon tính năng + `attachLiquidNavTapEffect`; chủ đề `DARK` thành **Hoàng Hôn Đêm Sâu** (`#040507`, vàng hoàng hôn dịu `#E2AE58`).
 - **Phiên 45 (UI/UX, Thể loại & Tập mới nhất trước):** Chi tiết phim hiển thị tập mới nhất trước; bấm `Thể loại phim ▾` mở bảng Liquid Glass đồng bộ thời gian thực các chủ đề *Phim Hot, Phim Chiếu Rạp, Phim Lẻ, Phim Bộ, Phim Hoạt Hình, Phim Hành Động, Tình Cảm* + toàn bộ thể loại Web; Mobile 3 cột / Tablet-PC 4 cột / TV 5 cột; bỏ `Xanh Băng` (`AQUA`) giữ 3 tông màu (`PEARL`, `SAKURA`, `DARK`), bỏ `Hệ thống`, mặc định `52%` trong suốt / `32%` mờ / Hiệu ứng nền Bật.

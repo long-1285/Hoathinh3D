@@ -105,8 +105,14 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     override fun onChromeInsetsChanged(topPx: Int, bottomPx: Int) {
         val b = _binding ?: return
         val h = host ?: return
-        val isTv = h.getState().resolvedDevice == com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile.TV
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (h.getState().resolvedDevice) {
+                ResolvedDeviceProfile.TV -> 22f
+                ResolvedDeviceProfile.TABLET -> 18f
+                ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         b.scheduleRoot.setPadding(hPad, topPx, hPad, 0)
         b.rvSchedule.setPadding(0, 0, 0, bottomPx)
     }
@@ -122,7 +128,14 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             currentCols = desiredCols
             (b.rvSchedule.layoutManager as? GridLayoutManager)?.spanCount = desiredCols
         }
-        val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
+        val hPad = ThemeManager.dp(
+            requireContext(),
+            when (st.resolvedDevice) {
+                ResolvedDeviceProfile.TV -> 22f
+                ResolvedDeviceProfile.TABLET -> 18f
+                ResolvedDeviceProfile.MOBILE -> 14f
+            }
+        )
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.scheduleRoot.setPadding(hPad, chromeTop, hPad, 0)
         b.rvSchedule.setPadding(0, 0, 0, chromeBot)
@@ -177,13 +190,10 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             }
         }
 
-        val map = LinkedHashMap<String, DonghuaMovie>()
-        yanDayMovies.forEach { map[it.slug ?: it.id] = it }
-        st.allMovies.filter { it.scheduleDay == activeDay }.forEach { m ->
-            val k = m.slug ?: m.id
-            if (!map.containsKey(k)) map[k] = m
-        }
-        val list = map.values.toList()
+        val list = MovieRepository.mergeCatalogPages(
+            yanDayMovies,
+            st.allMovies.filter { it.scheduleDay == activeDay }
+        )
 
         if (list.isEmpty()) {
             b.txtEmptySchedule.visibility = View.VISIBLE
@@ -246,12 +256,25 @@ class ScheduleMovieAdapter(
         b.txtSchedLatestLabel.setTextColor(palette.textMuted)
         val isLow = com.hoathinh3d.donghua.core.DeviceProfileResolver.isLowRamDevice(b.root.context)
         val fmt = if (isLow) com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565 else com.bumptech.glide.load.DecodeFormat.PREFER_ARGB_8888
-        Glide.with(b.imgSchedPoster)
-            .load(MovieRepository.getOptimizedPosterUrl(m.poster, 240))
-            .override(200, 280)
-            .format(fmt)
-            .error(Glide.with(b.imgSchedPoster).load(m.poster).override(200, 280).format(fmt))
-            .into(b.imgSchedPoster)
+        val optSched = MovieRepository.getOptimizedPosterUrl(m.poster, 240)
+        if (optSched.isBlank() && MovieRepository.isDeadOrBlankPoster(m.poster)) {
+            Glide.with(b.imgSchedPoster).clear(b.imgSchedPoster)
+            b.imgSchedPoster.setImageResource(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+        } else {
+            Glide.with(b.imgSchedPoster)
+                .load(optSched.ifBlank { m.poster })
+                .placeholder(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+                .override(200, 280)
+                .format(fmt)
+                .error(
+                    Glide.with(b.imgSchedPoster)
+                        .load(m.poster)
+                        .override(200, 280)
+                        .format(fmt)
+                        .error(com.hoathinh3d.donghua.R.drawable.bg_poster_placeholder)
+                )
+                .into(b.imgSchedPoster)
+        }
         b.scheduleCardRoot.setOnClickListener { onClick(m) }
         ThemeManager.attachTvCardFocusEffect(b.scheduleCardRoot, enableScale = isTvMode)
     }

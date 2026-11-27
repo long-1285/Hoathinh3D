@@ -239,7 +239,7 @@ object CustomSourceParser {
                 val href = a.absUrl("href").ifEmpty { a.attr("href") }
                 if (href.isBlank() || !seen.add(href)) continue
                 val img = card.selectFirst("img")
-                val poster = img?.absUrl("data-src")?.ifEmpty { img.absUrl("src") } ?: ""
+                val poster = MovieRepository.extractPosterUrl(img, origin)
                 val title = a.attr("title")
                     .ifEmpty { card.selectFirst(".film-name, .name, h2, h3, .title")?.text().orEmpty() }
                     .ifEmpty { img?.attr("alt").orEmpty() }
@@ -269,7 +269,7 @@ object CustomSourceParser {
                         genres = genres,
                         scheduleDay = "Chủ Nhật",
                         scheduleTime = "11:00",
-                        poster = poster.ifEmpty { "https://phimimg.com/upload/vod/20231201-1/28004f285854bb69335ef000414e277d.jpg" },
+                        poster = poster,
                         customWebUrl = href.ifEmpty { origin },
                         streamIndex = idx % 4
                     )
@@ -283,7 +283,7 @@ object CustomSourceParser {
             val href = a.absUrl("href").ifEmpty { a.attr("href") }
             if (href.isBlank() || !seen.add(href)) continue
             val img = a.selectFirst("img")
-            val poster = img?.absUrl("data-src")?.ifEmpty { img.absUrl("src") } ?: ""
+            val poster = MovieRepository.extractPosterUrl(img, origin)
             val title = a.attr("title").ifEmpty { img?.attr("alt").orEmpty() }.ifEmpty { a.text() }.trim()
             if (title.length < 2) continue
             val genres = if (!forcedGenre.isNullOrBlank() && forcedGenre != "Tất cả") {

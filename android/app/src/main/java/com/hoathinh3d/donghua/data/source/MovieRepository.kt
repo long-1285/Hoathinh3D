@@ -17,6 +17,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
+import org.jsoup.nodes.Element
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -45,13 +46,58 @@ object MovieRepository {
         }
     }
 
+    fun isDeadOrBlankPoster(url: String?): Boolean {
+        val clean = url?.trim().orEmpty()
+        if (clean.isEmpty()) return true
+        val low = clean.lowercase()
+        return low.startsWith("data:image") ||
+            low.contains("blank.gif") ||
+            low.contains("placeholder") ||
+            low.contains("phimimg.com/upload/vod/202")
+    }
+
+    fun normalizePosterUrl(rawUrl: String?, baseUrl: String = ""): String {
+        val raw = rawUrl?.trim().orEmpty()
+        if (raw.isEmpty() || raw.startsWith("data:image", ignoreCase = true)) return ""
+        val low = raw.lowercase()
+        if (low.contains("blank.gif") || low.contains("placeholder")) return ""
+        return when {
+            low.startsWith("http://") || low.startsWith("https://") -> raw
+            raw.startsWith("//") -> "https:$raw"
+            baseUrl.isNotBlank() -> "${baseUrl.trimEnd('/')}/${raw.trimStart('/')}"
+            else -> raw
+        }
+    }
+
+    fun extractPosterUrl(imgEl: Element?, baseUrl: String): String {
+        if (imgEl == null) return ""
+        val attrs = listOf("data-src", "data-lazy-src", "data-original", "data-url", "src")
+        for (attr in attrs) {
+            val abs = imgEl.absUrl(attr)
+            val normAbs = normalizePosterUrl(abs, baseUrl)
+            if (normAbs.isNotEmpty() && !isDeadOrBlankPoster(normAbs)) return normAbs
+            val raw = imgEl.attr(attr)
+            val normRaw = normalizePosterUrl(raw, baseUrl)
+            if (normRaw.isNotEmpty() && !isDeadOrBlankPoster(normRaw)) return normRaw
+        }
+        val srcset = imgEl.attr("data-srcset").ifBlank { imgEl.attr("srcset") }
+        if (srcset.isNotBlank()) {
+            val firstCandidate = srcset.split(',').firstOrNull()?.trim()?.substringBefore(' ')
+            val normSet = normalizePosterUrl(firstCandidate, baseUrl)
+            if (normSet.isNotEmpty()) return normSet
+        }
+        return ""
+    }
+
     fun getOptimizedPosterUrl(url: String, width: Int = 420): String {
-        if (url.isBlank() || !url.startsWith("http")) return url
+        if (isDeadOrBlankPoster(url) || !url.startsWith("http")) return ""
         val low = url.lowercase()
         if (low.contains("wsrv.nl") ||
             low.endsWith(".webp") ||
+            low.endsWith(".avif") ||
             low.contains("phimimg.com") ||
-            low.contains("yanhh3d.")
+            low.contains("yanhh3d.") ||
+            low.contains("googleusercontent.com")
         ) {
             return url
         }
@@ -135,30 +181,83 @@ object MovieRepository {
         return sorted.first().idx
     }
 
+    private fun canonicalSlugKey(movie: DonghuaMovie): String {
+        val raw = movie.slug?.takeIf { it.isNotBlank() } ?: movie.id
+        return raw.trim().trimEnd('/').lowercase()
+    }
+
+    private fun canonicalTitleKey(title: String?): String {
+        val norm = VietnameseSearch.removeVietnameseTones(title.orEmpty())
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+        return norm
+    }
+
+    private fun mergeMoviePair(existing: DonghuaMovie, incoming: DonghuaMovie): DonghuaMovie {
+        val existingDead = isDeadOrBlankPoster(existing.poster)
+        val incomingLive = !isDeadOrBlankPoster(incoming.poster)
+        val preferIncomingIdentity = existingDead && incomingLive
+        val chosenPoster = when {
+            existingDead && incomingLive -> incoming.poster
+            !existingDead -> existing.poster
+            !incoming.poster.isBlank() -> incoming.poster
+            else -> ""
+        }
+        val chosenThumb = when {
+            !isDeadOrBlankPoster(existing.thumb) -> existing.thumb
+            !isDeadOrBlankPoster(incoming.thumb) -> incoming.thumb
+            chosenPoster.isNotBlank() -> chosenPoster
+            else -> existing.thumb
+        }
+        val wpMap = LinkedHashMap<String, WpSourceRef>()
+        (existing.wpSources.orEmpty() + incoming.wpSources.orEmpty()).forEach { ws ->
+            wpMap["${ws.baseUrl}_${ws.postId}"] = ws
+        }
+        return existing.copy(
+            id = if (preferIncomingIdentity) incoming.id else existing.id,
+            slug = if (preferIncomingIdentity) incoming.slug ?: existing.slug else existing.slug ?: incoming.slug,
+            title = if (preferIncomingIdentity) incoming.title else existing.title,
+            originalTitle = if (preferIncomingIdentity) incoming.originalTitle else existing.originalTitle,
+            studio = if (preferIncomingIdentity) incoming.studio else existing.studio,
+            poster = chosenPoster,
+            thumb = chosenThumb,
+            yanPostId = incoming.yanPostId ?: existing.yanPostId,
+            yanUrl = incoming.yanUrl ?: existing.yanUrl,
+            customWebUrl = existing.customWebUrl ?: incoming.customWebUrl,
+            wpSources = if (wpMap.isNotEmpty()) wpMap.values.toList() else null,
+            statusLabel = existing.statusLabel ?: incoming.statusLabel,
+            latestEp = maxOf(existing.latestEp, incoming.latestEp),
+            totalEp = maxOf(existing.totalEp, incoming.totalEp),
+            description = existing.description?.takeIf { it.isNotBlank() } ?: incoming.description,
+            genres = (existing.genres + incoming.genres).distinct(),
+            sources = (existing.sources + incoming.sources).distinct(),
+            audioModes = (existing.audioModes + incoming.audioModes).distinct()
+        )
+    }
+
     fun mergeMovieLists(lists: List<List<DonghuaMovie>>): List<DonghuaMovie> {
         val resultsMap = LinkedHashMap<String, DonghuaMovie>()
+        val titleToKey = HashMap<String, String>()
         for (list in lists) {
             for (movie in list) {
-                val key = movie.slug?.takeIf { it.isNotBlank() } ?: movie.id
-                val existing = resultsMap[key]
+                val slugKey = canonicalSlugKey(movie)
+                val titleKey = canonicalTitleKey(movie.title)
+                val matchedKey = when {
+                    resultsMap.containsKey(slugKey) -> slugKey
+                    titleKey.isNotEmpty() && titleToKey[titleKey]?.let { existingK ->
+                        val prev = resultsMap[existingK]
+                        prev != null && (isDeadOrBlankPoster(prev.poster) || isDeadOrBlankPoster(movie.poster) || prev.slug == movie.slug)
+                    } == true -> titleToKey.getValue(titleKey)
+                    else -> slugKey
+                }
+                val existing = resultsMap[matchedKey]
                 if (existing == null) {
-                    resultsMap[key] = movie
-                } else {
-                    val wpMap = LinkedHashMap<String, WpSourceRef>()
-                    (existing.wpSources.orEmpty() + movie.wpSources.orEmpty()).forEach { ws ->
-                        wpMap["${ws.baseUrl}_${ws.postId}"] = ws
+                    resultsMap[matchedKey] = movie
+                    if (titleKey.isNotEmpty() && !titleToKey.containsKey(titleKey)) {
+                        titleToKey[titleKey] = matchedKey
                     }
-                    resultsMap[key] = existing.copy(
-                        yanPostId = existing.yanPostId ?: movie.yanPostId,
-                        yanUrl = existing.yanUrl ?: movie.yanUrl,
-                        wpSources = if (wpMap.isNotEmpty()) wpMap.values.toList() else null,
-                        statusLabel = existing.statusLabel ?: movie.statusLabel,
-                        latestEp = maxOf(existing.latestEp, movie.latestEp),
-                        totalEp = maxOf(existing.totalEp, movie.totalEp),
-                        description = existing.description ?: movie.description,
-                        genres = (existing.genres + movie.genres).distinct(),
-                        sources = (existing.sources + movie.sources).distinct()
-                    )
+                } else {
+                    resultsMap[matchedKey] = mergeMoviePair(existing, movie)
                 }
             }
         }
@@ -480,41 +579,15 @@ object MovieRepository {
     ): List<DonghuaMovie> = fetchDonghuaPage(page, limit, preferredSourceId).movies
 
     /**
-     * Gộp trang phim mới vào danh sách hiện có, giữ nguyên thứ tự trước đó và khử trùng lặp theo slug/id.
+     * Gộp trang phim mới vào danh sách hiện có, giữ nguyên thứ tự trước đó và khử trùng lặp theo slug/id/tên chuẩn hóa.
      */
     fun mergeCatalogPages(
         existing: List<DonghuaMovie>,
         incoming: List<DonghuaMovie>
     ): List<DonghuaMovie> {
-        if (incoming.isEmpty()) return existing
-        if (existing.isEmpty()) return incoming
-        val map = LinkedHashMap<String, DonghuaMovie>(existing.size + incoming.size)
-        for (movie in existing) {
-            val key = movie.slug?.takeIf { it.isNotBlank() } ?: movie.id
-            map[key] = movie
-        }
-        for (movie in incoming) {
-            val key = movie.slug?.takeIf { it.isNotBlank() } ?: movie.id
-            val prev = map[key]
-            if (prev == null) {
-                map[key] = movie
-            } else {
-                val wpMap = LinkedHashMap<String, WpSourceRef>()
-                (prev.wpSources.orEmpty() + movie.wpSources.orEmpty()).forEach { ws ->
-                    wpMap["${ws.baseUrl}_${ws.postId}"] = ws
-                }
-                map[key] = prev.copy(
-                    yanPostId = prev.yanPostId ?: movie.yanPostId,
-                    yanUrl = prev.yanUrl ?: movie.yanUrl,
-                    wpSources = if (wpMap.isNotEmpty()) wpMap.values.toList() else null,
-                    latestEp = maxOf(prev.latestEp, movie.latestEp),
-                    totalEp = maxOf(prev.totalEp, movie.totalEp),
-                    genres = (prev.genres + movie.genres).distinct(),
-                    sources = (prev.sources + movie.sources).distinct()
-                )
-            }
-        }
-        return map.values.toList()
+        if (incoming.isEmpty()) return mergeMovieLists(listOf(existing))
+        if (existing.isEmpty()) return mergeMovieLists(listOf(incoming))
+        return mergeMovieLists(listOf(existing, incoming))
     }
 
     /**
@@ -783,6 +856,9 @@ object MovieRepository {
                     serverGroups.addAll(yanRes.serverGroups)
                 }
                 if (description.isBlank() && !yanRes.description.isNullOrBlank()) description = yanRes.description
+                if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(yanRes.poster)) {
+                    poster = yanRes.poster.orEmpty()
+                }
                 yanRes.latestEp?.let { latestEp = maxOf(latestEp, it) }
                 yanRes.totalEp?.let { totalEp = maxOf(totalEp, it) }
             }
@@ -791,18 +867,20 @@ object MovieRepository {
                 serverGroups.add(0, customSrv)
             }
 
-            val maxGroupEps = serverGroups.maxOfOrNull { it.episodes.size } ?: 0
+            val dedupedServers = serverGroups
+                .distinctBy { it.serverName.trim().lowercase() }
+            val maxGroupEps = dedupedServers.maxOfOrNull { it.episodes.size } ?: 0
             latestEp = maxOf(latestEp, maxGroupEps, movie?.latestEp ?: 0)
             totalEp = maxOf(totalEp, latestEp, movie?.totalEp ?: 0)
 
             val result = MovieDetailResult(
-                serverGroups = serverGroups,
+                serverGroups = dedupedServers,
                 description = description.ifBlank { null },
-                poster = poster.ifBlank { null },
+                poster = poster.takeUnless { isDeadOrBlankPoster(it) },
                 totalEp = if (totalEp > 0) totalEp else null,
                 latestEp = if (latestEp > 0) latestEp else null
             )
-            if (serverGroups.isNotEmpty()) setCached(cacheKey, result)
+            if (dedupedServers.isNotEmpty()) setCached(cacheKey, result)
             if (!fastEmitted && onFastReady != null) {
                 onFastReady.invoke(result)
             }
@@ -999,14 +1077,9 @@ object CatalogQueryEngine {
     ): List<Pair<String, Int>> {
         val cleanSearch = searchQuery.trim()
         if (cleanSearch.isEmpty()) return emptyList()
-        val poolMap = LinkedHashMap<String, DonghuaMovie>()
-        remoteSearchResults.forEach { poolMap[it.slug ?: it.id] = it }
-        allMovies.forEach { m ->
-            val k = m.slug ?: m.id
-            if (!poolMap.containsKey(k)) poolMap[k] = m
-        }
+        val pooled = MovieRepository.mergeMovieLists(listOf(remoteSearchResults, allMovies))
         val counts = LinkedHashMap<String, Int>()
-        poolMap.values.forEach { movie ->
+        pooled.forEach { movie ->
             if (matchesAudioFilter(movie, audioFilter) &&
                 matchesStatusFilter(movie, statusFilter) &&
                 VietnameseSearch.scoreMovieMatch(movie, cleanSearch) > 0
@@ -1033,13 +1106,8 @@ object CatalogQueryEngine {
     ): List<DonghuaMovie> {
         val cleanSearch = searchQuery.trim()
         if (cleanSearch.isNotEmpty()) {
-            val poolMap = LinkedHashMap<String, DonghuaMovie>()
-            remoteSearchResults.forEach { poolMap[it.slug ?: it.id] = it }
-            allMovies.forEach { m ->
-                val k = m.slug ?: m.id
-                if (!poolMap.containsKey(k)) poolMap[k] = m
-            }
-            val scored = poolMap.values
+            val pooled = MovieRepository.mergeMovieLists(listOf(remoteSearchResults, allMovies))
+            val scored = pooled
                 .asSequence()
                 .filter {
                     matchesAudioFilter(it, audioFilter) &&

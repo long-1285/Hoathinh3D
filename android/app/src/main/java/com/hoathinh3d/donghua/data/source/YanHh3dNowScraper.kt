@@ -222,12 +222,11 @@ object YanHh3dNowScraper {
                 if (rel.startsWith("http")) rel else "$cleanBase/${rel.trimStart('/')}"
             }
             val slug = rawHref.trimEnd('/').substringAfterLast('/').substringBefore('?')
-            if (slug.isBlank() || !seen.add(slug)) continue
+            val normSlug = slug.lowercase()
+            if (slug.isBlank() || !seen.add(normSlug)) continue
 
             val imgEl = item.selectFirst("img")
-            val poster = imgEl?.absUrl("data-src")?.ifBlank { imgEl.attr("data-src") }
-                ?.ifBlank { imgEl.absUrl("src").ifBlank { imgEl.attr("src") } }
-                .orEmpty()
+            val poster = MovieRepository.extractPosterUrl(imgEl, cleanBase)
 
             val title = item.selectFirst("h4, .film-name a, .film-name")?.text()?.trim()
                 ?.ifBlank { linkEl.attr("title").trim() }
@@ -319,12 +318,11 @@ object YanHh3dNowScraper {
                 if (rel.startsWith("http")) rel else "$cleanBase/${rel.trimStart('/')}"
             }
             val slug = rawHref.trimEnd('/').substringAfterLast('/').substringBefore('?')
-            if (slug.isBlank() || !seen.add(slug)) continue
+            val normSlug = slug.lowercase()
+            if (slug.isBlank() || !seen.add(normSlug)) continue
 
             val imgEl = item.selectFirst("img")
-            val poster = imgEl?.absUrl("data-src")?.ifBlank { imgEl.attr("data-src") }
-                ?.ifBlank { imgEl.absUrl("src").ifBlank { imgEl.attr("src") } }
-                .orEmpty()
+            val poster = MovieRepository.extractPosterUrl(imgEl, cleanBase)
 
             val title = item.selectFirst(".film-name a, .film-name")?.text()?.trim()
                 ?.ifBlank { linkEl.attr("title").trim() }

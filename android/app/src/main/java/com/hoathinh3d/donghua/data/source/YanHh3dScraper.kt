@@ -199,12 +199,10 @@ object YanHh3dScraper {
                 if (rel.startsWith("http")) rel else "$cleanBase/${rel.trimStart('/')}"
             }
             val slug = rawHref.trimEnd('/').substringAfterLast('/').substringBefore('?')
-            if (slug.isBlank() || !seen.add(slug)) continue
+            if (slug.isBlank() || !seen.add(slug.lowercase())) continue
 
             val imgEl = item.selectFirst("img")
-            val poster = imgEl?.absUrl("data-src")?.ifBlank { imgEl.attr("data-src") }
-                ?.ifBlank { imgEl.absUrl("src").ifBlank { imgEl.attr("src") } }
-                .orEmpty()
+            val poster = MovieRepository.extractPosterUrl(imgEl, cleanBase)
             val title = item.selectFirst(".film-name a, .film-name, h3, h4")?.text()?.trim()
                 ?.ifBlank { linkEl.attr("title").trim() }
                 ?.ifBlank { imgEl?.attr("alt")?.trim().orEmpty() }
