@@ -1,11 +1,11 @@
 {
-    "versionCode":  48,
-    "versionName":  "3.5.8-v48",
-    "tag":  "v48",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v48/HoatHinh3d.apk",
+    "versionCode":  49,
+    "versionName":  "3.5.9-v49",
+    "tag":  "v49",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v49/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "1a92bfb8001cdee51f36e8fd339ea395c84ba031c375bdfd0c0bf21e9b6ed3cc",
-    "apkSizeBytes":  14487587,
-    "changelog":  "v3.5.8-v48: Sua triet de loi trung lap phim va mat poster tren Trang chu, thay sach anh phimimg.com hong bang poster song + placeholder chuan API 23, hop nhat khu trung slug/ten \u0026 may chu, toi uu bo cuc 5 tab + chi tiet phim + drawer tap moi nhat truoc cho Dien thoai, PC/Tablet va Android TV.",
-    "releasedAt":  "2026-11-27T13:59:18Z"
+    "sha256":  "5e540226a7a86aed7967aa63918acba441e538791f824582791354d80d0d8bd6",
+    "apkSizeBytes":  14514180,
+    "changelog":  "Phien 49: Tim kiem thong minh (Lich su \u0026 Tu khoa Hot), Pull-to-refresh Trang chu \u0026 Lich chieu, nut Khoa man hinh tu an 3s \u0026 Chia se nhanh.",
+    "releasedAt":  "2026-11-27T15:45:58Z"
 }
