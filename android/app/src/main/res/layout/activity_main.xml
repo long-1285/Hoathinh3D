@@ -333,8 +333,9 @@
 
             <ImageView
                 android:id="@+id/tvRailHomeIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
                 android:src="@drawable/ic_nav_explore" />
 
             <TextView
@@ -362,8 +363,9 @@
 
             <ImageView
                 android:id="@+id/tvRailScheduleIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
                 android:src="@drawable/ic_nav_schedule" />
 
             <TextView
@@ -390,8 +392,9 @@
 
             <ImageView
                 android:id="@+id/tvRailHistoryIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
                 android:src="@drawable/ic_nav_history" />
 
             <TextView
@@ -418,8 +421,9 @@
 
             <ImageView
                 android:id="@+id/tvRailFavoritesIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
                 android:src="@drawable/ic_nav_favorites" />
 
             <TextView
@@ -446,8 +450,9 @@
 
             <ImageView
                 android:id="@+id/tvRailSettingsIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="4dp"
                 android:src="@drawable/ic_nav_settings" />
 
             <TextView
@@ -580,9 +585,11 @@
 
             <ImageView
                 android:id="@+id/navHomeIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="36dp"
+                android:layout_height="28dp"
                 android:contentDescription="Khám phá"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="4dp"
                 android:src="@drawable/ic_nav_explore" />
 
             <TextView
@@ -609,9 +616,11 @@
 
             <ImageView
                 android:id="@+id/navScheduleIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="36dp"
+                android:layout_height="28dp"
                 android:contentDescription="Lịch chiếu"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="4dp"
                 android:src="@drawable/ic_nav_schedule" />
 
             <TextView
@@ -637,9 +646,11 @@
 
             <ImageView
                 android:id="@+id/navHistoryIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="36dp"
+                android:layout_height="28dp"
                 android:contentDescription="Lịch sử"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="4dp"
                 android:src="@drawable/ic_nav_history" />
 
             <TextView
@@ -665,9 +676,11 @@
 
             <ImageView
                 android:id="@+id/navFavoritesIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="36dp"
+                android:layout_height="28dp"
                 android:contentDescription="Yêu thích"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="4dp"
                 android:src="@drawable/ic_nav_favorites" />
 
             <TextView
@@ -693,9 +706,11 @@
 
             <ImageView
                 android:id="@+id/navSettingsIcon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="36dp"
+                android:layout_height="28dp"
                 android:contentDescription="Cài đặt"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="4dp"
                 android:src="@drawable/ic_nav_settings" />
 
             <TextView

@@ -122,7 +122,7 @@ enum class ResolvedDeviceProfile(val wireValue: String) {
 enum class ThemePreset(val wireValue: String, val displayName: String, val desc: String) {
     PEARL("pearl", "Ngọc Trai Dịu Nhẹ (Mặc định)", "Trắng ngọc thanh thoát, êm mắt"),
     SAKURA("sakura", "Anh Đào Phấn Nhạt", "Hồng sương mai mềm mại, tinh tế"),
-    DARK("dark", "Đêm Cực Quang Dịu", "Kính mờ ban đêm dịu nhẹ");
+    DARK("dark", "Hoàng Hôn Đêm Sâu", "Vàng hoàng hôn dịu nhẹ trên nền đen sâu");
 
     companion object {
         fun fromWire(value: String?): ThemePreset =

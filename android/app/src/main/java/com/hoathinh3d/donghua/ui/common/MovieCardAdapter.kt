@@ -32,7 +32,8 @@ data class MovieCardUiMeta(
 class MovieCardAdapter(
     private val fixedWidthDp: Int? = null,
     private val onSelect: (DonghuaMovie) -> Unit,
-    private val onToggleFavorite: (DonghuaMovie) -> Unit
+    private val onToggleFavorite: (DonghuaMovie) -> Unit,
+    private val onLongSelect: ((DonghuaMovie) -> Unit)? = null
 ) : ListAdapter<DonghuaMovie, MovieCardAdapter.VH>(DIFF) {
 
     var palette: ThemePalette = ThemeManager.palette("pearl")
@@ -255,7 +256,11 @@ class MovieCardAdapter(
 
         b.cardRoot.setOnClickListener { onSelect(movie) }
         b.cardRoot.setOnLongClickListener {
-            onToggleFavorite(movie)
+            if (onLongSelect != null) {
+                onLongSelect.invoke(movie)
+            } else {
+                onToggleFavorite(movie)
+            }
             true
         }
         b.btnFavHeart.isFocusable = !isTvMode

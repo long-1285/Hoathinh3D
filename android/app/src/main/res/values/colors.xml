@@ -21,16 +21,16 @@
     <color name="sakura_accent_from">#C9648A</color>
     <color name="sakura_accent_to">#9B78C4</color>
 
-    <!-- Dark Theme (Soft Aurora Night) -->
-    <color name="dark_bg_primary">#0A0F1A</color>
-    <color name="dark_bg_secondary">#131C2D</color>
-    <color name="dark_text_main">#F1F5F9</color>
-    <color name="dark_text_muted">#94A3B8</color>
-    <color name="dark_glass_surface">#99131B2C</color>
-    <color name="dark_glass_card">#AB1C273B</color>
-    <color name="dark_glass_border">#22FFFFFF</color>
-    <color name="dark_accent_from">#6E7CF2</color>
-    <color name="dark_accent_to">#47B8C4</color>
+    <!-- Dark Theme (Deep Obsidian Night + Soft Sunset Gold) -->
+    <color name="dark_bg_primary">#040507</color>
+    <color name="dark_bg_secondary">#0C0E14</color>
+    <color name="dark_text_main">#F7F3EA</color>
+    <color name="dark_text_muted">#A39A8B</color>
+    <color name="dark_glass_surface">#990B0D13</color>
+    <color name="dark_glass_card">#AB12141D</color>
+    <color name="dark_glass_border">#3AE2AE58</color>
+    <color name="dark_accent_from">#E2AE58</color>
+    <color name="dark_accent_to">#D1844B</color>
 
     <!-- Common accents -->
     <color name="tv_focus_cyan">#47B8C4</color>

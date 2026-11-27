@@ -77,6 +77,11 @@ class PrefsStoreTest {
         assertEquals("pearl", com.hoathinh3d.donghua.data.model.ThemePreset.fromWire("aqua").wireValue)
         assertEquals(listOf("light", "dark"), com.hoathinh3d.donghua.data.model.DarkModePreference.entries.map { it.wireValue })
         assertEquals("light", com.hoathinh3d.donghua.data.model.DarkModePreference.fromWire("system").wireValue)
+
+        val sunsetDark = com.hoathinh3d.donghua.core.ThemeManager.palette("dark", 32, 52, "dark")
+        assertTrue(sunsetDark.isDark)
+        assertEquals(android.graphics.Color.parseColor("#040507"), sunsetDark.bgPrimary)
+        assertEquals(android.graphics.Color.parseColor("#E2AE58"), sunsetDark.accentFrom)
     }
 
     @Test

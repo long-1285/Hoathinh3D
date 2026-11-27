@@ -10,11 +10,14 @@ import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Build
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.Window
+import android.view.animation.OvershootInterpolator
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -89,27 +92,43 @@ object ThemeManager {
                     Color.argb(54, 226, 232, 240)
                 )
                 ThemePreset.DARK -> arrayOf(
-                    Color.parseColor("#0A0F1A"),
-                    Color.parseColor("#131C2D"),
-                    Color.parseColor("#6E7CF2"),
-                    Color.parseColor("#47B8C4"),
-                    Color.argb(52, 226, 232, 240)
+                    Color.parseColor("#040507"),
+                    Color.parseColor("#0C0E14"),
+                    Color.parseColor("#E2AE58"),
+                    Color.parseColor("#D1844B"),
+                    Color.argb(62, 226, 174, 88)
                 )
             }
+            val isSunsetDark = preset == ThemePreset.DARK
             return ThemePalette(
                 preset = preset,
                 isDark = true,
                 bgPrimary = bg1,
                 bgSecondary = bg2,
-                textMain = Color.parseColor("#F1F5F9"),
-                textMuted = Color.parseColor("#94A3B8"),
-                glassSurface = Color.argb(surfaceAlpha, 19, 27, 44),
-                glassCard = Color.argb(cardAlpha, 28, 39, 59),
+                textMain = Color.parseColor(if (isSunsetDark) "#F7F3EA" else "#F1F5F9"),
+                textMuted = Color.parseColor(if (isSunsetDark) "#A39A8B" else "#94A3B8"),
+                glassSurface = Color.argb(
+                    surfaceAlpha,
+                    if (isSunsetDark) 11 else 19,
+                    if (isSunsetDark) 13 else 27,
+                    if (isSunsetDark) 19 else 44
+                ),
+                glassCard = Color.argb(
+                    cardAlpha,
+                    if (isSunsetDark) 18 else 28,
+                    if (isSunsetDark) 20 else 39,
+                    if (isSunsetDark) 29 else 59
+                ),
                 glassBorder = rimBase,
-                glassSubtleBorder = Color.argb(34, 255, 255, 255),
+                glassSubtleBorder = if (isSunsetDark) Color.argb(38, 226, 174, 88) else Color.argb(34, 255, 255, 255),
                 accentFrom = acc1,
                 accentTo = acc2,
-                inputBg = Color.argb(inputAlpha, 32, 44, 66),
+                inputBg = Color.argb(
+                    inputAlpha,
+                    if (isSunsetDark) 22 else 32,
+                    if (isSunsetDark) 25 else 44,
+                    if (isSunsetDark) 35 else 66
+                ),
                 glassBlurPx = blur,
                 glassOpacityPct = opacityPct
             )
@@ -187,6 +206,9 @@ object ThemeManager {
         }
     }
 
+    private fun focusStrokeColor(palette: ThemePalette): Int =
+        if (palette.preset == ThemePreset.DARK) palette.accentFrom else Color.parseColor("#47B8C4")
+
     /**
      * Apple iOS 27 Liquid Glass Floating Sheet (for Header, Tab Capsule, Control Panels):
      * Multi-pass optical feel with translucent glass base + diagonal specular sheen + crisp beveled rim.
@@ -197,7 +219,11 @@ object ThemeManager {
         radiusDp: Float = 26f
     ): StateListDrawable {
         val radiusPx = dp(context, radiusDp).toFloat()
-        val rimColor = if (palette.isDark) Color.argb(72, 255, 255, 255) else Color.argb(245, 255, 255, 255)
+        val rimColor = when {
+            palette.preset == ThemePreset.DARK -> Color.argb(72, 226, 174, 88)
+            palette.isDark -> Color.argb(72, 255, 255, 255)
+            else -> Color.argb(245, 255, 255, 255)
+        }
         val baseNormal = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
@@ -210,7 +236,7 @@ object ThemeManager {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
             setColor(palette.glassSurface)
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), Color.parseColor("#47B8C4"))
+            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         val focused = LayerDrawable(arrayOf(baseFocused, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
 
@@ -240,7 +266,7 @@ object ThemeManager {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
             setColor(palette.glassCard)
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), Color.parseColor("#47B8C4"))
+            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         val normal: Drawable = if (liteRender) {
             normalBase
@@ -290,7 +316,7 @@ object ThemeManager {
                 setColor(palette.glassCard)
             }
             cornerRadius = radiusPx
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), Color.parseColor("#47B8C4"))
+            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -317,7 +343,7 @@ object ThemeManager {
             intArrayOf(palette.accentFrom, palette.accentTo)
         ).apply {
             cornerRadius = radiusPx
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), Color.parseColor("#47B8C4"))
+            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -326,26 +352,33 @@ object ThemeManager {
     }
 
     /**
-     * iOS 27 Liquid Glass Tab Lens for active Bottom Navigation pill.
+     * iOS 27 Liquid Glass Tab Lens with bounded RippleDrawable for Bottom Nav & TV Left Rail.
      */
     fun navTabDrawable(
         context: Context,
         palette: ThemePalette,
         active: Boolean,
         radiusDp: Float = 22f
-    ): StateListDrawable {
+    ): Drawable {
         val radiusPx = dp(context, radiusDp).toFloat()
+        val focusCol = focusStrokeColor(palette)
         val normal: Drawable = if (active) {
             val lensFill = if (palette.isDark) {
-                Color.argb(66, Color.red(palette.accentTo), Color.green(palette.accentTo), Color.blue(palette.accentTo))
+                Color.argb(72, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
             } else {
-                Color.argb(28, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
+                Color.argb(42, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
             }
-            val lensRim = if (palette.isDark) Color.argb(85, 255, 255, 255) else Color.argb(210, 255, 255, 255)
+            val lensRim = if (palette.preset == ThemePreset.DARK) {
+                Color.argb(145, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
+            } else if (palette.isDark) {
+                Color.argb(115, 255, 255, 255)
+            } else {
+                Color.argb(235, 255, 255, 255)
+            }
             val lens = GradientDrawable().apply {
                 cornerRadius = radiusPx
                 setColor(lensFill)
-                setStroke(dp(context, 1f).coerceAtLeast(1), lensRim)
+                setStroke(dp(context, 1.25f).coerceAtLeast(1), lensRim)
             }
             LayerDrawable(arrayOf(lens, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
         } else {
@@ -356,12 +389,111 @@ object ThemeManager {
         }
         val focused = GradientDrawable().apply {
             cornerRadius = radiusPx
-            setColor(Color.argb(if (palette.isDark) 60 else 34, 71, 184, 196))
-            setStroke(dp(context, 2f).coerceAtLeast(2), Color.parseColor("#47B8C4"))
+            setColor(Color.argb(if (palette.isDark) 58 else 32, Color.red(focusCol), Color.green(focusCol), Color.blue(focusCol)))
+            setStroke(dp(context, 2f).coerceAtLeast(2), focusCol)
         }
-        return StateListDrawable().apply {
+        val states = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
             addState(intArrayOf(), normal)
+        }
+        val rippleTint = Color.argb(
+            if (palette.isDark) 82 else 68,
+            Color.red(palette.accentFrom),
+            Color.green(palette.accentFrom),
+            Color.blue(palette.accentFrom)
+        )
+        val mask = GradientDrawable().apply {
+            cornerRadius = radiusPx
+            setColor(Color.WHITE)
+        }
+        return RippleDrawable(ColorStateList.valueOf(rippleTint), states, mask)
+    }
+
+    /**
+     * Luminous frosted mini-pill backdrop behind navigation feature icons so they pop over 52% translucent glass.
+     */
+    fun navFeatureIconDrawable(
+        context: Context,
+        palette: ThemePalette,
+        featureAccent: Int,
+        active: Boolean,
+        radiusDp: Float = 12f
+    ): Drawable {
+        val radiusPx = dp(context, radiusDp).toFloat()
+        return if (active) {
+            GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(featureAccent, palette.accentTo)
+            ).apply {
+                cornerRadius = radiusPx
+                setStroke(dp(context, 1f).coerceAtLeast(1), Color.argb(175, 255, 255, 255))
+            }
+        } else {
+            val fill = if (palette.isDark) {
+                Color.argb(42, Color.red(featureAccent), Color.green(featureAccent), Color.blue(featureAccent))
+            } else {
+                Color.argb(34, Color.red(featureAccent), Color.green(featureAccent), Color.blue(featureAccent))
+            }
+            val rim = if (palette.isDark) {
+                Color.argb(88, Color.red(featureAccent), Color.green(featureAccent), Color.blue(featureAccent))
+            } else {
+                Color.argb(190, 255, 255, 255)
+            }
+            GradientDrawable().apply {
+                cornerRadius = radiusPx
+                setColor(fill)
+                setStroke(dp(context, 1f).coerceAtLeast(1), rim)
+            }
+        }
+    }
+
+    fun attachLiquidNavTapEffect(
+        tabView: View,
+        iconView: View,
+        enableAnimation: Boolean
+    ) {
+        if (!enableAnimation) {
+            tabView.setOnTouchListener(null)
+            return
+        }
+        tabView.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.animate().cancel()
+                    iconView.animate().cancel()
+                    v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(85L).start()
+                    iconView.animate().scaleX(0.86f).scaleY(0.86f).setDuration(85L).start()
+                }
+                MotionEvent.ACTION_UP -> {
+                    v.animate().cancel()
+                    iconView.animate().cancel()
+                    v.animate()
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setInterpolator(OvershootInterpolator(2.2f))
+                        .setDuration(220L)
+                        .start()
+                    iconView.animate()
+                        .scaleX(1.16f)
+                        .scaleY(1.16f)
+                        .setDuration(110L)
+                        .withEndAction {
+                            iconView.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(140L)
+                                .start()
+                        }
+                        .start()
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    v.animate().cancel()
+                    iconView.animate().cancel()
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120L).start()
+                    iconView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120L).start()
+                }
+            }
+            false
         }
     }
 

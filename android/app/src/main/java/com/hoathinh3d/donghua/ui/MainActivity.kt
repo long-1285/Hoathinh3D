@@ -559,8 +559,32 @@ class MainActivity : AppCompatActivity(), AppHost {
         updateBottomNavUi()
     }
 
+    private fun featureAccentForTab(tab: MainTab, p: ThemePalette): Int {
+        if (p.preset == com.hoathinh3d.donghua.data.model.ThemePreset.DARK) {
+            return when (tab) {
+                MainTab.HOME -> p.accentFrom
+                MainTab.SCHEDULE -> Color.parseColor("#E8BA6B")
+                MainTab.HISTORY -> Color.parseColor("#D99B52")
+                MainTab.FAVORITES -> Color.parseColor("#E87478")
+                MainTab.SETTINGS -> Color.parseColor("#D1A35E")
+            }
+        }
+        return when (tab) {
+            MainTab.HOME -> p.accentFrom
+            MainTab.SCHEDULE -> Color.parseColor(if (p.isDark) "#4CC9D0" else "#2A93AE")
+            MainTab.HISTORY -> Color.parseColor(if (p.isDark) "#A78BFA" else "#7459CF")
+            MainTab.FAVORITES -> Color.parseColor(if (p.isDark) "#FB7185" else "#DF4E6C")
+            MainTab.SETTINGS -> Color.parseColor(if (p.isDark) "#5AD1A4" else "#299D77")
+        }
+    }
+
     private fun updateBottomNavUi() {
         val p = getPalette()
+        val enableTapFx = !DeviceProfileResolver.shouldUseReducedMotion(
+            this,
+            state.resolvedDevice,
+            state.settings.reducedMotion
+        )
         val tabs = listOf(
             Triple(MainTab.HOME, binding.navHome, binding.navHomeIcon to binding.navHomeLabel),
             Triple(MainTab.SCHEDULE, binding.navSchedule, binding.navScheduleIcon to binding.navScheduleLabel),
@@ -571,12 +595,19 @@ class MainActivity : AppCompatActivity(), AppHost {
         for ((tab, tabView, iconAndLabel) in tabs) {
             val active = state.activeTab == tab
             val (icon, lbl) = iconAndLabel
+            val featCol = featureAccentForTab(tab, p)
             tabView.background = ThemeManager.navTabDrawable(this, p, active = active, radiusDp = 24f)
-            val tint = if (active) p.accentFrom else p.textMuted
-            icon.imageTintList = ThemeManager.tintColorState(tint)
-            lbl.setTextColor(tint)
+            icon.background = ThemeManager.navFeatureIconDrawable(this, p, featCol, active = active, radiusDp = 12f)
+            icon.imageTintList = ThemeManager.tintColorState(if (active) Color.WHITE else featCol)
+            val restScale = if (active) 1.04f else 1.0f
+            icon.scaleX = restScale
+            icon.scaleY = restScale
+            lbl.setTextColor(if (active) featCol else p.textMain)
+            lbl.alpha = if (active) 1f else 0.88f
             lbl.setTypeface(null, if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            ThemeManager.attachLiquidNavTapEffect(tabView, icon, enableTapFx)
         }
+        ThemeManager.attachLiquidNavTapEffect(binding.btnBottomSearch, binding.imgBottomSearchIcon, enableTapFx)
 
         val railTabs = listOf(
             Triple(MainTab.HOME, binding.tvRailHome, binding.tvRailHomeIcon to binding.tvRailHomeLabel),
@@ -588,12 +619,17 @@ class MainActivity : AppCompatActivity(), AppHost {
         for ((tab, railView, iconAndLabel) in railTabs) {
             val active = state.activeTab == tab
             val (icon, lbl) = iconAndLabel
+            val featCol = featureAccentForTab(tab, p)
             railView.background = ThemeManager.navTabDrawable(this, p, active = active, radiusDp = 16f)
-            val tint = if (active) p.accentFrom else p.textMuted
-            icon.imageTintList = ThemeManager.tintColorState(tint)
-            lbl.setTextColor(if (active) p.accentFrom else p.textMain)
+            icon.background = ThemeManager.navFeatureIconDrawable(this, p, featCol, active = active, radiusDp = 9f)
+            icon.imageTintList = ThemeManager.tintColorState(if (active) Color.WHITE else featCol)
+            lbl.setTextColor(if (active) featCol else p.textMain)
             lbl.setTypeface(null, if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            ThemeManager.attachLiquidNavTapEffect(railView, icon, enableTapFx)
         }
+        ThemeManager.attachLiquidNavTapEffect(binding.tvRailSearch, binding.tvRailSearchIcon, enableTapFx)
+        ThemeManager.attachLiquidNavTapEffect(binding.tvRailSource, binding.tvRailSourceIcon, enableTapFx)
+        ThemeManager.attachLiquidNavTapEffect(binding.tvRailTheme, binding.tvRailThemeIcon, enableTapFx)
     }
 
     private fun animDuration(normalMs: Long): Long {

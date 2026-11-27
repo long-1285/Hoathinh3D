@@ -1,33 +1,35 @@
 package com.hoathinh3d.donghua.ui.history
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.ListAdapter
-import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
+import com.hoathinh3d.donghua.core.DeviceProfileResolver
 import com.hoathinh3d.donghua.core.ThemeManager
-import com.hoathinh3d.donghua.core.ThemePalette
+import com.hoathinh3d.donghua.data.model.DonghuaMovie
 import com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile
 import com.hoathinh3d.donghua.data.model.WatchProgress
 import com.hoathinh3d.donghua.databinding.FragmentHistoryBinding
-import com.hoathinh3d.donghua.databinding.ItemHistoryMovieBinding
+import com.hoathinh3d.donghua.player.PlayerUtils
 import com.hoathinh3d.donghua.ui.AppHost
 import com.hoathinh3d.donghua.ui.ChromeInsetsListener
 import com.hoathinh3d.donghua.ui.RefreshableTab
+import com.hoathinh3d.donghua.ui.common.MovieCardAdapter
+import com.hoathinh3d.donghua.ui.common.MovieCardUiMeta
 
 class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
 
     private var _binding: FragmentHistoryBinding? = null
     private val binding get() = _binding!!
     private val host: AppHost? get() = activity as? AppHost
-    private lateinit var adapter: HistoryAdapter
-    private var currentCols = 1
+
+    private lateinit var historyAdapter: MovieCardAdapter
+    private var currentSpan = 3
     private var lastRenderSig: String? = null
+    private var progressByMovieId: Map<String, WatchProgress> = emptyMap()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -41,32 +43,59 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val h = host ?: return
-        adapter = HistoryAdapter(
-            onClick = { prog ->
-                val matched = h.resolveMovieForProgress(prog)
-                val matchedSrvIdx = matched.serverGroups
-                    ?.indexOfFirst { it.serverName.equals(prog.server, ignoreCase = true) }
-                    ?.takeIf { it >= 0 } ?: -1
-                h.quickPlayMovie(matched, prog.episode, matchedSrvIdx, prog.currentTime)
+        historyAdapter = MovieCardAdapter(
+            fixedWidthDp = null,
+            onSelect = { movie ->
+                val prog = progressByMovieId[movie.id]
+                if (prog != null) {
+                    resumeMovieProgress(h, movie, prog)
+                } else {
+                    h.openMovieDetail(movie)
+                }
             },
-            onRemove = { prog ->
-                h.removeHistoryItem(prog.donghuaId)
-            }
+            onToggleFavorite = { movie -> h.toggleFavorite(movie.id) },
+            onLongSelect = { movie -> showHistoryItemActions(h, movie) }
         )
-        currentCols = when (h.getState().resolvedDevice) {
-            ResolvedDeviceProfile.MOBILE -> 1
-            ResolvedDeviceProfile.TABLET -> 2
-            ResolvedDeviceProfile.TV -> 3
+        currentSpan = DeviceProfileResolver.gridSpanCount(h.getState().resolvedDevice)
+        binding.rvHistory.layoutManager = GridLayoutManager(requireContext(), currentSpan)
+        binding.rvHistory.adapter = historyAdapter
+
+        binding.historyScroll.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+            host?.onMainContentScroll(scrollY - oldScrollY, scrollY)
         }
-        binding.rvHistory.layoutManager = GridLayoutManager(requireContext(), currentCols)
-        binding.rvHistory.adapter = adapter
-        binding.rvHistory.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                host?.onMainContentScroll(dy, recyclerView.computeVerticalScrollOffset())
-            }
-        })
         binding.btnClearAllHistory.setOnClickListener { h.clearHistory() }
         refreshUi()
+    }
+
+    private fun resumeMovieProgress(h: AppHost, resolved: DonghuaMovie, prog: WatchProgress) {
+        val matched = h.resolveMovieForProgress(prog)
+        val matchedSrvIdx = matched.serverGroups
+            ?.indexOfFirst { it.serverName.equals(prog.server, ignoreCase = true) }
+            ?.takeIf { it >= 0 } ?: -1
+        h.quickPlayMovie(if (matched.title.isNotBlank()) matched else resolved, prog.episode, matchedSrvIdx, prog.currentTime)
+    }
+
+    private fun showHistoryItemActions(h: AppHost, movie: DonghuaMovie) {
+        val prog = progressByMovieId[movie.id]
+        val isFav = h.getState().favorites.contains(movie.id)
+        val options = arrayOf(
+            if (prog != null) "▶ Tiếp tục Tập ${prog.episode}" else "▶ Xem ngay",
+            "ℹ Chi tiết & Danh sách tập",
+            if (isFav) "♡ Bỏ khỏi Yêu thích" else "♥ Thêm vào Yêu thích",
+            "🗑 Xóa khỏi Lịch sử"
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle(movie.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> if (prog != null) resumeMovieProgress(h, movie, prog) else h.openMovieDetail(movie)
+                    1 -> h.openMovieDetail(if (prog != null) h.resolveMovieForProgress(prog) else movie)
+                    2 -> h.toggleFavorite(movie.id)
+                    3 -> h.removeHistoryItem(movie.id)
+                }
+            }
+            .setNegativeButton("Đóng", null)
+            .show()
     }
 
     override fun onChromeInsetsChanged(topPx: Int, bottomPx: Int) {
@@ -74,35 +103,43 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val h = host ?: return
         val isTv = h.getState().resolvedDevice == ResolvedDeviceProfile.TV
         val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
-        b.historyRoot.setPadding(hPad, topPx, hPad, 0)
-        b.rvHistory.setPadding(0, 0, 0, bottomPx)
+        b.historyScroll.setPadding(hPad, topPx, hPad, bottomPx)
     }
 
     override fun refreshUi() {
         val b = _binding ?: return
         val h = host ?: return
+        val st = h.getState()
         val p = h.getPalette()
-        val isTv = h.getState().resolvedDevice == ResolvedDeviceProfile.TV
+        val isTv = st.resolvedDevice == ResolvedDeviceProfile.TV
         val hPad = ThemeManager.dp(requireContext(), if (isTv) 22f else 14f)
         val (chromeTop, chromeBot) = h.getChromeInsets()
-        b.historyRoot.setPadding(hPad, chromeTop, hPad, 0)
-        b.rvHistory.setPadding(0, 0, 0, chromeBot)
-        val desiredCols = when (h.getState().resolvedDevice) {
-            ResolvedDeviceProfile.MOBILE -> 1
-            ResolvedDeviceProfile.TABLET -> 2
-            ResolvedDeviceProfile.TV -> 3
+        b.historyScroll.setPadding(hPad, chromeTop, hPad, chromeBot)
+
+        val desiredSpan = DeviceProfileResolver.gridSpanCount(st.resolvedDevice)
+        if (desiredSpan != currentSpan) {
+            currentSpan = desiredSpan
+            (b.rvHistory.layoutManager as? GridLayoutManager)?.spanCount = desiredSpan
         }
-        if (desiredCols != currentCols) {
-            currentCols = desiredCols
-            (b.rvHistory.layoutManager as? GridLayoutManager)?.spanCount = desiredCols
+
+        val sortedProg = st.watchHistory.values.sortedByDescending { it.updatedAt }
+        progressByMovieId = sortedProg.associateBy { it.donghuaId }
+        val offlineCountByMovie = st.offlineEpisodes.values.groupingBy { it.donghuaId }.eachCount()
+
+        val historyMovies = sortedProg.map { prog ->
+            val base = h.resolveMovieForProgress(prog)
+            base.copy(
+                latestEp = maxOf(base.latestEp, prog.episode),
+                totalEp = maxOf(base.totalEp, prog.episode),
+                originalTitle = PlayerUtils.formatContinueMeta(prog.episode, prog.currentTime, prog.progressPct)
+            )
         }
-        val list = h.getState().watchHistory.values.sortedByDescending { it.updatedAt }
 
         b.historyHeaderPanel.background = ThemeManager.glassPanelDrawable(requireContext(), p, 22f)
         b.txtHistoryTitle.setTextColor(p.textMain)
-        b.txtHistorySub.text = "Đã lưu ${list.size} bộ phim bạn từng thưởng thức"
+        b.txtHistorySub.text = "Đã lưu ${historyMovies.size} bộ phim bạn từng thưởng thức"
         b.txtHistorySub.setTextColor(p.textMuted)
-        b.btnClearAllHistory.visibility = if (list.isNotEmpty()) View.VISIBLE else View.GONE
+        b.btnClearAllHistory.visibility = if (historyMovies.isNotEmpty()) View.VISIBLE else View.GONE
         b.btnClearAllHistory.backgroundTintList = null
         b.btnClearAllHistory.background = ThemeManager.tintedFocusDrawable(
             requireContext(),
@@ -110,20 +147,41 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             12f
         )
 
-        if (list.isEmpty()) {
+        if (historyMovies.isEmpty()) {
             b.txtEmptyHistory.visibility = View.VISIBLE
             b.txtEmptyHistory.setTextColor(p.textMuted)
             b.rvHistory.visibility = View.GONE
         } else {
             b.txtEmptyHistory.visibility = View.GONE
             b.rvHistory.visibility = View.VISIBLE
-            adapter.palette = p
-            adapter.isTvMode = isTv
-            adapter.submitList(list)
-            val sig = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_$isTv"
+            historyAdapter.palette = p
+            historyAdapter.isTvMode = isTv
+            historyAdapter.reducedMotion = DeviceProfileResolver.shouldUseReducedMotion(
+                requireContext(),
+                st.resolvedDevice,
+                st.settings.reducedMotion
+            )
+            historyAdapter.metaProvider = { m, _ ->
+                val prog = progressByMovieId[m.id]
+                MovieCardUiMeta(
+                    isFavorite = st.favorites.contains(m.id),
+                    progressPct = prog?.progressPct,
+                    offlineCount = offlineCountByMovie[m.id]
+                )
+            }
+            historyAdapter.submitList(historyMovies)
+            val sig = buildString {
+                append(p.preset.wireValue).append('|')
+                append(p.isDark).append('|')
+                append(p.glassOpacityPct).append('|')
+                append(isTv).append('|')
+                append(historyAdapter.reducedMotion).append('|')
+                append(st.favorites.joinToString(",")).append('|')
+                append(sortedProg.joinToString(",") { "${it.donghuaId}:${it.episode}:${it.progressPct}" })
+            }
             if (sig != lastRenderSig) {
                 lastRenderSig = sig
-                adapter.notifyDataSetChanged()
+                historyAdapter.notifyDataSetChanged()
             }
         }
     }
@@ -132,65 +190,5 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         lastRenderSig = null
         _binding = null
         super.onDestroyView()
-    }
-}
-
-class HistoryAdapter(
-    private val onClick: (WatchProgress) -> Unit,
-    private val onRemove: (WatchProgress) -> Unit
-) : ListAdapter<WatchProgress, HistoryAdapter.VH>(DIFF) {
-    var palette: ThemePalette = ThemeManager.palette("pearl")
-    var isTvMode: Boolean = false
-
-    companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<WatchProgress>() {
-            override fun areItemsTheSame(a: WatchProgress, b: WatchProgress): Boolean =
-                a.donghuaId == b.donghuaId
-            override fun areContentsTheSame(a: WatchProgress, b: WatchProgress): Boolean = a == b
-        }
-    }
-
-    inner class VH(val b: ItemHistoryMovieBinding) : RecyclerView.ViewHolder(b.root)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
-        VH(ItemHistoryMovieBinding.inflate(LayoutInflater.from(parent.context), parent, false))
-
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val item = getItem(position)
-        val b = holder.b
-        b.historyCardRoot.background =
-            ThemeManager.glassPanelDrawable(b.root.context, palette, 18f, isCard = true)
-        ThemeManager.applyRoundedOutline(b.historyPosterFrame, 13f)
-        b.txtHistTitle.text = item.title
-        b.txtHistTitle.setTextColor(palette.textMain)
-        val timeLabel = com.hoathinh3d.donghua.player.PlayerUtils.formatPlayerTime(item.currentTime.toLong())
-        b.txtHistEp.text = if (item.currentTime >= 5.0) {
-            "Đang xem Tập ${item.episode} • $timeLabel"
-        } else {
-            "Đang xem Tập ${item.episode}"
-        }
-        b.txtHistEp.setTextColor(palette.accentFrom)
-        b.txtHistPct.text = "${item.progressPct}%"
-        b.txtHistPct.setTextColor(palette.accentFrom)
-        b.txtHistMeta.text = "${item.server} • ${item.audio}"
-        b.txtHistMeta.setTextColor(palette.textMuted)
-        b.progressHistBar.progress = item.progressPct.coerceIn(0, 100)
-        val isLow = com.hoathinh3d.donghua.core.DeviceProfileResolver.isLowRamDevice(b.root.context)
-        val fmt = if (isLow) com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565 else com.bumptech.glide.load.DecodeFormat.PREFER_ARGB_8888
-        Glide.with(b.imgHistPoster)
-            .load(com.hoathinh3d.donghua.data.source.MovieRepository.getOptimizedPosterUrl(item.poster, 260))
-            .override(220, 300)
-            .format(fmt)
-            .error(Glide.with(b.imgHistPoster).load(item.poster).override(220, 300).format(fmt))
-            .into(b.imgHistPoster)
-        b.btnRemoveHistoryItem.background = ThemeManager.tintedFocusDrawable(
-            b.root.context,
-            android.graphics.Color.argb(175, 15, 23, 42),
-            14f,
-            android.graphics.Color.parseColor("#F43F5E")
-        )
-        b.btnRemoveHistoryItem.setOnClickListener { onRemove(item) }
-        b.historyCardRoot.setOnClickListener { onClick(item) }
-        ThemeManager.attachTvCardFocusEffect(b.historyCardRoot, enableScale = isTvMode)
     }
 }
