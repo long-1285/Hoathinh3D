@@ -1,11 +1,11 @@
 {
-    "versionCode":  46,
-    "versionName":  "3.5.6-v46",
-    "tag":  "v46",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v46/HoatHinh3d.apk",
+    "versionCode":  47,
+    "versionName":  "3.5.7-v47",
+    "tag":  "v47",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v47/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "b1f26eb57521a13f2676aa85953c8ad30b35311acd57e84db1ccabcbfb91ba80",
-    "apkSizeBytes":  14474398,
-    "changelog":  "Phiên 46: Đồng bộ lưới Lịch sử giống Yêu thích, nổi bật \u0026 hiệu ứng chạm 5 biểu tượng điều hướng kính, chủ đề Hoàng Hôn Đêm Sâu.",
-    "releasedAt":  "2026-11-27T13:12:40Z"
+    "sha256":  "4b3c3fb253a8aa71cc4e09c6eeee9c999e296184db592f1df114a09f23e0f262",
+    "apkSizeBytes":  14482892,
+    "changelog":  "v3.5.7-v47: Thiet ke lai giao dien Cai dat dang danh sach phan nhom tren Dien thoai giong mau thiet ke (2 nhom the kinh, o icon 36dp, vach ngan inset, dieu huong 2 tang va quay lai muot ma), giu nguyen bo cuc ngang tren Tablet/PC/TV.",
+    "releasedAt":  "2026-11-27T13:40:14Z"
 }
