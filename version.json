@@ -1,11 +1,11 @@
 {
-    "versionCode":  54,
-    "versionName":  "3.6.4-v54",
-    "tag":  "v54",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v54/HoatHinh3d.apk",
+    "versionCode":  55,
+    "versionName":  "3.6.5-v55",
+    "tag":  "v55",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v55/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "341993dda4010f30c89d82a2cb7cd28af141d468fd4a0ebec52878097229a4b9",
-    "apkSizeBytes":  12194068,
-    "changelog":  "v3.6.4-v54: Doi ten app thanh HH3D v3.6.4-v54, bo dai chip the loai thua tren Trang chu (giu nut The loai phim mo bang loc), bo Luu Offline va Chia se trong Chi tiet phim, phan ro 2 nguon Thuyet Minh (mac dinh) va Vietsub trong Chi tiet phim.",
-    "releasedAt":  "2026-11-28T02:51:18Z"
+    "sha256":  "9e72e079f58c596bb04ce23fe194076ca9cb55bbb07556e6341bc00413da2b56",
+    "apkSizeBytes":  12201519,
+    "changelog":  "v3.6.5-v55: Header giao dien chinh chi hien Hoat Hinh + 3D, chat luong mac dinh Auto ABR theo mang thuc te, sua triet de muc Yeu thich hien du 100% phim da chon, gom Lua chon thiet bi vao 1 menu Auto gon dep, bo sung Hen gio tat va tu tam dung khi rut tai nghe/AudioFocus.",
+    "releasedAt":  "2026-11-28T03:40:45Z"
 }
