@@ -1,11 +1,11 @@
 {
-    "versionCode":  56,
-    "versionName":  "3.6.6-v56",
-    "tag":  "v56",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v56/HoatHinh3d.apk",
+    "versionCode":  57,
+    "versionName":  "3.6.7-v57",
+    "tag":  "v57",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v57/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "260c97909cb6ceda5106955e95f0553a7e77932b983cf914eb0472048e2faa22",
-    "apkSizeBytes":  12210628,
-    "changelog":  "v3.6.6-v56: Nut Lam moi \u0026 Ngau nhien tren Trang chu TV, nhac tu dong tap moi Yeu thich ngay man hinh chinh, lich su kem ngay xem (Hom nay/Hom qua) va nut nhay tap chua xem / danh dau da xem het tap.",
-    "releasedAt":  "2026-11-28T04:03:02Z"
+    "sha256":  "f3ea5ed92209587152272c2d58e78f75df10a9d9281a567207080589765b4749",
+    "apkSizeBytes":  12268539,
+    "changelog":  "v3.6.7-v57: Chuan hoa kien truc da nguon MovieSourceProvider, tich hop nguon VSMov (21.000+ phim JSON API + StreamVSMov + khu PNG-TS), HeadlessWebViewSniffer va truyen HTTP Headers qua Media3 DefaultHttpDataSource.",
+    "releasedAt":  "2026-11-28T04:23:09Z"
 }
