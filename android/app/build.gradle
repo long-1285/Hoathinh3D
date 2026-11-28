@@ -3,16 +3,67 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def loadSharedSigningProps = {
+    def props = new Properties()
+    def envPath = System.getenv("HH3D_KEYSTORE_PATH")
+    if (envPath && new File(envPath).exists()) {
+        props.setProperty("storeFile", envPath)
+        props.setProperty("storePassword", System.getenv("HH3D_KEYSTORE_PASS") ?: "")
+        props.setProperty("keyAlias", System.getenv("HH3D_KEY_ALIAS") ?: "hoathinh3d_shared")
+        props.setProperty("keyPassword", System.getenv("HH3D_KEY_PASS") ?: (System.getenv("HH3D_KEYSTORE_PASS") ?: ""))
+        return props
+    }
+    def candidates = [
+        file("${rootProject.projectDir}/keystore.properties"),
+        file("${rootProject.projectDir}/../keystore.properties"),
+        file("${System.getProperty('user.home')}/.hoathinh3d/keystore.properties"),
+        file("${rootProject.projectDir}/signing/keystore.properties")
+    ]
+    for (File f : candidates) {
+        if (f.exists()) {
+            f.withInputStream { props.load(it) }
+            return props
+        }
+    }
+    return null
+}
+
+def sharedSigningProps = loadSharedSigningProps()
+def sharedSigningStoreFile = null
+if (sharedSigningProps != null) {
+    def rawStore = sharedSigningProps.getProperty("storeFile", "").trim()
+    if (rawStore) {
+        def candidate = new File(rawStore)
+        if (!candidate.exists()) {
+            candidate = new File("${System.getProperty('user.home')}/.hoathinh3d/${candidate.name}")
+        }
+        if (candidate.exists()) {
+            sharedSigningStoreFile = candidate
+        }
+    }
+}
+
 android {
     namespace "com.hoathinh3d.donghua"
     compileSdk rootProject.ext.compileSdkVersion
+
+    if (sharedSigningStoreFile != null) {
+        signingConfigs {
+            sharedDebug {
+                storeFile sharedSigningStoreFile
+                storePassword sharedSigningProps.getProperty("storePassword", "")
+                keyAlias sharedSigningProps.getProperty("keyAlias", "hoathinh3d_shared")
+                keyPassword sharedSigningProps.getProperty("keyPassword", sharedSigningProps.getProperty("storePassword", ""))
+            }
+        }
+    }
 
     defaultConfig {
         applicationId "com.hoathinh3d.donghua"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 52
-        versionName "3.6.2-v52"
+        versionCode 53
+        versionName "3.6.3-v53"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += ["vi", "en"]
@@ -36,7 +87,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (signingConfigs.findByName("sharedDebug") != null) {
+                signingConfig signingConfigs.sharedDebug
+            }
+        }
         release {
+            if (signingConfigs.findByName("sharedDebug") != null) {
+                signingConfig signingConfigs.sharedDebug
+            }
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

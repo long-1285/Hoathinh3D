@@ -1,4 +1,7 @@
 ﻿# Script tự động build APK HoatHinh3D Universal Native (Kotlin + XML + Media3 ExoPlayer)
+param(
+    [switch]$AllowLocalDebugSigning
+)
 $ErrorActionPreference = "Stop"
 
 Write-Host "=========================================================" -ForegroundColor Cyan
@@ -94,6 +97,15 @@ Write-Host "  Project Root : $projectRoot" -ForegroundColor DarkGray
 Write-Host "  JAVA_HOME    : $env:JAVA_HOME" -ForegroundColor DarkGray
 Write-Host "  ANDROID_HOME : $env:ANDROID_HOME" -ForegroundColor DarkGray
 
+$pinFile = Join-Path $projectRoot "android\signing-sha256.txt"
+$hasSharedProps = (-not [string]::IsNullOrWhiteSpace($env:HH3D_KEYSTORE_PATH) -and (Test-Path $env:HH3D_KEYSTORE_PATH)) -or
+    (Test-Path (Join-Path $projectRoot "android\keystore.properties")) -or
+    (Test-Path (Join-Path $env:USERPROFILE ".hoathinh3d\keystore.properties")) -or
+    (Test-Path (Join-Path $projectRoot "android\signing\keystore.properties"))
+if ((Test-Path $pinFile) -and (-not $hasSharedProps) -and (-not $AllowLocalDebugSigning)) {
+    throw "CHẶN BUILD ĐỂ TRÁNH LỆCH CHỮ KÝ OTA!`nRepo đã khóa chữ ký chung tại android/signing-sha256.txt nhưng máy này chưa có bộ keystore đồng bộ (%USERPROFILE%\.hoathinh3d\keystore.properties).`nHãy chép thư mục '.hoathinh3d' từ máy gốc sang '%USERPROFILE%\.hoathinh3d\' rồi build lại (hoặc chạy với -AllowLocalDebugSigning nếu chỉ test cục bộ không xuất OTA)."
+}
+
 Set-Location "$projectRoot\android"
 
 # 2. Chạy Unit Tests & biên dịch APK bằng Gradle
@@ -115,10 +127,31 @@ if (Test-Path $sourceApk) {
         $legacyPath = Join-Path $projectRoot $legacyName
         if (Test-Path $legacyPath) { Remove-Item -LiteralPath $legacyPath -Force -ErrorAction SilentlyContinue }
     }
+    $certSha256 = ""
+    $apksigner = Get-ChildItem "$androidSdk\build-tools\*\apksigner.bat" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+    if ($apksigner) {
+        $sigOut = (& $apksigner verify --print-certs $destApk 2>&1 | Out-String)
+        $sigMatch = [regex]::Match($sigOut, 'Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F]+)')
+        if ($sigMatch.Success) {
+            $certSha256 = $sigMatch.Groups[1].Value.ToLowerInvariant()
+        }
+    }
+    if ((Test-Path $pinFile) -and (-not $AllowLocalDebugSigning)) {
+        $expectedCert = (Get-Content -LiteralPath $pinFile -Raw -Encoding UTF8).Trim().ToLowerInvariant()
+        if ([string]::IsNullOrWhiteSpace($certSha256)) {
+            throw "Không thể xác minh chữ ký APK bằng apksigner!"
+        }
+        if ($certSha256 -ne $expectedCert) {
+            throw "LỆCH CHỮ KÝ SỐ!`n  APK vừa build : $certSha256`n  Repo yêu cầu  : $expectedCert`nHãy kiểm tra lại bộ keystore trong %USERPROFILE%\.hoathinh3d\ để đồng bộ đúng chữ ký giữa máy Công ty & máy Nhà."
+        }
+    }
     $sizeMb = [math]::Round((Get-Item $destApk).Length / 1MB, 2)
     Write-Host "`n=========================================================" -ForegroundColor Green
     Write-Host "  BUILD NATIVE APK THÀNH CÔNG!" -ForegroundColor Green
-    Write-Host "  File APK: $destApk ($sizeMb MB)" -ForegroundColor Green
+    Write-Host "  File APK    : $destApk ($sizeMb MB)" -ForegroundColor Green
+    if ($certSha256) {
+        Write-Host "  Cert SHA-256: $certSha256" -ForegroundColor Cyan
+    }
     Write-Host "=========================================================" -ForegroundColor Green
 } else {
     throw "Không tìm thấy file APK sau khi build!"

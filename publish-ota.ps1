@@ -75,6 +75,26 @@ if (-not (Test-Path $apkPath)) {
     throw "Không tìm thấy APK tại $apkPath. Hãy chạy build-apk.ps1 trước."
 }
 
+$pinFile = Join-Path $projectRoot "android\signing-sha256.txt"
+if ((Test-Path $pinFile) -and (-not $ManifestOnly)) {
+    $expectedCert = (Get-Content -LiteralPath $pinFile -Raw -Encoding UTF8).Trim().ToLowerInvariant()
+    $sdkDir = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, "$env:LOCALAPPDATA\Android\Sdk", "C:\Android\Sdk") | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+    $apksigner = if ($sdkDir) { Get-ChildItem "$sdkDir\build-tools\*\apksigner.bat" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName } else { $null }
+    if (-not $apksigner) {
+        throw "Không tìm thấy apksigner.bat để xác minh chữ ký số trước khi đẩy OTA!"
+    }
+    $sigOut = (& $apksigner verify --print-certs $apkPath 2>&1 | Out-String)
+    $sigMatch = [regex]::Match($sigOut, 'Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F]+)')
+    if (-not $sigMatch.Success) {
+        throw "Không đọc được chứng chỉ chữ ký số của $apkPath"
+    }
+    $actualCert = $sigMatch.Groups[1].Value.ToLowerInvariant()
+    if ($actualCert -ne $expectedCert) {
+        throw "CHẶN XUẤT BẢN OTA VÌ LỆCH CHỮ KÝ SỐ!`n  APK hiện tại: $actualCert`n  Chữ ký chuẩn: $expectedCert`nKhông được đẩy APK khác chữ ký lên OTA kẻo toàn bộ thiết bị báo lỗi xung đột gói!"
+    }
+    Write-Host "  Cert SHA-256 : $actualCert (KHỚP CHUẨN OTA)" -ForegroundColor Cyan
+}
+
 $gradleRaw = Get-Content -LiteralPath $gradlePath -Raw -Encoding UTF8
 $codeMatch = [regex]::Match($gradleRaw, '(?m)^\s*versionCode\s+(\d+)\s*$')
 $nameMatch = [regex]::Match($gradleRaw, '(?m)^\s*versionName\s+"([^"]+)"\s*$')

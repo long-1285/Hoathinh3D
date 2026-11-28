@@ -18,8 +18,9 @@
    - Kho Git chính thức: `https://github.com/long-1285/Hoathinh3D.git` (nhánh `main`).
    - So sánh đối chiếu mã nguồn trên máy với `origin/main` (`git fetch origin`); nếu trên Git mới hơn thì kéo/clone bản mới nhất về máy trước khi sửa code.
    - Đọc kỹ toàn bộ `PROJECT_MEMORY.md` để nắm kiến trúc Native, quy chuẩn build và lịch sử thay đổi tới phiên gần nhất.
-2. **An toàn bí mật:**
-   - **TUYỆT ĐỐI KHÔNG** lưu GitHub token, mật khẩu, keystore hoặc thông tin xác thực vào mã nguồn, `.git/config`, `GEMINI.md` hay `PROJECT_MEMORY.md`.
+2. **An toàn bí mật & Đồng bộ chữ ký số 2 máy (Công ty & Nhà):**
+   - **TUYỆT ĐỐI KHÔNG** lưu GitHub token, mật khẩu, file `.jks`/`.keystore`, `keystore.properties` hoặc thông tin xác thực vào mã nguồn, `.git/config`, `GEMINI.md` hay `PROJECT_MEMORY.md`.
+   - Mọi máy build OTA bắt buộc dùng chung bộ keystore ngoài repo tại **`%USERPROFILE%\.hoathinh3d\hoathinh3d-shared.jks`** + `keystore.properties` (chép tay qua kênh riêng tư giữa máy Công ty & Nhà), sao cho dấu vân tay công khai `apksigner` khớp **`android/signing-sha256.txt`**. `build-apk.ps1` và `publish-ota.ps1` tự động kiểm tra và chặn phát hành nếu lệch chữ ký.
 3. **Cuối phiên — Kiểm thử & Build Debug APK:**
    - Chỉ chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` (tự động dò OpenJDK 21 & Android SDK, chạy `testDebugUnitTest` + `assembleDebug`, xuất ra `HoatHinh3d.apk`).
    - **KHÔNG** chạy `assembleRelease` / không tạo Release R8 APK.

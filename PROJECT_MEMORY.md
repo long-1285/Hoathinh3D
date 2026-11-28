@@ -33,7 +33,7 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** HoatHinh3D Universal (Donghua 3D Aggregator & Native Cinema Player) — Tên hiển thị App kèm phiên bản tự động: `HoatHinh3D v${versionName}`
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 52`, `versionName "3.6.2-v52"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 53`, `versionName "3.6.3-v53"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -116,6 +116,18 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-28] - Phiên 53: Chuẩn Hóa & Đồng Bộ Chữ Ký Số Dùng Chung Giữa 2 Máy Build (Công Ty & Nhà) Để OTA Không Bao Giờ Xung Đột Gói (`v3.6.3-v53`)
+- **Nguyên nhân gốc rễ lỗi xung đột chữ ký:** Trước Phiên 53, `assembleDebug` sử dụng `~/.android/debug.keystore` ngẫu nhiên của từng máy tính (`PC Công ty` khác `PC Nhà`), khiến Android từ chối cài đè OTA với lỗi *"Đã xảy ra lỗi với chữ ký nhà phát triển của APK"*.
+- **Giải pháp đồng bộ chữ ký số an toàn (`v3.6.3-v53`):**
+  1. **Quản lý Shared Keystore ngoài Git (`setup-signing.ps1`, `.gitignore`):**
+     - Bổ sung `.gitignore` chặn tuyệt đối `keystore.properties`, `signing/`, `android/signing/`, `*.p12`, `*.pfx` (bên cạnh `*.keystore`, `*.jks`).
+     - Viết [`setup-signing.ps1`](file:///E:/Project/3_HoatHinh3D/setup-signing.ps1) hỗ trợ `-Init` (sinh `hoathinh3d-shared.jks` PKCS12 RSA 2048-bit hạn 10,000 ngày tại `%USERPROFILE%\.hoathinh3d\`), `-AdoptLocalDebug` (nếu muốn giữ chữ ký `debug.keystore` cũ của máy kia), và `-Verify`.
+     - Chỉ lưu dấu vân tay công khai `SHA-256` tại `android/signing-sha256.txt` (`e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`) trên Git để kiểm chứng chéo mà không làm lộ private key hay mật khẩu.
+  2. **Tích hợp Gradle + Chặn Fail-Closed trong `build-apk.ps1` & `publish-ota.ps1` (`android/app/build.gradle`):**
+     - `build.gradle` đọc cấu hình ký theo thứ tự `HH3D_KEYSTORE_PATH` → `android/keystore.properties` → `%USERPROFILE%/.hoathinh3d/keystore.properties`, gán `signingConfigs.sharedDebug` cho cả `debug` và `release`.
+     - Cả `build-apk.ps1` và `publish-ota.ps1` bắt buộc chạy `apksigner verify --print-certs` đối chiếu với `android/signing-sha256.txt`, chặn ngay nếu máy build chưa đồng bộ `.hoathinh3d` hoặc ký lệch chứng chỉ.
+- **Kiểm chứng:** Đã tạo Shared Keystore trên máy hiện tại, xác minh `setup-signing.ps1 -Verify` khớp `e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`, chạy `build-apk.ps1` + `lintDebug` thành công (**50/50** unit tests PASS, `lintDebug` 0 lỗi, `HoatHinh3d.apk` đạt **11.63 MB**, `12,198,569 bytes`, `SHA-256: c6f858a0ef2c19ecc41a099f76222d025ad732bb7839623669e17bc01517b47b`).
 
 ### [2026-11-28] - Phiên 52: Nén WebP & Giảm Dung Lượng APK, Tìm Kiếm Giọng Nói, Lọc Quảng Cáo HLS, Dò Giải Mã TV & Gắn Phiên Bản Vào Tên App (`v3.6.2-v52`)
 - **Mục tiêu người dùng:**
@@ -1250,10 +1262,10 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-28` (sau Phiên 52).
-- **Phiên bản hiện tại:** `versionCode 52` / `versionName "3.6.2-v52"` (tên App hiển thị `HoatHinh3D v3.6.2-v52`).
+- **Ngày chốt phiên:** `2026-11-28` (sau Phiên 53).
+- **Phiên bản hiện tại:** `versionCode 53` / `versionName "3.6.3-v53"` (tên App hiển thị `HoatHinh3D v3.6.3-v53`, chứng chỉ ký chung `SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`).
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `android/` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
-- **Quy tắc Build & Xuất bản OTA (Phiên 41+):** Không tạo Release R8 APK; cuối mỗi phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
+- **Quy tắc Build & Xuất bản OTA (Phiên 41+ / 53+):** Không tạo Release R8 APK; mọi máy build (Công ty & Nhà) phải có sẵn bộ keystore đồng bộ tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`. Cuối phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
 - **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **50/50 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 11, `PrefsStoreTest` 8, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
 - **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
   - **Tìm kiếm thông minh, Pull-to-refresh, Khóa màn hình tự ẩn 3s & Chia sẻ nhanh (Phiên 49):**
@@ -1286,9 +1298,10 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `HoatHinh3d.apk` (**11.63 MB**, `12,198,455 bytes`, `SHA-256: b3c28292503d52bcf5688d693ec9d4163c4c84a22e7f8dedefe3a966463a4df7`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` và xuất bản OTA lên GitHub Release `v52` + `version.json` (Phiên 52 chưa chạy đo trực tiếp qua ADB trên phần cứng MiTV4-ANSM0).
+- **File APK mới nhất:** `HoatHinh3d.apk` (**11.63 MB**, `12,198,569 bytes`, `APK SHA-256: c6f858a0ef2c19ecc41a099f76222d025ad732bb7839623669e17bc01517b47b`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` và xuất bản OTA lên GitHub Release `v53` + `version.json` (Phiên 53 chưa chạy đo trực tiếp qua ADB trên phần cứng MiTV4-ANSM0).
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
-  1. Cài đặt **`HoatHinh3d.apk` (`v3.6.2-v52`)** qua OTA hoặc ADB (`adb install -r`) lên **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để xác nhận thực tế tốc độ khởi động mới (`app_avatar.webp`), tên App kèm số phiên bản, tìm kiếm giọng nói TV, lọc quảng cáo HLS, chỉnh phụ đề trực tiếp và logcat/RAM.
+  1. Chép 2 file trong `%USERPROFILE%\.hoathinh3d\` (`hoathinh3d-shared.jks` + `keystore.properties`) sang máy Công ty vào đúng `%USERPROFILE%\.hoathinh3d\` và chạy `.\setup-signing.ps1 -Verify` để khóa cùng 1 chữ ký trên cả 2 máy.
+  2. Trên điện thoại/MiTV4 đang cài bản ký từ keystore cũ khác chữ ký: sao lưu mã `HH3D1:...` (nếu cần), gỡ bản cũ 1 lần rồi cài **`HoatHinh3d.apk` (`v3.6.3-v53`)** (từ v53 trở đi cả 2 máy build OTA đều cài đè mượt vĩnh viễn).
 
 ---
 
@@ -1297,11 +1310,12 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer).
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `PROJECT_MEMORY.md` và `GEMINI.md` tại thư mục gốc dự án để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**), lịch sử thay đổi tới Phiên 52, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `PROJECT_MEMORY.md` và `GEMINI.md` tại thư mục gốc dự án để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**, bắt buộc ký bằng Shared Keystore tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`), lịch sử thay đổi tới Phiên 53, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 52:
-- Phiên bản hiện tại: `versionCode 52`, `versionName "3.6.2-v52"` (tên App hiển thị tự động `HoatHinh3D v3.6.2-v52`). Mã nguồn Android Native nằm tại `android/` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `HoatHinh3d.apk` (**11.63 MB**, `12,198,455 bytes`, `SHA-256: b3c28292503d52bcf5688d693ec9d4163c4c84a22e7f8dedefe3a966463a4df7`), đã qua **50/50 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v52` + `version.json`.
+Tóm tắt hiện trạng sau Phiên 53:
+- Phiên bản hiện tại: `versionCode 53`, `versionName "3.6.3-v53"` (tên App hiển thị tự động `HoatHinh3D v3.6.3-v53`). Mã nguồn Android Native nằm tại `android/` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `HoatHinh3d.apk` (**11.63 MB**, `12,198,569 bytes`, `APK SHA-256: c6f858a0ef2c19ecc41a099f76222d025ad732bb7839623669e17bc01517b47b`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), đã qua **50/50 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v53` + `version.json`.
+- **Phiên 53 (Chuẩn hóa Shared Keystore đồng bộ 2 máy Công ty & Nhà):** Thêm `setup-signing.ps1`, cấu hình `signingConfigs.sharedDebug` trong `android/app/build.gradle` đọc `%USERPROFILE%\.hoathinh3d\keystore.properties` (không lưu lên Git), khóa dấu vân tay công khai trong `android/signing-sha256.txt`, `build-apk.ps1` & `publish-ota.ps1` kiểm tra bắt buộc `apksigner` trước khi xuất bản OTA.
 - **Phiên 52 (Nén WebP & Giảm APK còn 11.63 MB, Voice Search, Lọc Ad HLS, Dò Decoder TV, Chỉnh Phụ Đề Trực Tiếp & Tên App Kèm Phiên Bản):** Nén `app_avatar` (`2000×2000` `713 KB` → `192×192` WebP `15 KB`), `tv_banner`/`splash`/`mipmap` sang `.webp` + `resourceConfigurations ["vi","en"]`; tự gắn `HoatHinh3D v${versionName}` vào `app_name`/`txtHeaderBrand`; thêm `btnVoiceSearch` (`RecognizerIntent`); thêm `HlsPlaylistAdFilter` trong `SanitizingTsDataSource`; thêm `DeviceProfileResolver.detectVideoDecoderCapability()`; thêm chỉnh vị trí từ đáy (`%`), màu chữ & nền phụ đề trực tiếp trong Drawer của `PlayerActivity`.
 - **Phiên 51 (Ẩn Hero Banner TV, Thu gọn 2 chế độ Giao diện & Tối ưu tổng thể MiTV4):** Ẩn `heroCard` ("Niên phiên nổi bật") và hủy Glide `imgHeroBg` trên `ResolvedDeviceProfile.TV`; thu gọn `ThemePreset` / `ThemeManager` / `PrefsStore` / `SettingsFragment` / `MainActivity` còn đúng **2 chế độ** (`PEARL` — *1. Sáng dịu Ngọc Trai* và `DARK` — *2. Hoàng Hôn Đêm*); truyền `ThemePalette.liteRender` cho toàn bộ helper drawable, bỏ `applyRoundedOutline` và tab fade animation khi `shouldUseReducedMotion`; thêm cache `homeHtmlCache` (`15s`) dùng chung ở `YanHh3dNowScraper`, throttle `onResume` (`45s`) trong `MainActivity`, tối ưu `HomeFragment` (`PAYLOAD_META` + diff) và `ScheduleFragment`, bổ sung `nextFocus*` trong `activity_main.xml`.
 - **Phiên 50 (Tắt 100% giao diện động ở chế độ TV cho MiTV4):** `DeviceProfileResolver.shouldUseReducedMotion` luôn bật trên `TV` và `UltraLowRam`; bỏ `RippleDrawable`, `specularSheenLayer`, touch scale animation (`ThemeManager`, `MainActivity`); tắt `ambientOrbs`, `startHeroAutoRotate()`, `applyRoundedOutline(heroCard)` và `RecyclerView.itemAnimator` trên toàn bộ tab; tắt animation `btnSkipIntro` ở `PlayerActivity`.

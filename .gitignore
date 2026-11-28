@@ -20,6 +20,11 @@ captures/
 # Signing & Secrets (NEVER commit tokens, keys, or keystores)
 *.keystore
 *.jks
+*.p12
+*.pfx
+keystore.properties
+signing/
+android/signing/
 .env
 .env.*
 
