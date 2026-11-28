@@ -1961,7 +1961,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             background = ThemeManager.liquidGlassSheetDrawable(context, p, 22f)
         }
         val titleTv = TextView(this).apply {
-            text = "Thoát HoatHinh3D Universal?"
+            text = "Thoát HH3D?"
             textSize = 16f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(p.textMain)

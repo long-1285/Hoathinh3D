@@ -1,6 +1,5 @@
 package com.hoathinh3d.donghua.ui.detail
 
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -13,20 +12,16 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.bumptech.glide.Glide
 import com.hoathinh3d.donghua.core.DeviceProfileResolver
 import com.hoathinh3d.donghua.core.PrefsStore
 import com.hoathinh3d.donghua.core.ThemeManager
 import com.hoathinh3d.donghua.data.model.DonghuaMovie
-import com.hoathinh3d.donghua.data.model.EpisodeItem
 import com.hoathinh3d.donghua.data.model.InitialData
 import com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile
 import com.hoathinh3d.donghua.data.model.ServerGroup
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
-import com.hoathinh3d.donghua.data.offline.OfflineDownloadService
 import com.hoathinh3d.donghua.data.source.MovieRepository
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.databinding.ActivityMovieDetailBinding
@@ -51,9 +46,9 @@ class MovieDetailActivity : AppCompatActivity() {
     private var movie: DonghuaMovie = InitialData.INITIAL_DONGHUA_CATALOG.first()
     private var serverGroups: List<ServerGroup> = emptyList()
     private var activeServerIdx = 0
+    private var selectedAudioIsDub = true
+    private var hasUserPickedAudioTab = false
     private var epRangeIdx = 0
-    private var isDownloadingOffline = false
-    private var downloadPct = 0
     private var isDescriptionExpanded = false
     private var pendingFocusTag: String? = null
     private var insetTopPx = 0
@@ -71,7 +66,7 @@ class MovieDetailActivity : AppCompatActivity() {
 
         val settings = PrefsStore.getSettings()
         serverGroups = movie.serverGroups.orEmpty()
-        activeServerIdx = MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
+        syncAudioAndServerSelection()
 
         val resolvedDevice = DeviceProfileResolver.resolve(this, settings.deviceMode)
         binding.episodeGridContainer.columnCount = when (resolvedDevice) {
@@ -151,34 +146,32 @@ class MovieDetailActivity : AppCompatActivity() {
         }
 
         loadFullDetail()
-        observeOfflineServiceProgress()
     }
 
-    private fun observeOfflineServiceProgress() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                var wasActiveForThisMovie = false
-                OfflineDownloadService.progressState.collect { dl ->
-                    val activeForMe = dl.activeDonghuaId == movie.id && dl.activeEpisodeNum > 0
-                    if (activeForMe) {
-                        wasActiveForThisMovie = true
-                        isDownloadingOffline = true
-                        downloadPct = dl.progressPct
-                        binding.btnDetailOffline.text = if (dl.queuedCount > 0) {
-                            "⏳ Tập ${dl.activeEpisodeNum}: ${dl.progressPct}% (+${dl.queuedCount})"
-                        } else {
-                            "⏳ Tập ${dl.activeEpisodeNum}: ${dl.progressPct}%"
-                        }
-                        binding.btnDetailOffline.isEnabled = false
-                    } else if (wasActiveForThisMovie) {
-                        wasActiveForThisMovie = false
-                        isDownloadingOffline = false
-                        downloadPct = 0
-                        renderUi()
-                    }
-                }
-            }
+    private fun syncAudioAndServerSelection() {
+        val visibleIndices = MovieRepository.visibleServerIndices(serverGroups, activeServerIdx)
+        val dubIndices = visibleIndices.filter { MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
+        val subIndices = visibleIndices.filter { !MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
+        if (!hasUserPickedAudioTab) {
+            selectedAudioIsDub = dubIndices.isNotEmpty() || subIndices.isEmpty()
         }
+        val poolIndices = if (selectedAudioIsDub) dubIndices else subIndices
+        if (poolIndices.isNotEmpty()) {
+            activeServerIdx = MovieRepository.selectPreferredServerIdx(
+                serverGroups,
+                if (selectedAudioIsDub) "Thuyết Minh" else "Vietsub"
+            )
+        }
+        epRangeIdx = 0
+    }
+
+    private fun formatAudioGroupServerLabel(rawName: String): String {
+        val cleaned = rawName
+            .replace(Regex("""•\s*(Thuyết\s*Minh|Vietsub|Lồng\s*Tiếng)""", RegexOption.IGNORE_CASE), "•")
+            .replace(Regex("""\s*•\s*•\s*"""), " • ")
+            .replace(Regex("""\s*•\s*$"""), "")
+            .trim()
+        return cleaned.ifEmpty { rawName }
     }
 
     override fun onResume() {
@@ -195,11 +188,9 @@ class MovieDetailActivity : AppCompatActivity() {
             val detail = runCatching {
                 MovieRepository.fetchMovieDetailFast(movie.slug.orEmpty(), movie) { fast ->
                     runOnUiThread {
-                        val settings = PrefsStore.getSettings()
                         if (serverGroups.isEmpty() && fast.serverGroups.isNotEmpty()) {
                             serverGroups = fast.serverGroups
-                            activeServerIdx = MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
-                            epRangeIdx = 0
+                            syncAudioAndServerSelection()
                             val freshPoster = fast.poster?.takeUnless { MovieRepository.isDeadOrBlankPoster(it) }
                             movie = movie.copy(
                                 description = fast.description ?: movie.description,
@@ -216,11 +207,9 @@ class MovieDetailActivity : AppCompatActivity() {
             }.getOrNull()
             binding.txtDetailLoading.visibility = View.GONE
             if (detail != null) {
-                val settings = PrefsStore.getSettings()
                 if (detail.serverGroups.isNotEmpty()) {
                     serverGroups = detail.serverGroups
-                    activeServerIdx = MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
-                    epRangeIdx = 0
+                    syncAudioAndServerSelection()
                 }
                 val freshPoster = detail.poster?.takeUnless { MovieRepository.isDeadOrBlankPoster(it) }
                 movie = movie.copy(
@@ -336,112 +325,7 @@ class MovieDetailActivity : AppCompatActivity() {
         binding.btnDetailFavorite.background = ThemeManager.pillDrawable(this, p, active = false, 14f)
         binding.btnDetailFavorite.setTextColor(if (isFav) Color.parseColor("#F43F5E") else p.textMain)
 
-        binding.btnDetailShare.background = ThemeManager.pillDrawable(this, p, active = false, 14f)
-        binding.btnDetailShare.setTextColor(p.textMain)
-        binding.btnDetailShare.setOnClickListener {
-            val title = movie.title.ifBlank { "Hoạt Hình 3D" }
-            val text = PlayerUtils.formatShareText(title)
-            val sendIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_TEXT, text)
-                putExtra(Intent.EXTRA_TITLE, title)
-                type = "text/plain"
-            }
-            startActivity(Intent.createChooser(sendIntent, "Chia sẻ phim qua"))
-        }
-
-        // Offline download CTA
-        val targetEpNum = prog?.episode ?: 1
-        val currentSrv = serverGroups.getOrNull(activeServerIdx) ?: serverGroups.firstOrNull()
-        val srvOrder = listOfNotNull(currentSrv) + serverGroups
-        var candidateSrvName = ""
-        var candidateEp: EpisodeItem? = null
-        var candidateEpNum = targetEpNum
-        for (srv in srvOrder) {
-            val found = srv.episodes.firstOrNull { ep ->
-                val idx = srv.episodes.indexOf(ep)
-                PlayerUtils.extractEpisodeNumber(ep, idx) == targetEpNum
-            } ?: srv.episodes.firstOrNull() ?: continue
-            val isDirectHls = found.linkM3u8.contains(".m3u8", ignoreCase = true) ||
-                (found.wpServerType?.startsWith("now:") == true && found.wpServerSv == "hls" && !found.wpPageUrl.isNullOrBlank())
-            if (isDirectHls) {
-                candidateSrvName = srv.serverName
-                candidateEp = found
-                candidateEpNum = PlayerUtils.extractEpisodeNumber(found, 0)
-                break
-            }
-        }
-
         val offlineMap = PrefsStore.getOfflineEpisodes()
-        val offlineKey = HlsOfflineManager.buildEpisodeKey(movie.id, candidateEpNum)
-        val isSavedOffline = offlineMap.containsKey(offlineKey)
-
-        // Chỉ hiện nút Lưu Offline khi có luồng .m3u8 trực tiếp hoặc đã lưu
-        if (candidateEp == null && !isSavedOffline && !isDownloadingOffline) {
-            binding.btnDetailOffline.visibility = View.GONE
-        } else {
-            binding.btnDetailOffline.visibility = View.VISIBLE
-            binding.btnDetailOffline.isEnabled = !isDownloadingOffline
-            binding.btnDetailOffline.background = ThemeManager.pillDrawable(this, p, false, 14f)
-            binding.btnDetailOffline.text = when {
-                isDownloadingOffline -> "⏳ Đang lưu $downloadPct%"
-                isSavedOffline -> "✓ Đã lưu Tập $candidateEpNum"
-                else -> "⬇ Lưu Offline Tập $candidateEpNum"
-            }
-            binding.btnDetailOffline.setTextColor(
-                if (isSavedOffline) Color.parseColor("#10B981") else p.accentFrom
-            )
-            binding.btnDetailOffline.setOnClickListener {
-                val candidateSrv = srvOrder.firstOrNull { it.serverName == candidateSrvName } ?: currentSrv
-                val hlsEps = candidateSrv?.episodes?.filter { ep ->
-                    ep.linkM3u8.contains(".m3u8", ignoreCase = true) ||
-                        (ep.wpServerType?.startsWith("now:") == true && ep.wpServerSv == "hls" && !ep.wpPageUrl.isNullOrBlank())
-                }.orEmpty()
-
-                val options = mutableListOf<Pair<String, () -> Unit>>()
-                if (!isSavedOffline && candidateEp != null) {
-                    options.add("⬇ Tải Tập $candidateEpNum (Chạy nền)" to {
-                        enqueueOfflineDownloads(candidateSrvName, listOf(candidateEpNum to candidateEp))
-                    })
-                }
-                val startIdx = if (candidateEp != null) hlsEps.indexOf(candidateEp).coerceAtLeast(0) else 0
-                val next3 = hlsEps.drop(startIdx).take(3).mapIndexed { i, ep ->
-                    PlayerUtils.extractEpisodeNumber(ep, startIdx + i) to ep
-                }.filter { (epN, _) -> !offlineMap.containsKey(HlsOfflineManager.buildEpisodeKey(movie.id, epN)) }
-                if (next3.size > 1) {
-                    options.add("📦 Tải ${next3.size} tập tiếp theo (Chạy nền)" to {
-                        enqueueOfflineDownloads(candidateSrvName, next3)
-                    })
-                }
-                val next5 = hlsEps.drop(startIdx).take(5).mapIndexed { i, ep ->
-                    PlayerUtils.extractEpisodeNumber(ep, startIdx + i) to ep
-                }.filter { (epN, _) -> !offlineMap.containsKey(HlsOfflineManager.buildEpisodeKey(movie.id, epN)) }
-                if (next5.size > 3) {
-                    options.add("📦 Tải ${next5.size} tập tiếp theo (Chạy nền)" to {
-                        enqueueOfflineDownloads(candidateSrvName, next5)
-                    })
-                }
-                if (isSavedOffline) {
-                    options.add("🗑 Xóa bản lưu Tập $candidateEpNum" to {
-                        HlsOfflineManager.removeOfflineEpisode(this, offlineKey)
-                        renderUi()
-                        Toast.makeText(this, "Đã xóa bản lưu offline Tập $candidateEpNum", Toast.LENGTH_SHORT).show()
-                    })
-                }
-                if (options.size == 1) {
-                    options[0].second.invoke()
-                } else if (options.isNotEmpty()) {
-                    AlertDialog.Builder(this)
-                        .setTitle("Lưu xem Offline • ${movie.title}")
-                        .setItems(options.map { it.first }.toTypedArray()) { _, which ->
-                            options.getOrNull(which)?.second?.invoke()
-                        }
-                        .setNegativeButton("Đóng", null)
-                        .show()
-                }
-            }
-        }
-
         binding.detailInfoGlassPanel.background = ThemeManager.glassPanelDrawable(this, p, 20f, isCard = true)
         binding.detailEpisodesGlassPanel.background = ThemeManager.glassPanelDrawable(this, p, 20f, isCard = true)
         binding.txtDetailMetaInfo.text = "📅 ${movie.scheduleDay} • ${movie.scheduleTime} • ${movie.studio}"
@@ -449,26 +333,113 @@ class MovieDetailActivity : AppCompatActivity() {
         binding.txtDetailGenres.text = movie.genres.joinToString("  •  ")
         binding.txtDetailGenres.setTextColor(p.accentFrom)
         binding.txtDetailDescription.text = movie.description?.takeIf { it.isNotBlank() }
-            ?: "${movie.title} (${movie.originalTitle}) — Bộ hoạt hình 3D đặc sắc do ${movie.studio} sản xuất, hỗ trợ chất lượng ${movie.quality} cùng đa máy chủ Vietsub và Thuyết Minh."
+            ?: "${movie.title} (${movie.originalTitle}) — Bộ hoạt hình 3D đặc sắc do ${movie.studio} sản xuất, hỗ trợ chất lượng ${movie.quality} cùng đa máy chủ Thuyết Minh và Vietsub."
         binding.txtDetailDescription.setTextColor(p.textMuted)
         applyDescriptionState(p)
 
+        val visibleServerIndices = MovieRepository.visibleServerIndices(serverGroups, activeServerIdx)
+        val dubIndices = visibleServerIndices.filter { MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
+        val subIndices = visibleServerIndices.filter { !MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
+        if (!hasUserPickedAudioTab && selectedAudioIsDub && dubIndices.isEmpty() && subIndices.isNotEmpty()) {
+            selectedAudioIsDub = false
+        }
+        val activeGroupIndices = if (selectedAudioIsDub) dubIndices else subIndices
+        if (activeGroupIndices.isNotEmpty() && activeServerIdx !in activeGroupIndices) {
+            activeServerIdx = MovieRepository.selectPreferredServerIdx(
+                serverGroups,
+                if (selectedAudioIsDub) "Thuyết Minh" else "Vietsub"
+            )
+            if (activeServerIdx !in activeGroupIndices) activeServerIdx = activeGroupIndices.first()
+        }
+        val currentSrv = if (activeGroupIndices.isNotEmpty()) serverGroups.getOrNull(activeServerIdx) else null
+
         val eps = currentSrv?.episodes.orEmpty()
-        val totalEpCount = if (eps.isNotEmpty()) eps.size else maxOf(movie.latestEp, 1)
+        val totalEpCount = when {
+            eps.isNotEmpty() -> eps.size
+            activeGroupIndices.isEmpty() && visibleServerIndices.isNotEmpty() -> 0
+            else -> maxOf(movie.latestEp, 1)
+        }
         binding.txtServerHeading.text = "Chọn Máy Chủ & Danh Sách Tập ($totalEpCount tập)"
         binding.txtServerHeading.setTextColor(p.textMain)
         binding.txtDetailLoading.setTextColor(p.accentFrom)
 
-        // Server chips (ẩn server chỉ có Embed khi đã có máy chủ HLS/MP4 trực tiếp)
+        // 2 Nguồn chính: Thuyết Minh (mặc định) & Vietsub
+        binding.audioGroupContainer.removeAllViews()
+        val audioTabs = listOf(
+            Triple(true, "🔊 Thuyết Minh (${dubIndices.size})", "detail_audio_dub"),
+            Triple(false, "💬 Vietsub (${subIndices.size})", "detail_audio_sub")
+        )
+        for ((idx, tab) in audioTabs.withIndex()) {
+            val (isDubTab, label, tagStr) = tab
+            val active = selectedAudioIsDub == isDubTab
+            val tabBtn = Button(this).apply {
+                tag = tagStr
+                text = label
+                isAllCaps = false
+                textSize = 12f
+                typeface = if (active) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+                minHeight = 0
+                minimumHeight = ThemeManager.dp(context, 38f)
+                background = if (active) {
+                    ThemeManager.accentGradientDrawable(context, p, 14f)
+                } else {
+                    ThemeManager.pillDrawable(context, p, active = false, radiusDp = 14f)
+                }
+                setTextColor(if (active) Color.WHITE else p.textMain)
+                isFocusable = true
+                setOnClickListener {
+                    pendingFocusTag = tagStr
+                    hasUserPickedAudioTab = true
+                    selectedAudioIsDub = isDubTab
+                    val targetPool = if (isDubTab) dubIndices else subIndices
+                    if (targetPool.isNotEmpty()) {
+                        activeServerIdx = MovieRepository.selectPreferredServerIdx(
+                            serverGroups,
+                            if (isDubTab) "Thuyết Minh" else "Vietsub"
+                        )
+                        if (activeServerIdx !in targetPool) activeServerIdx = targetPool.first()
+                    }
+                    epRangeIdx = 0
+                    renderUi()
+                }
+            }
+            binding.audioGroupContainer.addView(
+                tabBtn,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (idx > 0) marginStart = ThemeManager.dp(this@MovieDetailActivity, 8f)
+                }
+            )
+        }
+
+        // Thông báo trạng thái khi 1 trong 2 nguồn chưa có bản dịch/thuyết minh
+        when {
+            activeGroupIndices.isEmpty() && visibleServerIndices.isNotEmpty() -> {
+                val missingName = if (selectedAudioIsDub) "Thuyết Minh" else "Vietsub"
+                val availName = if (selectedAudioIsDub) "Vietsub" else "Thuyết Minh"
+                binding.txtAudioServerNotice.text =
+                    "Phim hiện chưa có máy chủ $missingName — hãy chuyển sang nguồn $availName bên cạnh."
+                binding.txtAudioServerNotice.setTextColor(p.textMuted)
+                binding.txtAudioServerNotice.visibility = View.VISIBLE
+            }
+            !hasUserPickedAudioTab && !selectedAudioIsDub && dubIndices.isEmpty() && subIndices.isNotEmpty() -> {
+                binding.txtAudioServerNotice.text =
+                    "Chưa có bản Thuyết Minh cho phim này • Đang tự động chọn nguồn Vietsub."
+                binding.txtAudioServerNotice.setTextColor(p.textMuted)
+                binding.txtAudioServerNotice.visibility = View.VISIBLE
+            }
+            else -> binding.txtAudioServerNotice.visibility = View.GONE
+        }
+
+        // Server con trong nhóm Nguồn âm thanh đang chọn
         binding.serverChipsContainer.removeAllViews()
-        val visibleServerIndices = MovieRepository.visibleServerIndices(serverGroups, activeServerIdx)
-        for (idx in visibleServerIndices) {
+        binding.serverChipsScroll.visibility = if (activeGroupIndices.isNotEmpty()) View.VISIBLE else View.GONE
+        for (idx in activeGroupIndices) {
             val srv = serverGroups[idx]
             val active = idx == activeServerIdx
             val srvTag = "detail_srv_$idx"
             val btn = Button(this).apply {
                 tag = srvTag
-                text = "${srv.serverName} (${srv.episodes.size})"
+                text = "${formatAudioGroupServerLabel(srv.serverName)} (${srv.episodes.size})"
                 isAllCaps = false
                 textSize = 11f
                 minHeight = 0
@@ -497,7 +468,11 @@ class MovieDetailActivity : AppCompatActivity() {
         }
 
         // Hiển thị số tập mới nhất trước theo thứ tự giảm dần (Tập N -> Tập 1)
-        val displayIndices = PlayerUtils.descendingEpisodeDisplayIndices(eps, totalEpCount)
+        val displayIndices = if (totalEpCount > 0) {
+            PlayerUtils.descendingEpisodeDisplayIndices(eps, totalEpCount)
+        } else {
+            emptyList()
+        }
         val ranges = PlayerUtils.buildDescendingEpisodeRanges(displayIndices, eps, PlayerUtils.EP_PAGE_SIZE)
         if (epRangeIdx !in ranges.indices) epRangeIdx = 0
 
@@ -621,26 +596,6 @@ class MovieDetailActivity : AppCompatActivity() {
             binding.btnDetailReadMore.visibility =
                 if (isDescriptionExpanded || truncated) View.VISIBLE else View.GONE
         }
-    }
-
-    private fun enqueueOfflineDownloads(serverName: String, items: List<Pair<Int, EpisodeItem>>) {
-        if (items.isEmpty()) return
-        val payloads = items.map { (epNum, ep) ->
-            OfflineDownloadService.DownloadTaskPayload(
-                donghuaId = movie.id,
-                title = movie.title,
-                poster = movie.poster,
-                episodeNum = epNum,
-                serverName = serverName,
-                episode = ep
-            )
-        }
-        OfflineDownloadService.enqueue(this, payloads)
-        Toast.makeText(
-            this,
-            "Đã thêm ${payloads.size} tập vào hàng đợi tải nền Offline!",
-            Toast.LENGTH_SHORT
-        ).show()
     }
 
     private fun openPlayer(episode: Int, serverIdx: Int, resumeTimeSec: Double = -1.0) {

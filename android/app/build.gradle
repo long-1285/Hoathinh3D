@@ -62,13 +62,13 @@ android {
         applicationId "com.hoathinh3d.donghua"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 53
-        versionName "3.6.3-v53"
+        versionCode 54
+        versionName "3.6.4-v54"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += ["vi", "en"]
-        resValue "string", "app_name", "HoatHinh3D v${versionName}"
-        resValue "string", "title_activity_main", "HoatHinh3D v${versionName}"
+        resValue "string", "app_name", "HH3D v${versionName}"
+        resValue "string", "title_activity_main", "HH3D v${versionName}"
     }
 
     buildFeatures {

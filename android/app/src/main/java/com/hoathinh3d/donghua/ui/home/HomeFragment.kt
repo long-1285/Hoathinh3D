@@ -499,13 +499,15 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         }
 
         b.rvGenres.visibility = if (isSearchActive) View.GONE else View.VISIBLE
-        val genreBarKey = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_${st.selectedGenre}_${st.genres.joinToString(",") { it.id }}"
+        val firstGenreChip = st.genres.firstOrNull { it.id == "Tất cả" }
+            ?: com.hoathinh3d.donghua.data.model.InitialData.GENRES_DATA.first()
+        val genreBarKey = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_${st.selectedGenre}_${firstGenreChip.label}"
         if (genreBarKey != lastGenreBarKey) {
             lastGenreBarKey = genreBarKey
             genreAdapter?.let { ga ->
                 ga.palette = p
                 ga.selectedId = st.selectedGenre
-                ga.submitList(st.genres)
+                ga.submitList(listOf(firstGenreChip))
                 ga.notifyDataSetChanged()
             }
         }

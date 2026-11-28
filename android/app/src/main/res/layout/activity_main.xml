@@ -81,7 +81,7 @@
                     android:id="@+id/imgHeaderAvatar"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:contentDescription="HoatHinh3D"
+                    android:contentDescription="HH3D"
                     android:scaleType="centerCrop"
                     android:src="@drawable/app_avatar" />
 
@@ -104,7 +104,7 @@
                             android:ellipsize="end"
                             android:letterSpacing="-0.02"
                             android:maxLines="1"
-                            android:text="HoatHinh3D"
+                            android:text="HH3D"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
