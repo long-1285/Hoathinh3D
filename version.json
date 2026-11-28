@@ -1,11 +1,11 @@
 {
-    "versionCode":  50,
-    "versionName":  "3.6.0-v50",
-    "tag":  "v50",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v50/HoatHinh3d.apk",
+    "versionCode":  51,
+    "versionName":  "3.6.1-v51",
+    "tag":  "v51",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v51/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "2560468b88a6c0739852c200c700d9ed26fa4e495f3271d1499893c862fc6867",
-    "apkSizeBytes":  14571088,
-    "changelog":  "Phien 50: Tat 100% giao dien dong che do TV \u0026 bong do focus D-Pad, da kiem thu thuc te tren MiTV4-ANSM0 (164 MB RAM, 0 crash).",
-    "releasedAt":  "2026-11-27T16:21:01Z"
+    "sha256":  "1f816f792ddfd3d54ba3ca6c67dd3f3df75107d413de3ab2e5ed8de656a87b4d",
+    "apkSizeBytes":  14516440,
+    "changelog":  "v3.6.1-v51: Bo Nien phien noi bat tren TV MiTV4, rut gon Giao dien con 2 che do (1. Sang diu Ngoc Trai \u0026 2. Hoang Hon Dem), toi uu overdraw qua ThemePalette.liteRender, gop 1 request trang chu yanhh3d.now, chong spam onResume \u0026 muot hoa D-Pad TV.",
+    "releasedAt":  "2026-11-28T01:48:08Z"
 }
