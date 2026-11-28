@@ -38,6 +38,7 @@ object PrefsStore {
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
         const val APPEARANCE_TWO_MODES_V51 = "hh3d_appearance_2modes_v51"
         const val QUALITY_AUTO_DEFAULT_V55 = "hh3d_quality_auto_default_v55"
+        const val QUALITY_AUTO_TM_DEFAULT_V58 = "hh3d_quality_auto_tm_default_v58"
         const val SEARCH_HISTORY = "hh3d_search_history_v1"
     }
 
@@ -579,6 +580,8 @@ object PrefsStore {
                 .putString(Keys.AUDIO_DEFAULT_TM_MIGRATED, "1")
                 .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
                 .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
+                .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
+                .putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
                 .apply()
             return AppSettings()
         }
@@ -619,6 +622,10 @@ object PrefsStore {
             val needsV45Migration = !prefs.contains(Keys.APPEARANCE_DEFAULTS_V45)
             val needsTwoModesMigration = !prefs.contains(Keys.APPEARANCE_TWO_MODES_V51)
             val needsQualityAutoMigration = !prefs.contains(Keys.QUALITY_AUTO_DEFAULT_V55)
+            val needsAutoTmMigration = !prefs.contains(Keys.QUALITY_AUTO_TM_DEFAULT_V58)
+            if (needsAutoTmMigration) {
+                defaultAudio = "Thuyết Minh"
+            }
             val loaded = AppSettings(
                 deviceMode = obj.optString("deviceMode", "auto"),
                 theme = theme,
@@ -633,7 +640,7 @@ object PrefsStore {
                 seekStep = obj.optInt("seekStep", 10),
                 bilingualSub = obj.optBoolean("bilingualSub", false),
                 defaultAudio = defaultAudio,
-                defaultQuality = if (needsQualityAutoMigration) "Auto" else obj.optString("defaultQuality", "Auto"),
+                defaultQuality = if (needsQualityAutoMigration || needsAutoTmMigration) "Auto" else obj.optString("defaultQuality", "Auto"),
                 aspectRatio = obj.optString("aspectRatio", "16:9"),
                 volume = obj.optDouble("volume", 1.0).toFloat().coerceIn(0f, 1f),
                 playbackSpeed = obj.optDouble("playbackSpeed", 1.0).toFloat().coerceIn(0.25f, 2f),
@@ -651,12 +658,13 @@ object PrefsStore {
                 showHomeContinue = if (needsV45Migration) true else obj.optBoolean("showHomeContinue", true),
                 showHomeTrending = if (needsV45Migration) true else obj.optBoolean("showHomeTrending", true)
             )
-            if (needsV45Migration || needsTwoModesMigration || needsQualityAutoMigration) {
+            if (needsV45Migration || needsTwoModesMigration || needsQualityAutoMigration || needsAutoTmMigration) {
                 prefs.edit()
                     .putString(Keys.SETTINGS, settingsToJson(loaded).toString())
                     .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
                     .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                     .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
+                    .putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
                     .apply()
             }
             loaded
@@ -671,6 +679,7 @@ object PrefsStore {
             .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
             .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
             .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
+            .putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
             .apply()
         return updated
     }
@@ -803,6 +812,7 @@ object PrefsStore {
                 ed.putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
                 ed.putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                 ed.putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
+                ed.putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
             }
             payload.optJSONObject("user")?.let { ed.putString(Keys.GOOGLE_USER, it.toString()) }
             payload.optJSONObject("watchedEpisodes")?.let { ed.putString(Keys.WATCHED_EPISODES, it.toString()) }

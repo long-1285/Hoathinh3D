@@ -154,7 +154,12 @@ class MovieDetailActivity : AppCompatActivity() {
         val dubIndices = visibleIndices.filter { MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
         val subIndices = visibleIndices.filter { !MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
         if (!hasUserPickedAudioTab) {
-            selectedAudioIsDub = dubIndices.isNotEmpty() || subIndices.isEmpty()
+            val wantDub = PrefsStore.getSettings().defaultAudio != "Vietsub"
+            selectedAudioIsDub = if (wantDub) {
+                dubIndices.isNotEmpty() || subIndices.isEmpty()
+            } else {
+                subIndices.isEmpty() && dubIndices.isNotEmpty()
+            }
         }
         val poolIndices = if (selectedAudioIsDub) dubIndices else subIndices
         if (poolIndices.isNotEmpty()) {
@@ -164,15 +169,6 @@ class MovieDetailActivity : AppCompatActivity() {
             )
         }
         epRangeIdx = 0
-    }
-
-    private fun formatAudioGroupServerLabel(rawName: String): String {
-        val cleaned = rawName
-            .replace(Regex("""•\s*(Thuyết\s*Minh|Vietsub|Lồng\s*Tiếng)""", RegexOption.IGNORE_CASE), "•")
-            .replace(Regex("""\s*•\s*•\s*"""), " • ")
-            .replace(Regex("""\s*•\s*$"""), "")
-            .trim()
-        return cleaned.ifEmpty { rawName }
     }
 
     override fun onResume() {
@@ -479,42 +475,9 @@ class MovieDetailActivity : AppCompatActivity() {
             else -> binding.txtAudioServerNotice.visibility = View.GONE
         }
 
-        // Server con trong nhóm Nguồn âm thanh đang chọn
+        // Ẩn thanh chọn từng máy chủ nhỏ lẻ (app tự chọn máy chủ tối ưu theo Nguồn Thuyết Minh / Vietsub)
         binding.serverChipsContainer.removeAllViews()
-        binding.serverChipsScroll.visibility = if (activeGroupIndices.isNotEmpty()) View.VISIBLE else View.GONE
-        for (idx in activeGroupIndices) {
-            val srv = serverGroups[idx]
-            val active = idx == activeServerIdx
-            val srvTag = "detail_srv_$idx"
-            val btn = Button(this).apply {
-                tag = srvTag
-                text = "${formatAudioGroupServerLabel(srv.serverName)} (${srv.episodes.size})"
-                isAllCaps = false
-                textSize = 11f
-                minHeight = 0
-                minimumHeight = 0
-                setPadding(
-                    ThemeManager.dp(context, 12f),
-                    ThemeManager.dp(context, 7f),
-                    ThemeManager.dp(context, 12f),
-                    ThemeManager.dp(context, 7f)
-                )
-                background = ThemeManager.pillDrawable(context, p, active = active, radiusDp = 12f)
-                setTextColor(if (active) Color.WHITE else p.textMain)
-                isFocusable = true
-                setOnClickListener {
-                    pendingFocusTag = srvTag
-                    activeServerIdx = idx
-                    epRangeIdx = 0
-                    renderUi()
-                }
-            }
-            val lp = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { marginEnd = ThemeManager.dp(this@MovieDetailActivity, 8f) }
-            binding.serverChipsContainer.addView(btn, lp)
-        }
+        binding.serverChipsScroll.visibility = View.GONE
 
         // Hiển thị số tập mới nhất trước theo thứ tự giảm dần (Tập N -> Tập 1)
         val displayIndices = if (totalEpCount > 0) {

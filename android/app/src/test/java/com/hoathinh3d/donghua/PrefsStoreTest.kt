@@ -378,5 +378,20 @@ class PrefsStoreTest {
         assertEquals(setOf(1, 2, 3, 4), PrefsStore.getWatchedEpisodes("tiennghich"))
         PrefsStore.clearWatchedEpisodes("tiennghich")
         assertTrue(PrefsStore.getWatchedEpisodes("tiennghich").isEmpty())
+
+        // Verify v58 migration enforces Auto + Thuyết Minh once on legacy prefs, then preserves user changes
+        val legacyPrefs = InMemorySharedPrefs()
+        legacyPrefs.edit().putString(
+            PrefsStore.Keys.SETTINGS,
+            """{"defaultQuality":"4K 60FPS","defaultAudio":"Vietsub"}"""
+        ).apply()
+        PrefsStore.initForTest(legacyPrefs)
+        val migrated = PrefsStore.getSettings()
+        assertEquals("Auto", migrated.defaultQuality)
+        assertEquals("Thuyết Minh", migrated.defaultAudio)
+
+        val userChanged = PrefsStore.saveSettings(migrated.copy(defaultAudio = "Vietsub", defaultQuality = "1080p Pro"))
+        assertEquals("Vietsub", userChanged.defaultAudio)
+        assertEquals("1080p Pro", PrefsStore.getSettings().defaultQuality)
     }
 }

@@ -476,18 +476,6 @@
                     android:visibility="gone"
                     android:src="@android:drawable/ic_menu_crop"
                     app:tint="#FFFFFF" />
-
-                <ImageButton
-                    android:id="@+id/btnQuickShare"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
-                    android:layout_marginStart="4dp"
-                    android:background="@drawable/bg_cs_focus_circle"
-                    android:contentDescription="Chia sẻ"
-                    android:focusable="true"
-                    android:padding="9dp"
-                    android:src="@android:drawable/ic_menu_share"
-                    app:tint="#FFFFFF" />
             </LinearLayout>
         </RelativeLayout>
 

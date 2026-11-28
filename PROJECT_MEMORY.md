@@ -33,7 +33,7 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** Hoạt Hình 3D (Package `HH3D v${versionName}` — Giao diện chính hiển thị `Hoạt Hình` + badge `3D`)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 57`, `versionName "3.6.7-v57"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 58`, `versionName "3.6.8-v58"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -116,6 +116,20 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-28] - Phiên 58: Bỏ Chia Sẻ Trong Trình Phát, Mặc Định `Auto • Thuyết Minh` Theo Mạng Thực Tế & Ẩn Thanh Chọn Máy Chủ Con Trong Chi Tiết Phim (`v3.6.8-v58`)
+- **Mục tiêu người dùng:**
+  1. Bỏ tính năng chia sẻ trong trình phát (`PlayerActivity`).
+  2. Chất lượng phim mặc định ban đầu là **`Auto`** — tự chọn nguồn **Thuyết Minh** (co giãn theo chất lượng mạng thực tế).
+  3. Không hiển thị hàng chip máy chủ con (`YanHH3D Now • (4K)`, `(1080)`, `(HD)`, `Trình phát Tích hợp`...) trong màn hình Chi tiết phim.
+- **Thay đổi kỹ thuật đã thực hiện:**
+  1. **Gỡ nút Chia sẻ trong Trình phát (`activity_player.xml`, `PlayerActivity.kt`):** Xóa `btnQuickShare` khỏi thanh điều khiển trên cùng của trình phát và xóa handler `shareCurrentMovieOrEpisode()` không còn dùng.
+  2. **Mặc định ban đầu `Auto • Thuyết Minh` (`PrefsStore.kt`, `SettingsFragment.kt`, `PlayerActivity.kt`, `MovieDetailActivity.kt`):**
+     - Bổ sung migration `Keys.QUALITY_AUTO_TM_DEFAULT_V58` trong `PrefsStore.getSettings()` để đảm bảo khởi tạo/nâng cấp đặt `defaultQuality = "Auto"` và `defaultAudio = "Thuyết Minh"` (sau đó vẫn lưu giữ tùy chỉnh của người dùng nếu họ đổi trong Cài đặt).
+     - Cập nhật nhãn tùy chọn trong `SettingsFragment` (`"Auto • Thuyết minh (Theo mạng thực tế)"`).
+     - Sửa `PlayerActivity` (`btnQuickQuality`, `txtPlayerBadge`) luôn hiển thị **`Auto`** ngay lúc mới mở khi bật `Auto` (thay vì hiển thị chuỗi `movie.quality` như `4K`) và dùng `AdaptiveTrackSelection.Factory`; `MovieDetailActivity.syncAudioAndServerSelection()` ưu tiên nguồn `Thuyết Minh` theo `settings.defaultAudio` (chỉ tự chuyển `Vietsub` khi phim chưa có bản Thuyết Minh).
+  3. **Ẩn hàng chip máy chủ con ở Chi tiết phim (`activity_movie_detail.xml`, `MovieDetailActivity.kt`):** Ẩn vĩnh viễn `serverChipsScroll` (`View.GONE`), giữ nguyên 2 tab nguồn âm thanh **`🔊 Thuyết Minh`** / **`💬 Vietsub`**, ứng dụng tự động chọn máy chủ tối ưu và tự chuyển dự phòng khi lỗi trong trình phát.
+- **Kiểm chứng:** `build-apk.ps1` + `gradlew.bat lintDebug` chạy thành công (`BUILD SUCCESSFUL`): **56/56** unit tests PASS (`PrefsStoreTest` đã bổ sung kiểm tra migration `QUALITY_AUTO_TM_DEFAULT_V58`), `lintDebug` 0 lỗi, `Cert SHA-256` khớp `e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`, `HoatHinh3d.apk` đạt **11.7 MB** (`12,267,375 bytes`, `APK SHA-256: ecabc261849594f72694db74f130ed67ecdcea704e5877d6e75a8fecf66a937e`). *Lưu ý: phiên 58 chưa test trực tiếp trên phần cứng thật.*
 
 ### [2026-11-28] - Phiên 57: Chuẩn Hóa Đa Nguồn (`MovieSourceProvider`), Khai Thác Toàn Diện `vsmov.com` (`VsmovSourceProvider`), `HeadlessWebViewSniffer` & Truyền Header ExoPlayer (`v3.6.7-v57`)
 - **Mục tiêu người dùng:**
@@ -1329,8 +1343,8 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-28` (sau Phiên 57).
-- **Phiên bản hiện tại:** `versionCode 57` / `versionName "3.6.7-v57"` (Header giao diện chính hiển thị `Hoạt Hình` + `3D`, `app_name` là `HH3D v3.6.7-v57`, chứng chỉ ký chung `SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`).
+- **Ngày chốt phiên:** `2026-11-28` (sau Phiên 58).
+- **Phiên bản hiện tại:** `versionCode 58` / `versionName "3.6.8-v58"` (Header giao diện chính hiển thị `Hoạt Hình` + `3D`, `app_name` là `HH3D v3.6.8-v58`, chứng chỉ ký chung `SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`).
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `android/` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
 - **Quy tắc Build & Xuất bản OTA (Phiên 41+ / 53+):** Không tạo Release R8 APK; mọi máy build (Công ty & Nhà) phải có sẵn bộ keystore đồng bộ tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`. Cuối phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
 - **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **56/56 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 12, `PrefsStoreTest` 9, `VietnameseSearchTest` 3, `VsmovSourceProviderTest` 4, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
@@ -1365,10 +1379,10 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `HoatHinh3d.apk` (**11.7 MB**, `12,268,539 bytes`, `APK SHA-256: f3ea5ed92209587152272c2d58e78f75df10a9d9281a567207080589765b4749`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` và xuất bản OTA lên GitHub Release `v57` + `version.json` (Phiên 57 chưa chạy đo trực tiếp trên phần cứng thật).
+- **File APK mới nhất:** `HoatHinh3d.apk` (**11.7 MB**, `12,267,375 bytes`, `APK SHA-256: ecabc261849594f72694db74f130ed67ecdcea704e5877d6e75a8fecf66a937e`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` và xuất bản OTA lên GitHub Release `v58` + `version.json` (Phiên 58 chưa chạy đo trực tiếp trên phần cứng thật).
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
   1. Nếu PC Công ty chưa chép thư mục `%USERPROFILE%\.hoathinh3d\` (`hoathinh3d-shared.jks` + `keystore.properties`), chép sang và chạy `.\setup-signing.ps1 -Verify` để khớp chữ ký chung.
-  2. Cài đặt **`HoatHinh3d.apk` (`v3.6.7-v57`)** lên điện thoại & **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để kiểm tra thực tế chuyển sang nguồn **VSMov**, duyệt thể loại/phân trang, tìm kiếm chung và phát `streamvsmov` (PNG-TS + HTTP Header) trên Media3 ExoPlayer.
+  2. Cài đặt **`HoatHinh3d.apk` (`v3.6.8-v58`)** lên điện thoại & **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để kiểm tra thực tế trình phát đã bỏ nút Chia sẻ, tự động chọn **`Auto • Thuyết Minh`** (theo mạng thực tế), và màn Chi tiết phim ẩn hàng chip máy chủ con trong khung đỏ.
 
 ---
 
@@ -1377,11 +1391,12 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer).
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `PROJECT_MEMORY.md` và `GEMINI.md` tại thư mục gốc dự án để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**, bắt buộc ký bằng Shared Keystore tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`), lịch sử thay đổi tới Phiên 57, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `PROJECT_MEMORY.md` và `GEMINI.md` tại thư mục gốc dự án để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**, bắt buộc ký bằng Shared Keystore tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`), lịch sử thay đổi tới Phiên 58, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 57:
-- Phiên bản hiện tại: `versionCode 57`, `versionName "3.6.7-v57"` (Header giao diện chính hiển thị `Hoạt Hình` + badge `3D`, `app_name` là `HH3D v3.6.7-v57`). Mã nguồn Android Native nằm tại `android/` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `HoatHinh3d.apk` (**11.7 MB**, `12,268,539 bytes`, `APK SHA-256: f3ea5ed92209587152272c2d58e78f75df10a9d9281a567207080589765b4749`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), đã qua **56/56 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v57` + `version.json`.
+Tóm tắt hiện trạng sau Phiên 58:
+- Phiên bản hiện tại: `versionCode 58`, `versionName "3.6.8-v58"` (Header giao diện chính hiển thị `Hoạt Hình` + badge `3D`, `app_name` là `HH3D v3.6.8-v58`). Mã nguồn Android Native nằm tại `android/` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `HoatHinh3d.apk` (**11.7 MB**, `12,267,375 bytes`, `APK SHA-256: ecabc261849594f72694db74f130ed67ecdcea704e5877d6e75a8fecf66a937e`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), đã qua **56/56 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v58` + `version.json`.
+- **Phiên 58 (Gỡ Chia Sẻ Trình Phát, Mặc Định `Auto • Thuyết Minh` & Ẩn Thanh Chọn Máy Chủ Con Chi Tiết Phim):** Xóa `btnQuickShare` & `shareCurrentMovieOrEpisode()` khỏi `activity_player.xml` / `PlayerActivity.kt`; thêm `Keys.QUALITY_AUTO_TM_DEFAULT_V58` đặt mặc định `defaultQuality = "Auto"` & `defaultAudio = "Thuyết Minh"` (nhãn Cài đặt `"Auto • Thuyết minh (Theo mạng thực tế)"`, badge Player hiển thị `Auto` lúc mở); ẩn `serverChipsScroll` trong `activity_movie_detail.xml` / `MovieDetailActivity.kt`, giữ 2 tab nguồn `Thuyết Minh` / `Vietsub` và tự động chọn máy chủ tối ưu + failover trong trình phát.
 - **Phiên 57 (Kiến Trúc Đa Nguồn `MovieSourceProvider`, Nguồn Mới `VSMov`, `HeadlessWebViewSniffer` & Header Động ExoPlayer):** Tạo interface chuẩn hóa đa nguồn `MovieSourceProvider.kt`, triển khai `VsmovSourceProvider.kt` cho `https://vsmov.com/` (JSON API ưu tiên + Jsoup HTML fallback, CookieJar + Retry trên `Dispatchers.IO`, tìm kiếm, lọc theo thể loại/quốc gia/năm/xem nhiều, chi tiết đa server & bóc tách `signedMasterUrl`/sub/thumb từ `streamvsmov.com`), tách `HeadlessWebViewSniffer.kt`, thêm `ExoPlayerStreamHelper` (`DefaultHttpDataSource.Factory` với custom HTTP headers) + `HlsCacheProvider.registerStreamHeaders()`, và tích hợp `VSMov` vào `InitialData`/`PrefsStore` (`SOURCES_V57_WITH_VSMOV`)/`MovieRepository`/`MovieDetailActivity`/`PlayerActivity`.
 - **Phiên 56 (Nút `Làm mới` TV & `Ngẫu nhiên`, Nhắc Tập Mới Yêu Thích Trên Home, Lịch Sử Kèm Ngày & Nhảy Tập Chưa Xem / Đánh Dấu Đã Xem Hết):** Bổ sung `btnRefreshTvFeed` (hiện trên TV) và `btnHomeRandom` (`PlayerUtils.pickRandomMovie`); thêm dải `favUpdatesPanel` nhắc phim Yêu thích có `newEpCount > 0` ngay Trang chủ; gắn nhãn ngày xem (`Hôm nay`/`Hôm qua`/`dd/MM`, `java.util.Calendar` an toàn API 23) trong `HistoryFragment`; thêm `btnDetailNextUnwatched` (`⏭ Tập X (Chưa xem)`) và `btnToggleMarkAllWatched` (`✓ Đã xem hết` / `↺ Bỏ đánh dấu`) trong `MovieDetailActivity`.
 - **Phiên 55 (Header `Hoạt Hình 3D`, Chất Lượng Mặc Định `Auto` ABR, Sửa Mục Yêu Thích Đủ 10/10, Gom Chọn Thiết Bị Vào Menu `Auto`, Hẹn Giờ Tắt & AudioFocus):** Header chính chỉ hiện `Hoạt Hình` + `3D`; `defaultQuality = "Auto"` với `AdaptiveTrackSelection.Factory(4s/10s)`; lưu snapshot `favoriteMovies` trong `PrefsStore` để `FavoritesFragment` luôn hiển thị đủ 100% phim đã chọn + menu nhấn giữ; gom 4 nút thiết bị thành `spinnerRow` `Auto` duy nhất; bật AudioFocus + `setHandleAudioBecomingNoisy(true)` + Sleep Timer trong `PlayerActivity`.

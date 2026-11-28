@@ -704,13 +704,13 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         box.addView(headingText("Cấu Hình Trình Phát Tích Hợp (Media3 ExoPlayer)", p, 15f))
 
         val qualityOptions = listOf(
-            "Auto" to "Auto (Theo mạng thực tế)",
+            "Auto" to "Auto • Thuyết minh (Theo mạng thực tế)",
             "4K 60FPS" to "4K 60FPS",
             "2K HDR" to "2K HDR",
             "1080p Pro" to "1080p Pro"
         )
         val curQualityLabel = qualityOptions.firstOrNull { it.first == s.defaultQuality }?.second
-            ?: "Auto (Theo mạng thực tế)"
+            ?: "Auto • Thuyết minh (Theo mạng thực tế)"
         val spinners = listOf(
             spinnerRow(
                 "Chất lượng mặc định",

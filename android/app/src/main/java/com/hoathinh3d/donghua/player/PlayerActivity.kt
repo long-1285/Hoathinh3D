@@ -324,7 +324,11 @@ class PlayerActivity : AppCompatActivity() {
         binding.txtRewindSec.text = seekStep.toString()
         binding.txtForwardSec.text = seekStep.toString()
         binding.btnQuickSpeed.text = PlayerUtils.formatSpeedChip(playbackSpeed)
-        binding.btnQuickQuality.text = movie.quality.ifBlank { "Auto" }.substringBefore(" ")
+        binding.btnQuickQuality.text = if (settings.defaultQuality.equals("Auto", ignoreCase = true)) {
+            "Auto"
+        } else {
+            movie.quality.ifBlank { "Auto" }.substringBefore(" ")
+        }
         binding.txtActionSubtitles.text = if (settings.extensions.bilingualSub || settings.bilingualSub) {
             "Phụ đề: Bật"
         } else {
@@ -686,10 +690,6 @@ class PlayerActivity : AppCompatActivity() {
             binding.hudContainer.visibility = View.VISIBLE
             wakeHud()
             showToast("Đã mở khóa màn hình trình phát")
-        }
-        binding.btnQuickShare.setOnClickListener {
-            wakeHud()
-            shareCurrentMovieOrEpisode()
         }
         binding.btnPipOrSpeed.setOnClickListener {
             wakeHud()
@@ -1147,7 +1147,11 @@ class PlayerActivity : AppCompatActivity() {
         updateHudFocusRouting()
         wakeHud()
 
-        val qualityTag = if (isOffline) "Offline HLS" else (movie.quality.ifBlank { "Auto" })
+        val qualityTag = when {
+            isOffline -> "Offline HLS"
+            activeQualityIdx < 0 || settings.defaultQuality.equals("Auto", ignoreCase = true) -> "Auto"
+            else -> movie.quality.ifBlank { "Auto" }
+        }
         binding.txtPlayerBadge.visibility = View.VISIBLE
         binding.txtPlayerBadge.text = "Trình phát Tích hợp • $qualityTag"
 
@@ -1659,7 +1663,8 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         val activeLabel = qualityOptions.firstOrNull { it.index == activeQualityIdx }
-            ?.label?.replace("Tự động (ABR)", "Auto") ?: movie.quality.ifBlank { "Auto" }
+            ?.label?.replace("Tự động (ABR)", "Auto")
+            ?: if (settings.defaultQuality.equals("Auto", ignoreCase = true)) "Auto" else movie.quality.ifBlank { "Auto" }
         binding.btnQuickQuality.text = activeLabel.substringBefore(" ")
         binding.txtPlayerBadge.text = "Trình phát Tích hợp • $activeLabel"
     }
@@ -2680,20 +2685,6 @@ class PlayerActivity : AppCompatActivity() {
         sleepTimerRunnable = r
         mainHandler.postDelayed(r, delayMs)
         showToast("Sẽ tự tạm dừng phát sau $minutes phút")
-    }
-
-    private fun shareCurrentMovieOrEpisode() {
-        val title = movie.title.ifBlank { "Hoạt Hình 3D" }
-        val currentEp = episodesList().getOrNull(currentEpIdx)
-        val epLabel = currentEp?.name ?: "Tập ${currentEpIdx + 1}"
-        val text = PlayerUtils.formatShareText(title, epLabel)
-        val sendIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, text)
-            putExtra(Intent.EXTRA_TITLE, "$title - $epLabel")
-            type = "text/plain"
-        }
-        startActivity(Intent.createChooser(sendIntent, "Chia sẻ phim qua"))
     }
 
     private fun applyBrightness(value: Float) {
