@@ -33,7 +33,7 @@
 
 ## 1. THÔNG TIN DỰ ÁN & MỤC TIÊU
 - **Tên ứng dụng:** Hoạt Hình 3D (Package `HH3D v${versionName}` — Giao diện chính hiển thị `Hoạt Hình` + badge `3D`)
-- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 55`, `versionName "3.6.5-v55"`)
+- **Package ID:** `com.hoathinh3d.donghua` (`minSdk 23` / `targetSdk 35`, `versionCode 56`, `versionName "3.6.6-v56"`)
 - **Kiến trúc hiện tại:** **100% Android Native (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `E:\Project\3_HoatHinh3D\android\`. *(Thư mục `src/` React/Vite cũ chỉ giữ làm tài liệu tham chiếu, không còn dùng Capacitor WebView cho UI chính).*
 - **Nền tảng hỗ trợ:**
   - Điện thoại Android (`MOBILE` - 3 cột cân đối, gesture sáng/âm lượng/tua ngang, khóa xoay dọc)
@@ -116,6 +116,21 @@ E:\Project\3_HoatHinh3D\
 ---
 
 ## 5. NHẬT KÝ DEBUG & THAY ĐỔI (DEBUG & CHANGELOG)
+
+### [2026-11-28] - Phiên 56: Nút `Làm mới` TV & `Ngẫu nhiên`, Nhắc Tập Mới Yêu Thích Trên Home, Lịch Sử Kèm Ngày & Nhảy Tập Chưa Xem / Đánh Dấu Đã Xem Hết (`v3.6.6-v56`)
+- **Mục tiêu người dùng:** Triển khai 3 nâng cấp UX/QoL thiết thực đã đề xuất cho app xem phim online, bảo toàn độ mượt và tiết kiệm RAM trên MiTV4-ANSM0 (Android 6.0.1 API 23):
+  1. Bổ sung nút **Làm mới danh sách trên TV** (do TV tắt pull-to-refresh để giữ D-Pad) và nút chọn phim **Ngẫu nhiên** ngay Trang chủ.
+  2. Bổ sung **Nhắc tự động tập mới của phim Yêu thích** ngay trên màn hình chính khi phát hiện `newEpCount > 0`.
+  3. Hiển thị **ngày xem tương đối (`Hôm nay`, `Hôm qua`, `dd/MM`)** trong Lịch sử; thêm nút **nhảy tới tập kế tiếp chưa xem** và nút **Đánh dấu đã xem hết / Bỏ đánh dấu** trong Chi tiết phim.
+- **Thay đổi kỹ thuật đã thực hiện:**
+  1. **Nút `↻ Làm mới` (TV) & `🎲 Ngẫu nhiên` (Mọi thiết bị) (`layout_home_header.xml`, `HomeFragment.kt`, `PlayerHelpers.kt`):**
+     - Thêm `PlayerUtils.pickRandomMovie(...)`; thêm `btnHomeRandom` (`🎲 Ngẫu nhiên`) và `btnRefreshTvFeed` (`↻ Làm mới`, chỉ hiện khi `isTv`) tại thanh tiêu đề Kho Nguồn Phim trên Trang chủ.
+  2. **Nhắc tập mới phim Yêu thích trên Trang chủ (`layout_home_header.xml`, `HomeFragment.kt`):**
+     - Thêm dải `favUpdatesPanel` (`HorizontalScrollView` dùng pill `TextView` nhẹ không tạo thêm bitmap/RecyclerView để giữ RAM thấp trên MiTV4), tự hiển thị khi có phim trong `st.favorites` có `newEpCount > 0`; chạm vào chip mở thẳng Chi tiết phim, kèm nút `Xem tất cả ›` (`btnFavUpdatesAll`) mở tab Yêu thích (`MainTab.FAVORITES`).
+  3. **Lịch sử kèm ngày xem & Nhảy tập chưa xem / Đánh dấu đã xem hết (`PlayerHelpers.kt`, `PrefsStore.kt`, `HistoryFragment.kt`, `activity_movie_detail.xml`, `MovieDetailActivity.kt`):**
+     - Thêm `PlayerUtils.formatRelativeDayLabel(updatedAt, nowMs)` dùng `java.util.Calendar` (tương thích API 23, không dùng `java.time`) để gắn nhãn `Hôm nay` / `Hôm qua` / `dd/MM` vào meta từng phim trong `HistoryFragment`.
+     - Thêm `PlayerUtils.nextUnwatchedEpisodeNumber(...)`, `PrefsStore.markEpisodesWatched(...)` và `PrefsStore.clearWatchedEpisodes(...)`; màn hình Chi tiết phim thêm `btnDetailNextUnwatched` (`⏭ Tập X (Chưa xem)`) và nút `btnToggleMarkAllWatched` (`✓ Đã xem hết` / `↺ Bỏ đánh dấu`).
+- **Kiểm chứng:** `build-apk.ps1` + `gradlew.bat lintDebug` chạy thành công (`BUILD SUCCESSFUL`): **52/52** unit tests PASS (`PlayerHelpersTest` 12 — đã test `formatRelativeDayLabel`, `nextUnwatchedEpisodeNumber`, `pickRandomMovie`; `PrefsStoreTest` 9 — đã test `markEpisodesWatched` & `clearWatchedEpisodes`), `lintDebug` 0 lỗi, `Cert SHA-256` khớp `e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`, `HoatHinh3d.apk` đạt **11.64 MB** (`12,210,628 bytes`, `APK SHA-256: 260c97909cb6ceda5106955e95f0553a7e77932b983cf914eb0472048e2faa22`). *Lưu ý: phiên 56 chưa test trực tiếp trên phần cứng thật.*
 
 ### [2026-11-28] - Phiên 55: Header `Hoạt Hình 3D`, Chất Lượng Mặc Định `Auto` (ABR), Sửa Triệt Để Mục Yêu Thích (10/10 Phim), Gom Menu Thiết Bị Vào `Auto` & Hẹn Giờ Tắt / AudioFocus (`v3.6.5-v55`)
 - **Mục tiêu người dùng:**
@@ -1297,11 +1312,11 @@ E:\Project\3_HoatHinh3D\
 
 ## 6. TỔNG KẾT BÀN GIAO & TRẠNG THÁI HIỆN TẠI (HANDOFF STATUS)
 
-- **Ngày chốt phiên:** `2026-11-28` (sau Phiên 55).
-- **Phiên bản hiện tại:** `versionCode 55` / `versionName "3.6.5-v55"` (Header giao diện chính hiển thị `Hoạt Hình` + `3D`, `app_name` là `HH3D v3.6.5-v55`, chứng chỉ ký chung `SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`).
+- **Ngày chốt phiên:** `2026-11-28` (sau Phiên 56).
+- **Phiên bản hiện tại:** `versionCode 56` / `versionName "3.6.6-v56"` (Header giao diện chính hiển thị `Hoạt Hình` + `3D`, `app_name` là `HH3D v3.6.6-v56`, chứng chỉ ký chung `SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`).
 - **Kiến trúc hiện tại:** **Android Native thuần (Kotlin + XML Views + ViewBinding + AndroidX Media3 ExoPlayer 1.5.1)** trong `android/` (bản React/Vite cũ trong `src/` được giữ nguyên làm tham chiếu).
 - **Quy tắc Build & Xuất bản OTA (Phiên 41+ / 53+):** Không tạo Release R8 APK; mọi máy build (Công ty & Nhà) phải có sẵn bộ keystore đồng bộ tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`. Cuối phiên tăng `versionCode`/`versionName`, chạy `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` + `.\gradlew.bat lintDebug`, commit + push lên GitHub, rồi chạy `powershell -ExecutionPolicy Bypass -File .\publish-ota.ps1 -SkipBuild -Changelog "..."` để xuất bản `HoatHinh3d.apk` lên GitHub Release `v<versionCode>` và cập nhật `version.json` trên `main`.
-- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **51/51 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 11, `PrefsStoreTest` 9, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
+- **Trạng thái Code & Test:** `compileDebugKotlin` sạch, `lintDebug` đạt 0 errors, `testDebugUnitTest` qua **52/52 unit tests** (`NguonCApiAndRepoTest` 16, `PlayerHelpersTest` 12, `PrefsStoreTest` 9, `VietnameseSearchTest` 3, `YanHh3dNowScraperTest` 6, `YanHh3dScraperTest` 6 — 0 failures, 0 errors, 0 skipped).
 - **Trạng thái OTA, Tương Thích Android 6.0.1 / Xiaomi MiTV4, Player & Cài Đặt:**
   - **Tìm kiếm thông minh, Pull-to-refresh, Khóa màn hình tự ẩn 3s & Chia sẻ nhanh (Phiên 49):**
     - `PrefsStore` lưu lịch sử tìm kiếm (tối đa 10 mục, chống trùng, xóa lẻ/xóa hết) kèm `searchSuggestionsPanel` Liquid Glass (Từ khóa Hot Thịnh Hành + Lịch sử gần đây) trong `MainActivity`.
@@ -1333,10 +1348,10 @@ E:\Project\3_HoatHinh3D\
     - Bỏ nút `Dọn bộ nhớ đệm phát HLS` khỏi `1. Trình phát tích hợp`; đổi nhãn đầu thanh thể loại Trang chủ sang **`Thể loại phim`** và đồng bộ thời gian thực danh mục cho `YanHH3DNow`, `YanHH3D` & mọi nguồn `+Web`.
   - **Nâng cấp Phiên 37–38:** Bỏ banner `"Đang kết nối..."` & toast lúc mở app; SHA-256 Auto Update; `SettingsFragment` 5 tab (`1. Trình phát tích hợp` → `5. Tiện ích mở rộng`) 2 cột trên TV/Tablet + bật/ẩn Banner Hero / Tiếp tục xem / Top 10 BXH; `StoryboardParser` (`seekThumbCard`); Đồng bộ Email + LAN Sync UDP `8776` + `HH3D1:...`; Auto Clear Cache khi thoát App.
   - **Mạng TLS 1.2 + Root CA Hiện Đại & Player CloudStream (Phiên 33–36):** `CompatTls` (17 Root CA + TLS 1.2 + HTTP/1.1 API 23), `GlideOkHttpUrlLoader`, Header bỏ chữ `Nguồn phim`, chọn nguồn kính trong suốt, **Tiếp tục xem / Lịch sử / Tiếp tục Tập X** phát đúng phút/giây, **Bỏ qua Intro (`+85s`)** tự ẩn sau 5s, phụ đề rời `±0.5s`, Night Mode DRC.
-- **File APK mới nhất:** `HoatHinh3d.apk` (**11.64 MB**, `12,201,519 bytes`, `APK SHA-256: 9e72e079f58c596bb04ce23fe194076ca9cb55bbb07556e6341bc00413da2b56`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` và xuất bản OTA lên GitHub Release `v55` + `version.json` (Phiên 55 chưa chạy đo trực tiếp trên phần cứng thật).
+- **File APK mới nhất:** `HoatHinh3d.apk` (**11.64 MB**, `12,210,628 bytes`, `APK SHA-256: 260c97909cb6ceda5106955e95f0553a7e77932b983cf914eb0472048e2faa22`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), build bằng `powershell -ExecutionPolicy Bypass -File .\build-apk.ps1` và xuất bản OTA lên GitHub Release `v56` + `version.json` (Phiên 56 chưa chạy đo trực tiếp trên phần cứng thật).
 - **Điểm cần lưu ý / Kiểm thử thiết bị thật ở phiên sau:**
   1. Nếu PC Công ty chưa chép thư mục `%USERPROFILE%\.hoathinh3d\` (`hoathinh3d-shared.jks` + `keystore.properties`), chép sang và chạy `.\setup-signing.ps1 -Verify` để khớp chữ ký chung.
-  2. Cài đặt **`HoatHinh3d.apk` (`v3.6.5-v55`)** lên điện thoại & **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để kiểm tra thực tế Header `Hoạt Hình 3D`, chất lượng mặc định `Auto`, đủ 10/10 phim mục Yêu thích, menu `Auto` chọn thiết bị và Hẹn giờ tắt / tự dừng khi rút tai nghe.
+  2. Cài đặt **`HoatHinh3d.apk` (`v3.6.6-v56`)** lên điện thoại & **Xiaomi MiTV4-ANSM0** (Android 6.0.1 API 23) để kiểm tra thực tế nút `↻ Làm mới` trên TV, `🎲 Ngẫu nhiên`, dải nhắc tập mới Yêu thích, ngày xem (`Hôm nay`/`Hôm qua`) trong Lịch sử và nút nhảy tập chưa xem / `✓ Đã xem hết` trong Chi tiết phim.
 
 ---
 
@@ -1345,11 +1360,12 @@ E:\Project\3_HoatHinh3D\
 ```markdown
 Hãy tiếp tục phát triển dự án HoatHinh3D Universal (Android Native Kotlin + XML Views + Media3 ExoPlayer).
 
-Trước khi sửa code, hãy đọc kỹ toàn bộ `PROJECT_MEMORY.md` và `GEMINI.md` tại thư mục gốc dự án để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**, bắt buộc ký bằng Shared Keystore tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`), lịch sử thay đổi tới Phiên 55, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
+Trước khi sửa code, hãy đọc kỹ toàn bộ `PROJECT_MEMORY.md` và `GEMINI.md` tại thư mục gốc dự án để nắm kiến trúc Native, quy tắc môi trường build APK (bắt buộc qua `build-apk.ps1`, **KHÔNG tạo Release R8 APK**, bắt buộc ký bằng Shared Keystore tại `%USERPROFILE%\.hoathinh3d\` khớp `android/signing-sha256.txt`), lịch sử thay đổi tới Phiên 56, và **so sánh đối chiếu mã nguồn trên máy với Git (`https://github.com/long-1285/Hoathinh3D.git`)** — nếu trên Git mới hơn thì kéo/clone phiên bản mới nhất về trước khi thực hiện debug.
 
-Tóm tắt hiện trạng sau Phiên 55:
-- Phiên bản hiện tại: `versionCode 55`, `versionName "3.6.5-v55"` (Header giao diện chính hiển thị `Hoạt Hình` + badge `3D`, `app_name` là `HH3D v3.6.5-v55`). Mã nguồn Android Native nằm tại `android/` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
-- APK mới nhất tại `HoatHinh3d.apk` (**11.64 MB**, `12,201,519 bytes`, `APK SHA-256: 9e72e079f58c596bb04ce23fe194076ca9cb55bbb07556e6341bc00413da2b56`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), đã qua **51/51 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v55` + `version.json`.
+Tóm tắt hiện trạng sau Phiên 56:
+- Phiên bản hiện tại: `versionCode 56`, `versionName "3.6.6-v56"` (Header giao diện chính hiển thị `Hoạt Hình` + badge `3D`, `app_name` là `HH3D v3.6.6-v56`). Mã nguồn Android Native nằm tại `android/` (Kotlin + XML Views + ViewBinding + Media3 ExoPlayer 1.5.1 + OkHttp + Jsoup + Glide, `com.hoathinh3d.donghua`, `minSdk 23`, `targetSdk 35`, hỗ trợ Android TV `LEANBACK_LAUNCHER`).
+- APK mới nhất tại `HoatHinh3d.apk` (**11.64 MB**, `12,210,628 bytes`, `APK SHA-256: 260c97909cb6ceda5106955e95f0553a7e77932b983cf914eb0472048e2faa22`, `Cert SHA-256: e2acc2dd967ee6c277ffd9fdaca3c0e1fddad22c1e40cd8bbe70a5fa23ef63de`), đã qua **52/52 unit tests** (`testDebugUnitTest`), `lintDebug` (0 errors), đã xuất bản OTA lên GitHub Release `v56` + `version.json`.
+- **Phiên 56 (Nút `Làm mới` TV & `Ngẫu nhiên`, Nhắc Tập Mới Yêu Thích Trên Home, Lịch Sử Kèm Ngày & Nhảy Tập Chưa Xem / Đánh Dấu Đã Xem Hết):** Bổ sung `btnRefreshTvFeed` (hiện trên TV) và `btnHomeRandom` (`PlayerUtils.pickRandomMovie`); thêm dải `favUpdatesPanel` nhắc phim Yêu thích có `newEpCount > 0` ngay Trang chủ; gắn nhãn ngày xem (`Hôm nay`/`Hôm qua`/`dd/MM`, `java.util.Calendar` an toàn API 23) trong `HistoryFragment`; thêm `btnDetailNextUnwatched` (`⏭ Tập X (Chưa xem)`) và `btnToggleMarkAllWatched` (`✓ Đã xem hết` / `↺ Bỏ đánh dấu`) trong `MovieDetailActivity`.
 - **Phiên 55 (Header `Hoạt Hình 3D`, Chất Lượng Mặc Định `Auto` ABR, Sửa Mục Yêu Thích Đủ 10/10, Gom Chọn Thiết Bị Vào Menu `Auto`, Hẹn Giờ Tắt & AudioFocus):** Header chính chỉ hiện `Hoạt Hình` + `3D`; `defaultQuality = "Auto"` với `AdaptiveTrackSelection.Factory(4s/10s)`; lưu snapshot `favoriteMovies` trong `PrefsStore` để `FavoritesFragment` luôn hiển thị đủ 100% phim đã chọn + menu nhấn giữ; gom 4 nút thiết bị thành `spinnerRow` `Auto` duy nhất; bật AudioFocus + `setHandleAudioBecomingNoisy(true)` + Sleep Timer trong `PlayerActivity`.
 - **Phiên 52 (Nén WebP & Giảm APK còn 11.63 MB, Voice Search, Lọc Ad HLS, Dò Decoder TV, Chỉnh Phụ Đề Trực Tiếp & Tên App Kèm Phiên Bản):** Nén `app_avatar` (`2000×2000` `713 KB` → `192×192` WebP `15 KB`), `tv_banner`/`splash`/`mipmap` sang `.webp` + `resourceConfigurations ["vi","en"]`; tự gắn `HoatHinh3D v${versionName}` vào `app_name`/`txtHeaderBrand`; thêm `btnVoiceSearch` (`RecognizerIntent`); thêm `HlsPlaylistAdFilter` trong `SanitizingTsDataSource`; thêm `DeviceProfileResolver.detectVideoDecoderCapability()`; thêm chỉnh vị trí từ đáy (`%`), màu chữ & nền phụ đề trực tiếp trong Drawer của `PlayerActivity`.
 - **Phiên 51 (Ẩn Hero Banner TV, Thu gọn 2 chế độ Giao diện & Tối ưu tổng thể MiTV4):** Ẩn `heroCard` ("Niên phiên nổi bật") và hủy Glide `imgHeroBg` trên `ResolvedDeviceProfile.TV`; thu gọn `ThemePreset` / `ThemeManager` / `PrefsStore` / `SettingsFragment` / `MainActivity` còn đúng **2 chế độ** (`PEARL` — *1. Sáng dịu Ngọc Trai* và `DARK` — *2. Hoàng Hôn Đêm*); truyền `ThemePalette.liteRender` cho toàn bộ helper drawable, bỏ `applyRoundedOutline` và tab fade animation khi `shouldUseReducedMotion`; thêm cache `homeHtmlCache` (`15s`) dùng chung ở `YanHh3dNowScraper`, throttle `onResume` (`45s`) trong `MainActivity`, tối ưu `HomeFragment` (`PAYLOAD_META` + diff) và `ScheduleFragment`, bổ sung `nextFocus*` trong `activity_main.xml`.

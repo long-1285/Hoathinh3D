@@ -5,8 +5,10 @@ import android.media.audiofx.LoudnessEnhancer
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import com.hoathinh3d.donghua.data.model.DonghuaMovie
 import com.hoathinh3d.donghua.data.model.EpisodeItem
 import java.net.URI
+import java.util.Calendar
 import java.util.Locale
 
 enum class AspectMode(val wireValue: String, val label: String) {
@@ -188,6 +190,63 @@ object PlayerUtils {
             deltaSec > 0L -> "+${formatPlayerTime(deltaSec)}"
             else -> "-${formatPlayerTime(-deltaSec)}"
         }
+    }
+
+    fun formatRelativeDayLabel(updatedAtMs: Long, nowMs: Long = System.currentTimeMillis()): String {
+        if (updatedAtMs <= 0L) return "Gần đây"
+        val targetCal = Calendar.getInstance().apply { timeInMillis = updatedAtMs }
+        val nowCal = Calendar.getInstance().apply { timeInMillis = nowMs }
+        val sameYear = targetCal.get(Calendar.YEAR) == nowCal.get(Calendar.YEAR)
+        val dayDiff = if (sameYear) {
+            nowCal.get(Calendar.DAY_OF_YEAR) - targetCal.get(Calendar.DAY_OF_YEAR)
+        } else {
+            val prevYearCal = Calendar.getInstance().apply {
+                timeInMillis = nowMs
+                add(Calendar.DAY_OF_YEAR, -1)
+            }
+            if (targetCal.get(Calendar.YEAR) == prevYearCal.get(Calendar.YEAR) &&
+                targetCal.get(Calendar.DAY_OF_YEAR) == prevYearCal.get(Calendar.DAY_OF_YEAR)
+            ) 1 else 99
+        }
+        return when (dayDiff) {
+            0 -> "Hôm nay"
+            1 -> "Hôm qua"
+            else -> String.format(
+                Locale.US,
+                "%02d/%02d",
+                targetCal.get(Calendar.DAY_OF_MONTH),
+                targetCal.get(Calendar.MONTH) + 1
+            )
+        }
+    }
+
+    fun nextUnwatchedEpisodeNumber(
+        episodes: List<EpisodeItem>,
+        watchedEpisodes: Set<Int>,
+        fallbackTotalEp: Int = 1
+    ): Int? {
+        val candidates = if (episodes.isNotEmpty()) {
+            episodes.mapIndexed { idx, ep -> extractEpisodeNumber(ep, idx) }.distinct().sorted()
+        } else {
+            (1..fallbackTotalEp.coerceAtLeast(1)).toList()
+        }
+        return candidates.firstOrNull { !watchedEpisodes.contains(it) }
+    }
+
+    fun pickRandomMovie(
+        movies: List<DonghuaMovie>,
+        excludeId: String? = null,
+        seedMs: Long = System.currentTimeMillis()
+    ): DonghuaMovie? {
+        if (movies.isEmpty()) return null
+        val pool = if (movies.size > 1 && !excludeId.isNullOrBlank()) {
+            movies.filterNot { it.id == excludeId }
+        } else {
+            movies
+        }
+        val activePool = pool.ifEmpty { movies }
+        val idx = ((seedMs xor (seedMs ushr 16)).toInt() and 0x7FFFFFFF) % activePool.size
+        return activePool[idx]
     }
 }
 

@@ -363,6 +363,45 @@ class MovieDetailActivity : AppCompatActivity() {
         binding.txtServerHeading.setTextColor(p.textMain)
         binding.txtDetailLoading.setTextColor(p.accentFrom)
 
+        val watchedEps = PrefsStore.getWatchedEpisodes(movie.id)
+        val serverEpNums = if (eps.isNotEmpty()) {
+            eps.mapIndexed { idx, ep -> PlayerUtils.extractEpisodeNumber(ep, idx) }.distinct()
+        } else {
+            (1..totalEpCount.coerceAtLeast(1)).toList()
+        }
+        val nextUnwatchedEp = if (watchedEps.isNotEmpty() && serverEpNums.isNotEmpty()) {
+            PlayerUtils.nextUnwatchedEpisodeNumber(eps, watchedEps, totalEpCount)
+        } else {
+            null
+        }
+        if (nextUnwatchedEp != null && nextUnwatchedEp != (prog?.episode ?: 1) && activeGroupIndices.isNotEmpty()) {
+            binding.btnDetailNextUnwatched.visibility = View.VISIBLE
+            binding.btnDetailNextUnwatched.text = "⏭ Tập $nextUnwatchedEp (Chưa xem)"
+            binding.btnDetailNextUnwatched.background = ThemeManager.pillDrawable(this, p, active = false, 14f)
+            binding.btnDetailNextUnwatched.setTextColor(p.accentFrom)
+            binding.btnDetailNextUnwatched.setOnClickListener {
+                openPlayer(nextUnwatchedEp, activeServerIdx)
+            }
+        } else {
+            binding.btnDetailNextUnwatched.visibility = View.GONE
+        }
+
+        val allMarkedWatched = serverEpNums.isNotEmpty() && serverEpNums.all { watchedEps.contains(it) }
+        binding.btnToggleMarkAllWatched.visibility = if (serverEpNums.isNotEmpty()) View.VISIBLE else View.GONE
+        binding.btnToggleMarkAllWatched.text = if (allMarkedWatched) "↺ Bỏ đánh dấu" else "✓ Đã xem hết"
+        binding.btnToggleMarkAllWatched.background = ThemeManager.pillDrawable(this, p, active = false, 10f)
+        binding.btnToggleMarkAllWatched.setTextColor(if (allMarkedWatched) p.textMuted else p.accentFrom)
+        binding.btnToggleMarkAllWatched.setOnClickListener {
+            if (allMarkedWatched) {
+                PrefsStore.clearWatchedEpisodes(movie.id)
+                Toast.makeText(this, "Đã bỏ đánh dấu tất cả tập của bộ này", Toast.LENGTH_SHORT).show()
+            } else {
+                PrefsStore.markEpisodesWatched(movie.id, serverEpNums)
+                Toast.makeText(this, "Đã đánh dấu đã xem ${serverEpNums.size} tập ✓", Toast.LENGTH_SHORT).show()
+            }
+            renderUi()
+        }
+
         // 2 Nguồn chính: Thuyết Minh (mặc định) & Vietsub
         binding.audioGroupContainer.removeAllViews()
         val audioTabs = listOf(
@@ -518,7 +557,6 @@ class MovieDetailActivity : AppCompatActivity() {
         val slice = ranges.getOrNull(epRangeIdx)
         val rStart = slice?.startPos ?: 0
         val rEnd = slice?.endExclusive ?: displayIndices.size
-        val watchedEps = PrefsStore.getWatchedEpisodes(movie.id)
         binding.episodeGridContainer.removeAllViews()
         for (pos in rStart until rEnd) {
             val idx = displayIndices[pos]

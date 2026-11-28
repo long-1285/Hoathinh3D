@@ -147,7 +147,7 @@ class HistoryFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             base.copy(
                 latestEp = maxOf(base.latestEp, prog.episode),
                 totalEp = maxOf(base.totalEp, prog.episode),
-                originalTitle = PlayerUtils.formatContinueMeta(prog.episode, prog.currentTime, prog.progressPct)
+                originalTitle = "${PlayerUtils.formatRelativeDayLabel(prog.updatedAt)} • ${PlayerUtils.formatContinueMeta(prog.episode, prog.currentTime, prog.progressPct)}"
             )
         }
 

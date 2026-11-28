@@ -250,4 +250,36 @@ class PlayerHelpersTest {
             PlayerUtils.formatShareText("   ", "")
         )
     }
+
+    @Test
+    fun relativeDayLabel_nextUnwatched_and_pickRandomMovie_workCorrectly() {
+        val now = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 28, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val today = now - 3_600_000L
+        val yesterday = now - 24L * 3_600_000L
+        val older = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 15, 20, 0, 0)
+        }.timeInMillis
+        assertEquals("Hôm nay", PlayerUtils.formatRelativeDayLabel(today, now))
+        assertEquals("Hôm qua", PlayerUtils.formatRelativeDayLabel(yesterday, now))
+        assertEquals("15/11", PlayerUtils.formatRelativeDayLabel(older, now))
+
+        val eps = (1..5).map { EpisodeItem("Tập $it", "tap-$it") }
+        assertEquals(3, PlayerUtils.nextUnwatchedEpisodeNumber(eps, setOf(1, 2, 5)))
+        assertEquals(null, PlayerUtils.nextUnwatchedEpisodeNumber(eps, setOf(1, 2, 3, 4, 5)))
+
+        val movies = (1..3).map {
+            com.hoathinh3d.donghua.data.model.DonghuaMovie(
+                id = "m$it", title = "Phim $it", originalTitle = "O$it",
+                studio = "S", latestEp = 10, totalEp = 10, rating = 9.5,
+                views = "1M", viewsNum = 1.0, quality = "1080p",
+                audioModes = listOf("Thuyết Minh"), sources = listOf("YanHH3DNow"),
+                genres = listOf("Tu Tiên"), scheduleDay = "Thứ 2", scheduleTime = "10:00", poster = ""
+            )
+        }
+        val picked = PlayerUtils.pickRandomMovie(movies, excludeId = "m1", seedMs = 12345L)
+        assertTrue(picked != null && picked.id != "m1")
+    }
 }

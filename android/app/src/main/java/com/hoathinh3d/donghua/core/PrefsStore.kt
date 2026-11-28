@@ -206,6 +206,38 @@ object PrefsStore {
         prefs.edit().putString(Keys.WATCHED_EPISODES, obj.toString()).apply()
     }
 
+    fun markEpisodesWatched(donghuaId: String, episodeNumbers: Collection<Int>) {
+        if (donghuaId.isBlank() || episodeNumbers.isEmpty()) return
+        val raw = prefs.getString(Keys.WATCHED_EPISODES, null)
+        val obj = runCatching { if (raw != null) JSONObject(raw) else JSONObject() }.getOrElse { JSONObject() }
+        val existingArr = obj.optJSONArray(donghuaId)
+        val set = LinkedHashSet<Int>()
+        if (existingArr != null) {
+            for (i in 0 until existingArr.length()) {
+                val ep = existingArr.optInt(i, -1)
+                if (ep > 0) set.add(ep)
+            }
+        }
+        var changed = false
+        for (ep in episodeNumbers) {
+            if (ep > 0 && set.add(ep)) changed = true
+        }
+        if (!changed) return
+        val nextArr = JSONArray()
+        set.sorted().forEach { nextArr.put(it) }
+        obj.put(donghuaId, nextArr)
+        prefs.edit().putString(Keys.WATCHED_EPISODES, obj.toString()).apply()
+    }
+
+    fun clearWatchedEpisodes(donghuaId: String) {
+        if (donghuaId.isBlank()) return
+        val raw = prefs.getString(Keys.WATCHED_EPISODES, null) ?: return
+        val obj = runCatching { JSONObject(raw) }.getOrElse { return }
+        if (!obj.has(donghuaId)) return
+        obj.remove(donghuaId)
+        prefs.edit().putString(Keys.WATCHED_EPISODES, obj.toString()).apply()
+    }
+
     fun getMovieSkipIntroSec(donghuaId: String): Int {
         if (donghuaId.isBlank()) return 85
         val raw = prefs.getString(Keys.SKIP_INTRO_MAP, null) ?: return 85

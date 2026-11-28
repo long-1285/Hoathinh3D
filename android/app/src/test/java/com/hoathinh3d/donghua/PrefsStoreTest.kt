@@ -371,5 +371,11 @@ class PrefsStoreTest {
         assertFalse(PrefsStore.toggleFavorite("fav_movie_5"))
         assertEquals(9, PrefsStore.getFavorites().size)
         assertEquals(9, PrefsStore.getFavoriteMoviesMap().size)
+
+        // Batch mark watched & clear
+        PrefsStore.markEpisodesWatched("tiennghich", listOf(1, 2, 3, 4))
+        assertEquals(setOf(1, 2, 3, 4), PrefsStore.getWatchedEpisodes("tiennghich"))
+        PrefsStore.clearWatchedEpisodes("tiennghich")
+        assertTrue(PrefsStore.getWatchedEpisodes("tiennghich").isEmpty())
     }
 }

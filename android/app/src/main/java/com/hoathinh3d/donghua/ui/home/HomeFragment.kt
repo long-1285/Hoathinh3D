@@ -27,9 +27,11 @@ import com.hoathinh3d.donghua.data.source.CatalogQueryEngine
 import com.hoathinh3d.donghua.databinding.FragmentHomeBinding
 import com.hoathinh3d.donghua.databinding.LayoutHomeFooterBinding
 import com.hoathinh3d.donghua.databinding.LayoutHomeHeaderBinding
+import com.hoathinh3d.donghua.player.PlayerUtils
 import com.hoathinh3d.donghua.ui.AppHost
 import com.hoathinh3d.donghua.ui.ChromeInsetsListener
 import com.hoathinh3d.donghua.ui.MainState
+import com.hoathinh3d.donghua.ui.MainTab
 import com.hoathinh3d.donghua.ui.RefreshableTab
 import com.hoathinh3d.donghua.ui.common.ContinueWatchingAdapter
 import com.hoathinh3d.donghua.ui.common.GenreChipAdapter
@@ -71,6 +73,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var lastCatalogMetaSig: String? = null
     private var lastGenreBarKey: String? = null
     private var lastFilterBarKey: String? = null
+    private var lastFavUpdatesKey: String? = null
     private var lastSearchSourceKey: String? = null
     private val tvRowAdapters = mutableListOf<MovieCardAdapter>()
     private val sharedTvCardPool = RecyclerView.RecycledViewPool().apply { setMaxRecycledViews(0, 12) }
@@ -352,6 +355,57 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.continuePanel.visibility = View.GONE
         }
 
+        // Nhắc tự động tập mới trên Trang chủ khi mục Yêu thích có tập mới
+        val livePoolForFav = st.allMovies + st.trendingTop10 + st.activeGenreMovies.orEmpty()
+        val favNewMovies = if (!isSearchActive && st.favorites.isNotEmpty()) {
+            st.favorites.distinct().mapNotNull { favId ->
+                val meta = st.favoriteMetaMap[favId] ?: return@mapNotNull null
+                if (meta.newEpCount <= 0) return@mapNotNull null
+                val movieObj = livePoolForFav.firstOrNull { it.id == favId || it.slug == favId }
+                    ?: st.favoriteMoviesMap[favId]
+                    ?: return@mapNotNull null
+                movieObj to meta
+            }
+        } else {
+            emptyList()
+        }
+        if (favNewMovies.isNotEmpty()) {
+            b.favUpdatesPanel.visibility = View.VISIBLE
+            b.favUpdatesPanel.background = ThemeManager.glassPanelDrawable(ctx, p, 18f)
+            b.txtFavUpdatesHeading.setTextColor(p.textMain)
+            b.btnFavUpdatesAll.setTextColor(p.accentFrom)
+            b.btnFavUpdatesAll.background = ThemeManager.navTabDrawable(ctx, p, false, 10f, liteRender = isLite)
+            val favUpdKey = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_${favNewMovies.joinToString(",") { "${it.first.id}:${it.second.latestKnownEp}:${it.second.newEpCount}" }}"
+            if (favUpdKey != lastFavUpdatesKey) {
+                lastFavUpdatesKey = favUpdKey
+                b.favUpdatesChipsContainer.removeAllViews()
+                val gap = ThemeManager.dp(ctx, 8f)
+                favNewMovies.take(8).forEachIndexed { idx, (favMovie, meta) ->
+                    val chip = TextView(ctx).apply {
+                        text = "✨ ${favMovie.title} • Tập ${meta.latestKnownEp} (+${meta.newEpCount})"
+                        textSize = 11.5f
+                        setTypeface(null, android.graphics.Typeface.BOLD)
+                        setTextColor(p.textMain)
+                        background = ThemeManager.pillDrawable(ctx, p, active = false, radiusDp = 14f, liteRender = isLite)
+                        setPadding(ThemeManager.dp(ctx, 11f), ThemeManager.dp(ctx, 6f), ThemeManager.dp(ctx, 11f), ThemeManager.dp(ctx, 6f))
+                        isFocusable = true
+                        isClickable = true
+                        setOnClickListener { h.openMovieDetail(favMovie) }
+                    }
+                    b.favUpdatesChipsContainer.addView(
+                        chip,
+                        LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { if (idx > 0) marginStart = gap }
+                    )
+                }
+            }
+        } else {
+            lastFavUpdatesKey = null
+            b.favUpdatesPanel.visibility = View.GONE
+        }
+
         if (st.settings.showHomeTrending && !isSearchActive && trending.isNotEmpty() && st.selectedGenre == "Tất cả") {
             b.trendingSection.visibility = View.VISIBLE
             b.txtTrendingHeading.text = "Top 10 BXH Thịnh Hành"
@@ -527,6 +581,17 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             else -> "($filteredCount kết quả)"
         }
         b.txtCatalogCount.setTextColor(p.textMuted)
+
+        val randomPool = if (isSearchActive) st.remoteSearchResults else (st.activeGenreMovies ?: st.allMovies)
+        b.btnHomeRandom.visibility = if (!isSearchActive && randomPool.isNotEmpty()) View.VISIBLE else View.GONE
+        b.btnHomeRandom.background = ThemeManager.pillDrawable(ctx, p, false, 12f, liteRender = isLite)
+        b.btnHomeRandom.setTextColor(p.accentFrom)
+
+        b.btnRefreshTvFeed.visibility = if (isTv && !isSearchActive) View.VISIBLE else View.GONE
+        b.btnRefreshTvFeed.isEnabled = !st.isLoadingFeed
+        b.btnRefreshTvFeed.text = if (st.isLoadingFeed) "⏳ Đang tải..." else "↻ Làm mới"
+        b.btnRefreshTvFeed.background = ThemeManager.pillDrawable(ctx, p, active = !st.isLoadingFeed, radiusDp = 12f, liteRender = isLite)
+        b.btnRefreshTvFeed.setTextColor(if (!st.isLoadingFeed) Color.WHITE else p.textMuted)
 
         renderFilterAndSortBar(p, st)
 
@@ -837,6 +902,22 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
 
             b.btnHomeClearSearch.setOnClickListener { host?.clearSearch() }
             b.btnContinueClear.setOnClickListener { host?.clearHistory() }
+            b.btnFavUpdatesAll.setOnClickListener { host?.navigateTab(MainTab.FAVORITES) }
+            b.btnHomeRandom.setOnClickListener {
+                val st = host?.getState() ?: return@setOnClickListener
+                val pool = st.activeGenreMovies ?: st.allMovies
+                val picked = PlayerUtils.pickRandomMovie(pool)
+                if (picked != null) {
+                    host?.showToast("🎲 Gợi ý ngẫu nhiên: ${picked.title}")
+                    host?.openMovieDetail(picked)
+                } else {
+                    host?.showToast("Đang nạp danh sách phim...")
+                }
+            }
+            b.btnRefreshTvFeed.setOnClickListener {
+                host?.showToast("Đang làm mới danh sách phim...")
+                host?.reloadActiveSourceFeed()
+            }
             b.btnResetCatalogFilters.setOnClickListener { host?.resetCatalogFilters() }
 
             b.chipStatusAll.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.ALL) }
@@ -869,6 +950,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             if (h != null) {
                 lastGenreBarKey = null
                 lastFilterBarKey = null
+                lastFavUpdatesKey = null
                 lastHeroSlidesKey = null
                 lastTrendingThemeSig = null
                 lastTrendingMetaSig = null
@@ -925,6 +1007,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         lastCatalogMetaSig = null
         lastGenreBarKey = null
         lastFilterBarKey = null
+        lastFavUpdatesKey = null
         lastSearchSourceKey = null
         tvRowAdapters.clear()
         headerBinding = null
