@@ -34,6 +34,7 @@ object PrefsStore {
         const val AUDIO_DEFAULT_TM_MIGRATED = "hh3d_audio_default_tm_v1"
         const val SOURCES_V4_TWO_ONLY = "hh3d_sources_v4_yanhh3d_nguonc_only"
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
+        const val SOURCES_V57_WITH_VSMOV = "hh3d_sources_v57_with_vsmov"
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
         const val APPEARANCE_TWO_MODES_V51 = "hh3d_appearance_2modes_v51"
         const val QUALITY_AUTO_DEFAULT_V55 = "hh3d_quality_auto_default_v55"
@@ -501,15 +502,33 @@ object PrefsStore {
                         val customOnly = list.filter { it.isCustom }
                         val migrated = InitialData.DEFAULT_BUILT_IN_SOURCES + customOnly
                         saveSources(migrated)
-                        prefs.edit().putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1").apply()
+                        prefs.edit()
+                            .putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
+                            .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
+                            .apply()
                         return migrated
+                    }
+                    if (!prefs.contains(Keys.SOURCES_V57_WITH_VSMOV)) {
+                        val existingIds = list.map { it.id }.toHashSet()
+                        val missingBuiltIns = InitialData.DEFAULT_BUILT_IN_SOURCES.filter { !existingIds.contains(it.id) }
+                        val merged = if (missingBuiltIns.isNotEmpty()) {
+                            list.filter { !it.isCustom } + missingBuiltIns + list.filter { it.isCustom }
+                        } else {
+                            list
+                        }
+                        saveSources(merged)
+                        prefs.edit().putString(Keys.SOURCES_V57_WITH_VSMOV, "1").apply()
+                        return merged
                     }
                     return list
                 }
             } catch (_: Exception) {
             }
         }
-        prefs.edit().putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1").apply()
+        prefs.edit()
+            .putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
+            .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
+            .apply()
         saveSources(InitialData.DEFAULT_BUILT_IN_SOURCES)
         return InitialData.DEFAULT_BUILT_IN_SOURCES
     }

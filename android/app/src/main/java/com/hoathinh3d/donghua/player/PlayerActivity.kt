@@ -71,6 +71,7 @@ import com.hoathinh3d.donghua.data.model.StreamResult
 import com.hoathinh3d.donghua.data.model.WatchProgress
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
 import com.hoathinh3d.donghua.data.source.MovieRepository
+import com.hoathinh3d.donghua.data.source.VsmovSourceProvider
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.data.source.YanHh3dScraper
 import com.hoathinh3d.donghua.databinding.ActivityPlayerBinding
@@ -1038,8 +1039,11 @@ class PlayerActivity : AppCompatActivity() {
         val wpBaseUrl = epItem?.wpBaseUrl ?: YanHh3dScraper.YAN_BASE
         val wpServerSv = epItem?.wpServerSv ?: "1"
         val wpPageUrl = epItem?.wpPageUrl ?: epItem?.yanPageUrl
+        val isVsmovServer = wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV &&
+            (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
         val isNowServer = !wpServerType.isNullOrBlank() && wpServerType.startsWith("now:") && !wpPageUrl.isNullOrBlank()
         val wpKey = when {
+            isVsmovServer -> "vsmov_${epItem?.linkEmbed?.ifBlank { wpPageUrl }.orEmpty()}"
             isNowServer -> "${wpBaseUrl}_${wpPageUrl}_$wpServerType"
             wpPostId != null && !wpEpSlug.isNullOrBlank() && !wpServerType.isNullOrBlank() ->
                 "${wpBaseUrl}_${wpPostId}_${wpEpSlug}_${wpServerType}_$wpServerSv"
@@ -1054,7 +1058,33 @@ class PlayerActivity : AppCompatActivity() {
             var m3u8 = epItem?.linkM3u8.orEmpty()
             var embed = epItem?.linkEmbed.orEmpty()
 
-            if (m3u8.isBlank() && embed.isBlank() && wpKey.isNotEmpty()) {
+            if (m3u8.isBlank() && isVsmovServer) {
+                val cachedResolved = resolvedStreams[wpKey]
+                val res = cachedResolved ?: runCatching {
+                    val targetEmbed = embed.ifBlank { wpPageUrl.orEmpty() }
+                    VsmovSourceProvider.resolveStreamResult(targetEmbed, context = this@PlayerActivity)
+                }.getOrNull()
+                if (res != null && (res.linkM3u8.isNotBlank() || res.linkEmbed.isNotBlank())) {
+                    resolvedStreams[wpKey] = res
+                    m3u8 = res.linkM3u8
+                    embed = res.linkEmbed.ifBlank { embed }
+                    if (m3u8.isNotBlank() && res.headers.isNotEmpty()) {
+                        HlsCacheProvider.registerStreamHeaders(m3u8, res.headers)
+                    }
+                    if (externalSubtitleUri == null && !res.subtitleUrl.isNullOrBlank()) {
+                        val subUrl = res.subtitleUrl
+                        externalSubtitleUri = Uri.parse(subUrl)
+                        externalSubtitleMime = if (subUrl.contains(".srt", true)) {
+                            MimeTypes.APPLICATION_SUBRIP
+                        } else {
+                            MimeTypes.TEXT_VTT
+                        }
+                    }
+                    if (!res.storyboardUrl.isNullOrBlank() && storyboardCues.isEmpty()) {
+                        loadStoryboardVtt(res.storyboardUrl)
+                    }
+                }
+            } else if (m3u8.isBlank() && embed.isBlank() && wpKey.isNotEmpty()) {
                 val cachedResolved = resolvedStreams[wpKey]
                 if (cachedResolved != null) {
                     m3u8 = cachedResolved.linkM3u8
@@ -1417,6 +1447,32 @@ class PlayerActivity : AppCompatActivity() {
         val wpBaseUrl = nextEp.wpBaseUrl ?: YanHh3dScraper.YAN_BASE
         val wpServerSv = nextEp.wpServerSv ?: "1"
         val wpPageUrl = nextEp.wpPageUrl ?: nextEp.yanPageUrl
+        if (wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV) {
+            val embedUrl = nextEp.linkEmbed.ifBlank { wpPageUrl.orEmpty() }
+            if (embedUrl.isBlank()) return
+            val vsKey = "vsmov_$embedUrl"
+            val existing = resolvedStreams[vsKey]
+            if (existing != null) {
+                if (existing.linkM3u8.isNotBlank()) {
+                    HlsCacheProvider.registerStreamHeaders(existing.linkM3u8, existing.headers)
+                    lifecycleScope.launch {
+                        HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, existing.linkM3u8)
+                    }
+                }
+                return
+            }
+            lifecycleScope.launch {
+                runCatching {
+                    val res = VsmovSourceProvider.resolveStreamResult(embedUrl)
+                    if (res.linkM3u8.isNotBlank()) {
+                        resolvedStreams[vsKey] = res
+                        HlsCacheProvider.registerStreamHeaders(res.linkM3u8, res.headers)
+                        HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, res.linkM3u8)
+                    }
+                }
+            }
+            return
+        }
         val isNowNext = wpServerType.startsWith("now:") && !wpPageUrl.isNullOrBlank()
         if (isNowNext) {
             val nowKey = "${wpBaseUrl}_${wpPageUrl}_$wpServerType"

@@ -283,6 +283,14 @@ object MovieRepository {
             }
         }
 
+        if (sourceId == VsmovSourceProvider.SOURCE_ID) {
+            val cats = VsmovSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            if (cats.isNotEmpty()) {
+                val normalized = normalizeLeadingGenre(cats)
+                setCached(cacheKey, normalized, CAT_CACHE_TTL_MS)
+                return normalized
+            }
+        }
         if (sourceId == "YanHH3DNow") {
             val cats = YanHh3dNowScraper.fetchCategories(
                 YanHh3dNowScraper.YAN_NOW_BASE,
@@ -326,6 +334,8 @@ object MovieRepository {
             val topicSlug = genre.sourceSlug ?: ""
             val result: CatalogPageResult = if (customSrc != null) {
                 CustomSourceParser.fetchMoviesByCategory(customSrc, genre, page)
+            } else if (sourceId == VsmovSourceProvider.SOURCE_ID) {
+                VsmovSourceProvider.fetchGenreCatalogForApp(genre, page)
             } else if (sourceId == "YanHH3DNow") {
                 resolveNowTopicPage(topicSlug, genre.id, page, forceRefresh)
             } else if (topicSlug == "yanhh3d-moi-cap-nhat" || topicSlug == "top-yanhh3d-xem-nhieu") {
@@ -541,12 +551,16 @@ object MovieRepository {
         }
 
         val primary = runCatching {
-            if (preferredSourceId == "YanHH3D") {
-                val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit)
-                CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
-            } else {
-                val res = YanHh3dNowScraper.fetchMoviesByPath("moi-cap-nhat", page)
-                CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
+            when (preferredSourceId) {
+                VsmovSourceProvider.SOURCE_ID -> VsmovSourceProvider.fetchHomeCatalogForApp(page)
+                "YanHH3D" -> {
+                    val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit)
+                    CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
+                }
+                else -> {
+                    val res = YanHh3dNowScraper.fetchMoviesByPath("moi-cap-nhat", page)
+                    CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
+                }
             }
         }.getOrDefault(CatalogPageResult(emptyList(), page, 1))
 
@@ -600,6 +614,13 @@ object MovieRepository {
                 CustomSourceParser.fetchFromCustomSource(customSrc).take(10)
             }.getOrDefault(emptyList())
             if (customTop.isNotEmpty()) return customTop
+        }
+
+        if (preferredSourceId == VsmovSourceProvider.SOURCE_ID) {
+            val vsmovTop = runCatching {
+                VsmovSourceProvider.fetchTrendingTop10ForApp()
+            }.getOrDefault(emptyList())
+            if (vsmovTop.isNotEmpty()) return vsmovTop
         }
 
         if (preferredSourceId == "YanHH3D") {
@@ -667,8 +688,22 @@ object MovieRepository {
         var latestEp = 0
 
         val targetNormTitle = movie?.title?.let { VietnameseSearch.removeVietnameseTones(it) }.orEmpty()
+        val isVsmovMovie = movie?.sources?.contains(VsmovSourceProvider.SOURCE_ID) == true ||
+            movie?.wpSources?.any { it.baseUrl.contains("vsmov.com", ignoreCase = true) } == true
+        val isVsmovEnabled = runCatching {
+            PrefsStore.getSources().any { it.id == VsmovSourceProvider.SOURCE_ID && it.enabled }
+        }.getOrDefault(false)
 
         return coroutineScope {
+            val vsmovTask = async {
+                if (slug.isNotBlank() && (isVsmovMovie || isVsmovEnabled)) {
+                    withTimeoutOrNull(5000L) {
+                        VsmovSourceProvider.fetchDetailForApp(slug)
+                    } ?: MovieDetailResult()
+                } else {
+                    MovieDetailResult()
+                }
+            }
             val yanNowTask = async {
                 withTimeoutOrNull(9000L) {
                     val nowUrl = movie?.wpSources?.firstOrNull { it.baseUrl == YanHh3dNowScraper.YAN_NOW_BASE }?.url
@@ -756,6 +791,31 @@ object MovieRepository {
             }
 
             var fastEmitted = false
+            if (isVsmovMovie) {
+                val vsFast = vsmovTask.await()
+                if (vsFast.serverGroups.isNotEmpty()) {
+                    serverGroups.addAll(vsFast.serverGroups)
+                    if (description.isBlank() && !vsFast.description.isNullOrBlank()) description = vsFast.description
+                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(vsFast.poster)) {
+                        poster = vsFast.poster.orEmpty()
+                    }
+                    vsFast.latestEp?.let { latestEp = maxOf(latestEp, it) }
+                    vsFast.totalEp?.let { totalEp = maxOf(totalEp, it) }
+                    if (onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
+                        fastEmitted = true
+                        onFastReady.invoke(
+                            MovieDetailResult(
+                                serverGroups = serverGroups.toList(),
+                                description = description.ifBlank { null },
+                                poster = poster.ifBlank { null },
+                                totalEp = if (totalEp > 0) totalEp else null,
+                                latestEp = if (latestEp > 0) latestEp else null
+                            )
+                        )
+                    }
+                }
+            }
+
             val yanNowRes = yanNowTask.await()
             if (yanNowRes.serverGroups.isNotEmpty()) {
                 serverGroups.addAll(yanNowRes.serverGroups)
@@ -764,7 +824,7 @@ object MovieRepository {
                 yanNowRes.latestEp?.let { latestEp = maxOf(latestEp, it) }
                 yanNowRes.totalEp?.let { totalEp = maxOf(totalEp, it) }
 
-                if (onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
+                if (!fastEmitted && onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
                     fastEmitted = true
                     onFastReady.invoke(
                         MovieDetailResult(
@@ -845,6 +905,18 @@ object MovieRepository {
                 }
             }
 
+            if (!isVsmovMovie) {
+                val vsRes = vsmovTask.await()
+                if (vsRes.serverGroups.isNotEmpty()) {
+                    serverGroups.addAll(vsRes.serverGroups)
+                    if (description.isBlank() && !vsRes.description.isNullOrBlank()) description = vsRes.description
+                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(vsRes.poster)) {
+                        poster = vsRes.poster.orEmpty()
+                    }
+                    vsRes.latestEp?.let { latestEp = maxOf(latestEp, it) }
+                    vsRes.totalEp?.let { totalEp = maxOf(totalEp, it) }
+                }
+            }
             val yanRes = yanTask.await()
             val customSrv = customWebTask.await()
 
@@ -897,9 +969,9 @@ object MovieRepository {
         getCached<List<DonghuaMovie>>(cacheKey)?.let { return it }
 
         val queries = exp.apiKeywords.take(2)
-        val enabledCustomSources = runCatching {
-            PrefsStore.getSources().filter { it.enabled && it.isCustom }
-        }.getOrDefault(emptyList())
+        val allSources = runCatching { PrefsStore.getSources() }.getOrDefault(emptyList())
+        val isVsmovEnabled = allSources.any { it.id == VsmovSourceProvider.SOURCE_ID && it.enabled }
+        val enabledCustomSources = allSources.filter { it.enabled && it.isCustom }
         val allLists = coroutineScope {
             val builtInTasks = queries.flatMap { kw ->
                 listOf(
@@ -917,6 +989,13 @@ object MovieRepository {
                                 search = kw
                             ).movies
                         }.getOrDefault(emptyList())
+                    },
+                    async {
+                        if (isVsmovEnabled) {
+                            runCatching {
+                                VsmovSourceProvider.searchAsDonghuaMovies(kw, limit = 20)
+                            }.getOrDefault(emptyList())
+                        } else emptyList()
                     }
                 )
             }

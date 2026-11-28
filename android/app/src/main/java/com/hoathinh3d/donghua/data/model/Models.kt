@@ -219,7 +219,10 @@ data class OfflineEpisodeRecord(
 
 data class StreamResult(
     val linkEmbed: String = "",
-    val linkM3u8: String = ""
+    val linkM3u8: String = "",
+    val headers: Map<String, String> = emptyMap(),
+    val subtitleUrl: String? = null,
+    val storyboardUrl: String? = null
 ) : Serializable
 
 data class MovieDetailResult(

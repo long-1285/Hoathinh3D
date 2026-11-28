@@ -4,28 +4,36 @@ import android.content.Context
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import com.hoathinh3d.donghua.core.HttpClientProvider
 import com.hoathinh3d.donghua.core.PrefsStore
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
+import com.hoathinh3d.donghua.data.source.VideoStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
 import java.net.URI
 import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
@@ -173,6 +181,32 @@ object HlsCacheProvider {
     @Volatile
     private var simpleCache: SimpleCache? = null
     private val prefetchedStreams: MutableSet<String> = Collections.synchronizedSet(HashSet())
+    private val hostHeadersMap = ConcurrentHashMap<String, Map<String, String>>()
+
+    fun registerStreamHeaders(streamUrl: String, headers: Map<String, String>) {
+        if (streamUrl.isBlank() || headers.isEmpty()) return
+        val host = runCatching { URI(streamUrl).host?.lowercase() }.getOrNull().orEmpty()
+        if (host.isBlank()) return
+        val copy = LinkedHashMap(headers)
+        hostHeadersMap[host] = copy
+        val parts = host.split('.').filter { it.isNotBlank() }
+        if (parts.size >= 2) {
+            val rootSuffix = ".${parts[parts.size - 2]}.${parts[parts.size - 1]}"
+            hostHeadersMap[rootSuffix] = copy
+        }
+    }
+
+    fun resolveHeadersForUrl(url: String): Map<String, String> {
+        val host = runCatching { URI(url).host?.lowercase() }.getOrNull().orEmpty()
+        if (host.isBlank()) return emptyMap()
+        hostHeadersMap[host]?.let { return it }
+        val parts = host.split('.').filter { it.isNotBlank() }
+        if (parts.size >= 2) {
+            val rootSuffix = ".${parts[parts.size - 2]}.${parts[parts.size - 1]}"
+            hostHeadersMap[rootSuffix]?.let { return it }
+        }
+        return emptyMap()
+    }
 
     private val streamingOkHttpClient: OkHttpClient by lazy {
         HttpClientProvider.okHttpClient.newBuilder()
@@ -183,10 +217,19 @@ object HlsCacheProvider {
                 val req = chain.request()
                 val hostLow = req.url.host.lowercase()
                 val builder = req.newBuilder()
+                val customHeaders = resolveHeadersForUrl(req.url.toString())
+                for ((k, v) in customHeaders) {
+                    if (v.isNotBlank() && req.header(k) == null) {
+                        builder.header(k, v)
+                    }
+                }
                 if (req.header("Accept") == null) {
                     builder.header("Accept", "*/*")
                 }
-                if (req.header("Referer") == null && hostLow.contains("streamrpt1")) {
+                if (req.header("Referer") == null &&
+                    !customHeaders.keys.any { it.equals("Referer", ignoreCase = true) } &&
+                    hostLow.contains("streamrpt1")
+                ) {
                     val origin = "${req.url.scheme}://${req.url.host}"
                     builder.header("Referer", "$origin/")
                     builder.header("Origin", origin)
@@ -504,5 +547,79 @@ object HlsCacheProvider {
         } finally {
             runCatching { ds.close() }
         }
+    }
+}
+
+/**
+ * PHẦN 3: Helper tích hợp [VideoStream] (kèm custom HTTP Headers như `Referer`, `Origin`, `User-Agent`)
+ * vào [DefaultHttpDataSource.Factory] của Media3 ExoPlayer để phát không bị lỗi 403 Forbidden.
+ */
+@OptIn(UnstableApi::class)
+object ExoPlayerStreamHelper {
+
+    fun createHttpDataSourceFactory(videoStream: VideoStream): DefaultHttpDataSource.Factory {
+        val ua = videoStream.headers.entries
+            .firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }
+            ?.value?.takeIf { it.isNotBlank() }
+            ?: HttpClientProvider.DEFAULT_UA
+        val extraProps = LinkedHashMap<String, String>()
+        for ((k, v) in videoStream.headers) {
+            if (!k.equals("User-Agent", ignoreCase = true) && v.isNotBlank()) {
+                extraProps[k] = v
+            }
+        }
+        return DefaultHttpDataSource.Factory()
+            .setUserAgent(ua)
+            .setDefaultRequestProperties(extraProps)
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(10_000)
+            .setReadTimeoutMs(20_000)
+    }
+
+    fun buildMediaItem(videoStream: VideoStream): MediaItem {
+        val builder = MediaItem.Builder().setUri(videoStream.streamUrl)
+        val subUrl = videoStream.subtitleUrl?.trim().orEmpty()
+        if (subUrl.isNotBlank()) {
+            val mime = if (subUrl.contains(".srt", ignoreCase = true)) {
+                MimeTypes.APPLICATION_SUBRIP
+            } else {
+                MimeTypes.TEXT_VTT
+            }
+            builder.setSubtitleConfigurations(
+                listOf(
+                    MediaItem.SubtitleConfiguration.Builder(Uri.parse(subUrl))
+                        .setMimeType(mime)
+                        .setLanguage("vi")
+                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                        .build()
+                )
+            )
+        }
+        return builder.build()
+    }
+
+    fun buildMediaSource(context: Context, videoStream: VideoStream): MediaSource {
+        HlsCacheProvider.registerStreamHeaders(videoStream.streamUrl, videoStream.headers)
+        val httpFactory = createHttpDataSourceFactory(videoStream)
+        val upstreamFactory = DefaultDataSource.Factory(context.applicationContext, httpFactory)
+        val mediaItem = buildMediaItem(videoStream)
+        val isHls = videoStream.streamUrl.contains(".m3u8", ignoreCase = true) ||
+            videoStream.streamUrl.contains("/master.m3u8", ignoreCase = true) ||
+            videoStream.streamUrl.contains("/stream-plain", ignoreCase = true)
+        return if (isHls) {
+            // Ưu tiên cache + bộ lọc PNG-TS & QC hợp nhất trong HlsCacheProvider (đã nạp header động theo domain)
+            HlsCacheProvider.buildHlsMediaSourceFactory(context).createMediaSource(mediaItem)
+        } else {
+            ProgressiveMediaSource.Factory(upstreamFactory)
+                .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(5))
+                .createMediaSource(mediaItem)
+        }
+    }
+
+    fun playVideoStream(context: Context, player: ExoPlayer, videoStream: VideoStream) {
+        val mediaSource = buildMediaSource(context, videoStream)
+        player.setMediaSource(mediaSource)
+        player.prepare()
+        player.playWhenReady = true
     }
 }

@@ -23,6 +23,7 @@ import com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile
 import com.hoathinh3d.donghua.data.model.ServerGroup
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
 import com.hoathinh3d.donghua.data.source.MovieRepository
+import com.hoathinh3d.donghua.data.source.VsmovSourceProvider
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.databinding.ActivityMovieDetailBinding
 import com.hoathinh3d.donghua.player.HlsCacheProvider
@@ -236,18 +237,27 @@ class MovieDetailActivity : AppCompatActivity() {
         val ep = srv.episodes.getOrNull(epIdx) ?: return
         lifecycleScope.launch {
             runCatching {
-                val m3u8 = when {
-                    ep.linkM3u8.contains(".m3u8", ignoreCase = true) -> ep.linkM3u8
+                val streamRes = when {
+                    ep.linkM3u8.contains(".m3u8", ignoreCase = true) ->
+                        com.hoathinh3d.donghua.data.model.StreamResult(linkM3u8 = ep.linkM3u8)
+                    ep.wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV -> {
+                        val embedUrl = ep.linkEmbed.ifBlank { ep.wpPageUrl.orEmpty() }
+                        VsmovSourceProvider.resolveStreamResult(embedUrl)
+                    }
                     ep.wpServerType?.startsWith("now:") == true && !ep.wpPageUrl.isNullOrBlank() -> {
                         YanHh3dNowScraper.resolveStream(
                             watchPageUrl = ep.wpPageUrl,
                             serverKey = ep.wpServerType,
                             refererBase = ep.wpBaseUrl ?: YanHh3dNowScraper.YAN_NOW_BASE
-                        ).linkM3u8
+                        )
                     }
-                    else -> ""
+                    else -> null
                 }
+                val m3u8 = streamRes?.linkM3u8.orEmpty()
                 if (m3u8.isNotBlank()) {
+                    if (streamRes?.headers?.isNotEmpty() == true) {
+                        HlsCacheProvider.registerStreamHeaders(m3u8, streamRes.headers)
+                    }
                     HlsCacheProvider.prefetchHlsStart(this@MovieDetailActivity, m3u8)
                 }
             }

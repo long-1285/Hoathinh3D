@@ -23,6 +23,17 @@ object InitialData {
             desc = "Chuyên Hoạt Hình 3D Trung Quốc Vietsub & Thuyết minh 4K Niên Phiên",
             enabled = true,
             isCustom = false
+        ),
+        DonghuaSource(
+            id = "VSMov",
+            name = "VSMov",
+            url = "https://vsmov.com",
+            type = "JSON API + StreamVSMov",
+            ping = "15ms",
+            quality = "FHD / HDR",
+            desc = "Kho 21.000+ Phim & Hoạt Hình (VSMov API chính chủ), đa thể loại & tự khử PNG-TS",
+            enabled = true,
+            isCustom = false
         )
     )
 

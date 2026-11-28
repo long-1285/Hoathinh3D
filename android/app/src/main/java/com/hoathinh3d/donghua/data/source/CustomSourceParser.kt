@@ -51,6 +51,10 @@ object CustomSourceParser {
                     hintCount = Regex("\"slug\"").findAll(trimmed).count()
                     "JSON / CMS API"
                 }
+                normalized.contains("vsmov.com", ignoreCase = true) -> {
+                    hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
+                    "JSON API + StreamVSMov"
+                }
                 normalized.contains("yanhh3d.now", ignoreCase = true) -> {
                     hintCount = Jsoup.parse(body, normalized).select(".flw-item").size
                     "Laravel Scraper + StreamRPT"
@@ -198,6 +202,9 @@ object CustomSourceParser {
         val url = normalizeUrl(source.url)
         val origin = extractOrigin(url)
         return try {
+            if (url.contains("vsmov.com", ignoreCase = true)) {
+                return VsmovSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            }
             if (url.contains("yanhh3d.now", ignoreCase = true)) {
                 return YanHh3dNowScraper.fetchCategories(origin, source.name, forceRefresh = forceRefresh)
             }
@@ -332,6 +339,12 @@ object CustomSourceParser {
         if (rawSpec.isBlank() || genre.id == "Tất cả") {
             return fetchMoviesByUrl(normalizeUrl(source.url), source, page = page, forcedGenre = null)
         }
+        if (origin.contains("vsmov.com", ignoreCase = true)) {
+            if (rawSpec.isBlank() || genre.id == "Tất cả") {
+                return VsmovSourceProvider.fetchHomeCatalogForApp(page)
+            }
+            return VsmovSourceProvider.fetchGenreCatalogForApp(genre, page)
+        }
         if (origin.contains("yanhh3d.now", ignoreCase = true) && !rawSpec.startsWith("http", true)) {
             val res = YanHh3dNowScraper.fetchMoviesByPath(
                 path = rawSpec,
@@ -423,6 +436,9 @@ object CustomSourceParser {
         val url = normalizeUrl(source.url)
         return try {
             when {
+                url.contains("vsmov.com", ignoreCase = true) -> {
+                    VsmovSourceProvider.searchAsDonghuaMovies(query)
+                }
                 url.contains("yanhh3d.now", ignoreCase = true) -> {
                     YanHh3dNowScraper.searchMovies(query, extractOrigin(url), source.name)
                 }
