@@ -1,11 +1,11 @@
 {
-    "versionCode":  60,
-    "versionName":  "3.7.0-v60",
-    "tag":  "v60",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v60/HoatHinh3d.apk",
+    "versionCode":  61,
+    "versionName":  "3.7.1-v61",
+    "tag":  "v61",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v61/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "d6b7ce9b66f0e9ee6a33d9e2e2b443a006275ca9ad39d897b31247f66779db57",
-    "apkSizeBytes":  12311108,
-    "changelog":  "v3.7.0-v60: Sua triet de loi mat may chu Thuyet Minh khi co tap Trailer (169 TL) tren yanhh3d.now, tu chon server cung nhom am thanh khi thieu tap cu, va hoan tat nguon 500phim.net + mac dinh Nguon tot nhat.",
-    "releasedAt":  "2026-11-28T09:03:46Z"
+    "sha256":  "19fdf4cb3856bf497e91290bf3804490281e7a3557ba460192e7a31ec328ced3",
+    "apkSizeBytes":  12373394,
+    "changelog":  "v3.7.1-v61: Khai thac va tich hop toan dien 2 nguon NguonC (phim.nguonc.com) va KKPhim (kkphim.com / phimapi.com) theo chuan MovieSourceProvider, ho tro HeadlessWebViewSniffer \u0026 custom HTTP headers cho Media3 ExoPlayer.",
+    "releasedAt":  "2026-11-28T09:35:59Z"
 }
