@@ -1,11 +1,11 @@
 {
-    "versionCode":  55,
-    "versionName":  "3.6.5-v55",
-    "tag":  "v55",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v55/HoatHinh3d.apk",
+    "versionCode":  56,
+    "versionName":  "3.6.6-v56",
+    "tag":  "v56",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v56/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "9e72e079f58c596bb04ce23fe194076ca9cb55bbb07556e6341bc00413da2b56",
-    "apkSizeBytes":  12201519,
-    "changelog":  "v3.6.5-v55: Header giao dien chinh chi hien Hoat Hinh + 3D, chat luong mac dinh Auto ABR theo mang thuc te, sua triet de muc Yeu thich hien du 100% phim da chon, gom Lua chon thiet bi vao 1 menu Auto gon dep, bo sung Hen gio tat va tu tam dung khi rut tai nghe/AudioFocus.",
-    "releasedAt":  "2026-11-28T03:40:45Z"
+    "sha256":  "260c97909cb6ceda5106955e95f0553a7e77932b983cf914eb0472048e2faa22",
+    "apkSizeBytes":  12210628,
+    "changelog":  "v3.6.6-v56: Nut Lam moi \u0026 Ngau nhien tren Trang chu TV, nhac tu dong tap moi Yeu thich ngay man hinh chinh, lich su kem ngay xem (Hom nay/Hom qua) va nut nhay tap chua xem / danh dau da xem het tap.",
+    "releasedAt":  "2026-11-28T04:03:02Z"
 }
