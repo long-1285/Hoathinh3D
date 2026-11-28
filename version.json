@@ -1,11 +1,11 @@
 {
-    "versionCode":  62,
-    "versionName":  "3.7.2-v62",
-    "tag":  "v62",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v62/HoatHinh3d.apk",
+    "versionCode":  63,
+    "versionName":  "3.7.3-v63",
+    "tag":  "v63",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v63/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "20a1d611e4f4df354bdcb024fe23896459eaaec062f14d0733a5fe773f6d8629",
-    "apkSizeBytes":  12376430,
-    "changelog":  "Phien 62 (v3.7.2-v62): Bo nut Ngau nhien; tinh gon thanh loc Trang chu mac dinh Moi cap nhat (Moi cap nhat | Dang chieu | Hoan thanh | Nhieu tap); dong bo web truc tiep Moi cap nhat va Top 10 BXH Thinh Hanh luc khoi dong; chon server nhanh va dung tap tren trinh phat.",
-    "releasedAt":  "2026-11-28T10:23:29Z"
+    "sha256":  "89481c15c0c7471ffa3c01c2d34e7d149ec88b018def68ec8c7db1ac22ef8aae",
+    "apkSizeBytes":  12381517,
+    "changelog":  "Phien 63 (v3.7.3-v63): Bo muc Moi ra mat trong Yeu thich tren Trang chu; them bo loc Phim le; toi uu bang Chon nguon phim va toan bo thao tac D-Pad / vien focus / do muot tren Xiaomi MiTV4.",
+    "releasedAt":  "2026-11-28T11:06:17Z"
 }
