@@ -1,11 +1,11 @@
 {
-    "versionCode":  57,
-    "versionName":  "3.6.7-v57",
-    "tag":  "v57",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v57/HoatHinh3d.apk",
+    "versionCode":  58,
+    "versionName":  "3.6.8-v58",
+    "tag":  "v58",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v58/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "f3ea5ed92209587152272c2d58e78f75df10a9d9281a567207080589765b4749",
-    "apkSizeBytes":  12268539,
-    "changelog":  "v3.6.7-v57: Chuan hoa kien truc da nguon MovieSourceProvider, tich hop nguon VSMov (21.000+ phim JSON API + StreamVSMov + khu PNG-TS), HeadlessWebViewSniffer va truyen HTTP Headers qua Media3 DefaultHttpDataSource.",
-    "releasedAt":  "2026-11-28T04:23:09Z"
+    "sha256":  "ecabc261849594f72694db74f130ed67ecdcea704e5877d6e75a8fecf66a937e",
+    "apkSizeBytes":  12267375,
+    "changelog":  "v3.6.8-v58: Bo nut Chia se trong trinh phat, dat chat luong mac dinh ban dau Auto chon nguon Thuyet minh theo mang thuc te, va an hang may chu con trong Chi tiet phim.",
+    "releasedAt":  "2026-11-28T04:32:36Z"
 }
