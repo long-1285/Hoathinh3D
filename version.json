@@ -1,11 +1,11 @@
 {
-    "versionCode":  53,
-    "versionName":  "3.6.3-v53",
-    "tag":  "v53",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v53/HoatHinh3d.apk",
+    "versionCode":  54,
+    "versionName":  "3.6.4-v54",
+    "tag":  "v54",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v54/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "c6f858a0ef2c19ecc41a099f76222d025ad732bb7839623669e17bc01517b47b",
-    "apkSizeBytes":  12198569,
-    "changelog":  "v3.6.3-v53: Chuan hoa \u0026 dong bo chu ky so Shared Keystore giua 2 may (Cong ty \u0026 Nha) de cai de OTA muot ma khong bao gio xung dot goi, kem kiem tra apksigner tu dong truoc khi build va phat hanh.",
-    "releasedAt":  "2026-11-28T02:24:48Z"
+    "sha256":  "341993dda4010f30c89d82a2cb7cd28af141d468fd4a0ebec52878097229a4b9",
+    "apkSizeBytes":  12194068,
+    "changelog":  "v3.6.4-v54: Doi ten app thanh HH3D v3.6.4-v54, bo dai chip the loai thua tren Trang chu (giu nut The loai phim mo bang loc), bo Luu Offline va Chia se trong Chi tiet phim, phan ro 2 nguon Thuyet Minh (mac dinh) va Vietsub trong Chi tiet phim.",
+    "releasedAt":  "2026-11-28T02:51:18Z"
 }
