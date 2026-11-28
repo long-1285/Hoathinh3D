@@ -22,7 +22,9 @@ import com.hoathinh3d.donghua.data.model.InitialData
 import com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile
 import com.hoathinh3d.donghua.data.model.ServerGroup
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
+import com.hoathinh3d.donghua.data.source.KKPhimSourceProvider
 import com.hoathinh3d.donghua.data.source.MovieRepository
+import com.hoathinh3d.donghua.data.source.NguonCSourceProvider
 import com.hoathinh3d.donghua.data.source.Phim500SourceProvider
 import com.hoathinh3d.donghua.data.source.VsmovSourceProvider
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
@@ -247,6 +249,14 @@ class MovieDetailActivity : AppCompatActivity() {
                     ep.wpServerType == Phim500SourceProvider.SERVER_TYPE_500PHIM -> {
                         val playUrl = ep.wpPageUrl.orEmpty().ifBlank { ep.linkEmbed }
                         Phim500SourceProvider.resolveStreamResult(playUrl)
+                    }
+                    ep.wpServerType == NguonCSourceProvider.SERVER_TYPE_NGUONC -> {
+                        val playUrl = ep.wpPageUrl.orEmpty().ifBlank { ep.linkEmbed }
+                        NguonCSourceProvider.resolveStreamResult(playUrl)
+                    }
+                    ep.wpServerType == KKPhimSourceProvider.SERVER_TYPE_KKPHIM -> {
+                        val playUrl = ep.wpPageUrl.orEmpty().ifBlank { ep.linkEmbed }
+                        KKPhimSourceProvider.resolveStreamResult(playUrl)
                     }
                     ep.wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV -> {
                         val embedUrl = ep.linkEmbed.ifBlank { ep.wpPageUrl.orEmpty() }

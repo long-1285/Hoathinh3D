@@ -70,7 +70,9 @@ import com.hoathinh3d.donghua.data.model.ServerGroup
 import com.hoathinh3d.donghua.data.model.StreamResult
 import com.hoathinh3d.donghua.data.model.WatchProgress
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
+import com.hoathinh3d.donghua.data.source.KKPhimSourceProvider
 import com.hoathinh3d.donghua.data.source.MovieRepository
+import com.hoathinh3d.donghua.data.source.NguonCSourceProvider
 import com.hoathinh3d.donghua.data.source.Phim500SourceProvider
 import com.hoathinh3d.donghua.data.source.VsmovSourceProvider
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
@@ -1041,11 +1043,18 @@ class PlayerActivity : AppCompatActivity() {
         val wpPageUrl = epItem?.wpPageUrl ?: epItem?.yanPageUrl
         val isPhim500Server = wpServerType == Phim500SourceProvider.SERVER_TYPE_500PHIM &&
             (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
+        val isNguonCServer = wpServerType == NguonCSourceProvider.SERVER_TYPE_NGUONC &&
+            (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
+        val isKkPhimServer = wpServerType == KKPhimSourceProvider.SERVER_TYPE_KKPHIM &&
+            (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
         val isVsmovServer = wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV &&
             (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
+        val isProviderServer = isPhim500Server || isNguonCServer || isKkPhimServer || isVsmovServer
         val isNowServer = !wpServerType.isNullOrBlank() && wpServerType.startsWith("now:") && !wpPageUrl.isNullOrBlank()
         val wpKey = when {
             isPhim500Server -> "p500_${wpPageUrl?.ifBlank { epItem?.linkEmbed }.orEmpty()}"
+            isNguonCServer -> "nguonc_${wpPageUrl?.ifBlank { epItem?.linkEmbed }.orEmpty()}"
+            isKkPhimServer -> "kkphim_${wpPageUrl?.ifBlank { epItem?.linkEmbed }.orEmpty()}"
             isVsmovServer -> "vsmov_${epItem?.linkEmbed?.ifBlank { wpPageUrl }.orEmpty()}"
             isNowServer -> "${wpBaseUrl}_${wpPageUrl}_$wpServerType"
             wpPostId != null && !wpEpSlug.isNullOrBlank() && !wpServerType.isNullOrBlank() ->
@@ -1061,18 +1070,19 @@ class PlayerActivity : AppCompatActivity() {
             var m3u8 = epItem?.linkM3u8.orEmpty()
             var embed = epItem?.linkEmbed.orEmpty()
 
-            if (m3u8.isBlank() && (isPhim500Server || isVsmovServer)) {
+            if (m3u8.isBlank() && isProviderServer) {
                 val cachedResolved = resolvedStreams[wpKey]
                 val res = cachedResolved ?: runCatching {
-                    val targetPlayUrl = if (isPhim500Server) {
-                        wpPageUrl.orEmpty().ifBlank { embed }
-                    } else {
+                    val targetPlayUrl = if (isVsmovServer) {
                         embed.ifBlank { wpPageUrl.orEmpty() }
-                    }
-                    if (isPhim500Server) {
-                        Phim500SourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
                     } else {
-                        VsmovSourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
+                        wpPageUrl.orEmpty().ifBlank { embed }
+                    }
+                    when {
+                        isPhim500Server -> Phim500SourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
+                        isNguonCServer -> NguonCSourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
+                        isKkPhimServer -> KKPhimSourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
+                        else -> VsmovSourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
                     }
                 }.getOrNull()
                 if (res != null && (res.linkM3u8.isNotBlank() || res.linkEmbed.isNotBlank())) {
@@ -1463,11 +1473,27 @@ class PlayerActivity : AppCompatActivity() {
         val wpBaseUrl = nextEp.wpBaseUrl ?: YanHh3dScraper.YAN_BASE
         val wpServerSv = nextEp.wpServerSv ?: "1"
         val wpPageUrl = nextEp.wpPageUrl ?: nextEp.yanPageUrl
-        if (wpServerType == Phim500SourceProvider.SERVER_TYPE_500PHIM) {
-            val playUrl = wpPageUrl.orEmpty().ifBlank { nextEp.linkEmbed }
+        if (wpServerType in setOf(
+                Phim500SourceProvider.SERVER_TYPE_500PHIM,
+                NguonCSourceProvider.SERVER_TYPE_NGUONC,
+                KKPhimSourceProvider.SERVER_TYPE_KKPHIM,
+                VsmovSourceProvider.SERVER_TYPE_VSMOV
+            )
+        ) {
+            val playUrl = if (wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV) {
+                nextEp.linkEmbed.ifBlank { wpPageUrl.orEmpty() }
+            } else {
+                wpPageUrl.orEmpty().ifBlank { nextEp.linkEmbed }
+            }
             if (playUrl.isBlank()) return
-            val p500Key = "p500_$playUrl"
-            val existing = resolvedStreams[p500Key]
+            val keyPrefix = when (wpServerType) {
+                Phim500SourceProvider.SERVER_TYPE_500PHIM -> "p500"
+                NguonCSourceProvider.SERVER_TYPE_NGUONC -> "nguonc"
+                KKPhimSourceProvider.SERVER_TYPE_KKPHIM -> "kkphim"
+                else -> "vsmov"
+            }
+            val cacheKey = "${keyPrefix}_$playUrl"
+            val existing = resolvedStreams[cacheKey]
             if (existing != null) {
                 if (existing.linkM3u8.isNotBlank()) {
                     HlsCacheProvider.registerStreamHeaders(existing.linkM3u8, existing.headers)
@@ -1479,35 +1505,14 @@ class PlayerActivity : AppCompatActivity() {
             }
             lifecycleScope.launch {
                 runCatching {
-                    val res = Phim500SourceProvider.resolveStreamResult(playUrl)
-                    if (res.linkM3u8.isNotBlank()) {
-                        resolvedStreams[p500Key] = res
-                        HlsCacheProvider.registerStreamHeaders(res.linkM3u8, res.headers)
-                        HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, res.linkM3u8)
+                    val res = when (wpServerType) {
+                        Phim500SourceProvider.SERVER_TYPE_500PHIM -> Phim500SourceProvider.resolveStreamResult(playUrl)
+                        NguonCSourceProvider.SERVER_TYPE_NGUONC -> NguonCSourceProvider.resolveStreamResult(playUrl)
+                        KKPhimSourceProvider.SERVER_TYPE_KKPHIM -> KKPhimSourceProvider.resolveStreamResult(playUrl)
+                        else -> VsmovSourceProvider.resolveStreamResult(playUrl)
                     }
-                }
-            }
-            return
-        }
-        if (wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV) {
-            val embedUrl = nextEp.linkEmbed.ifBlank { wpPageUrl.orEmpty() }
-            if (embedUrl.isBlank()) return
-            val vsKey = "vsmov_$embedUrl"
-            val existing = resolvedStreams[vsKey]
-            if (existing != null) {
-                if (existing.linkM3u8.isNotBlank()) {
-                    HlsCacheProvider.registerStreamHeaders(existing.linkM3u8, existing.headers)
-                    lifecycleScope.launch {
-                        HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, existing.linkM3u8)
-                    }
-                }
-                return
-            }
-            lifecycleScope.launch {
-                runCatching {
-                    val res = VsmovSourceProvider.resolveStreamResult(embedUrl)
                     if (res.linkM3u8.isNotBlank()) {
-                        resolvedStreams[vsKey] = res
+                        resolvedStreams[cacheKey] = res
                         HlsCacheProvider.registerStreamHeaders(res.linkM3u8, res.headers)
                         HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, res.linkM3u8)
                     }

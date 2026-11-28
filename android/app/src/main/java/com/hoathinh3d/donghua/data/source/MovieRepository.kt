@@ -335,6 +335,22 @@ object MovieRepository {
                 return normalized
             }
         }
+        if (sourceId == NguonCSourceProvider.SOURCE_ID) {
+            val cats = NguonCSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            if (cats.isNotEmpty()) {
+                val normalized = normalizeLeadingGenre(cats)
+                setCached(cacheKey, normalized, CAT_CACHE_TTL_MS)
+                return normalized
+            }
+        }
+        if (sourceId == KKPhimSourceProvider.SOURCE_ID) {
+            val cats = KKPhimSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            if (cats.isNotEmpty()) {
+                val normalized = normalizeLeadingGenre(cats)
+                setCached(cacheKey, normalized, CAT_CACHE_TTL_MS)
+                return normalized
+            }
+        }
         if (sourceId == VsmovSourceProvider.SOURCE_ID) {
             val cats = VsmovSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
             if (cats.isNotEmpty()) {
@@ -388,6 +404,10 @@ object MovieRepository {
                 CustomSourceParser.fetchMoviesByCategory(customSrc, genre, page)
             } else if (sourceId == Phim500SourceProvider.SOURCE_ID) {
                 Phim500SourceProvider.fetchGenreCatalogForApp(genre, page)
+            } else if (sourceId == NguonCSourceProvider.SOURCE_ID) {
+                NguonCSourceProvider.fetchGenreCatalogForApp(genre, page)
+            } else if (sourceId == KKPhimSourceProvider.SOURCE_ID) {
+                KKPhimSourceProvider.fetchGenreCatalogForApp(genre, page)
             } else if (sourceId == VsmovSourceProvider.SOURCE_ID) {
                 VsmovSourceProvider.fetchGenreCatalogForApp(genre, page)
             } else if (sourceId == "YanHH3DNow") {
@@ -607,6 +627,8 @@ object MovieRepository {
         val primary = runCatching {
             when (preferredSourceId) {
                 Phim500SourceProvider.SOURCE_ID -> Phim500SourceProvider.fetchHomeCatalogForApp(page)
+                NguonCSourceProvider.SOURCE_ID -> NguonCSourceProvider.fetchHomeCatalogForApp(page)
+                KKPhimSourceProvider.SOURCE_ID -> KKPhimSourceProvider.fetchHomeCatalogForApp(page)
                 VsmovSourceProvider.SOURCE_ID -> VsmovSourceProvider.fetchHomeCatalogForApp(page)
                 "YanHH3D" -> {
                     val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit)
@@ -676,6 +698,20 @@ object MovieRepository {
                 Phim500SourceProvider.fetchTrendingTop10ForApp()
             }.getOrDefault(emptyList())
             if (p500Top.isNotEmpty()) return p500Top
+        }
+
+        if (preferredSourceId == NguonCSourceProvider.SOURCE_ID) {
+            val ncTop = runCatching {
+                NguonCSourceProvider.fetchTrendingTop10ForApp()
+            }.getOrDefault(emptyList())
+            if (ncTop.isNotEmpty()) return ncTop
+        }
+
+        if (preferredSourceId == KKPhimSourceProvider.SOURCE_ID) {
+            val kkTop = runCatching {
+                KKPhimSourceProvider.fetchTrendingTop10ForApp()
+            }.getOrDefault(emptyList())
+            if (kkTop.isNotEmpty()) return kkTop
         }
 
         if (preferredSourceId == VsmovSourceProvider.SOURCE_ID) {
@@ -756,6 +792,18 @@ object MovieRepository {
         val isPhim500Enabled = runCatching {
             PrefsStore.getSources().any { it.id == Phim500SourceProvider.SOURCE_ID && it.enabled }
         }.getOrDefault(false)
+        val isNguonCMovie = movie?.sources?.contains(NguonCSourceProvider.SOURCE_ID) == true ||
+            movie?.wpSources?.any { it.baseUrl.contains("nguonc.com", ignoreCase = true) } == true
+        val isNguonCEnabled = runCatching {
+            PrefsStore.getSources().any { it.id == NguonCSourceProvider.SOURCE_ID && it.enabled }
+        }.getOrDefault(false)
+        val isKkPhimMovie = movie?.sources?.contains(KKPhimSourceProvider.SOURCE_ID) == true ||
+            movie?.wpSources?.any {
+                it.baseUrl.contains("kkphim", ignoreCase = true) || it.baseUrl.contains("phimapi.com", ignoreCase = true)
+            } == true
+        val isKkPhimEnabled = runCatching {
+            PrefsStore.getSources().any { it.id == KKPhimSourceProvider.SOURCE_ID && it.enabled }
+        }.getOrDefault(false)
         val isVsmovMovie = movie?.sources?.contains(VsmovSourceProvider.SOURCE_ID) == true ||
             movie?.wpSources?.any { it.baseUrl.contains("vsmov.com", ignoreCase = true) } == true
         val isVsmovEnabled = runCatching {
@@ -767,6 +815,24 @@ object MovieRepository {
                 if (slug.isNotBlank() && (isPhim500Movie || isPhim500Enabled)) {
                     withTimeoutOrNull(6500L) {
                         Phim500SourceProvider.fetchDetailForApp(slug)
+                    } ?: MovieDetailResult()
+                } else {
+                    MovieDetailResult()
+                }
+            }
+            val nguonCTask = async {
+                if ((slug.isNotBlank() || !movie?.title.isNullOrBlank()) && (isNguonCMovie || isNguonCEnabled)) {
+                    withTimeoutOrNull(6000L) {
+                        NguonCSourceProvider.fetchDetailForApp(slug, movie?.title)
+                    } ?: MovieDetailResult()
+                } else {
+                    MovieDetailResult()
+                }
+            }
+            val kkphimTask = async {
+                if ((slug.isNotBlank() || !movie?.title.isNullOrBlank()) && (isKkPhimMovie || isKkPhimEnabled)) {
+                    withTimeoutOrNull(6000L) {
+                        KKPhimSourceProvider.fetchDetailForApp(slug, movie?.title)
                     } ?: MovieDetailResult()
                 } else {
                     MovieDetailResult()
@@ -796,7 +862,8 @@ object MovieRepository {
                 } ?: MovieDetailResult()
             }
             val phimApiTask = async {
-                if (slug.isNotBlank() || !movie?.title.isNullOrBlank()) {
+                // Chỉ gọi dự phòng trực tiếp NguonCApiClient khi KKPhim đang tắt trong Cài đặt
+                if (!isKkPhimEnabled && !isKkPhimMovie && (slug.isNotBlank() || !movie?.title.isNullOrBlank())) {
                     withTimeoutOrNull(5500L) {
                         NguonCApiClient.fetchPhimApiDetail(slug, movie?.title)
                     }
@@ -868,63 +935,17 @@ object MovieRepository {
             }
 
             var fastEmitted = false
-            if (isPhim500Movie) {
-                val p500Fast = phim500Task.await()
-                if (p500Fast.serverGroups.isNotEmpty()) {
-                    serverGroups.addAll(p500Fast.serverGroups)
-                    if (description.isBlank() && !p500Fast.description.isNullOrBlank()) description = p500Fast.description
-                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(p500Fast.poster)) {
-                        poster = p500Fast.poster.orEmpty()
-                    }
-                    p500Fast.latestEp?.let { latestEp = maxOf(latestEp, it) }
-                    p500Fast.totalEp?.let { totalEp = maxOf(totalEp, it) }
-                    if (onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
-                        fastEmitted = true
-                        onFastReady.invoke(
-                            MovieDetailResult(
-                                serverGroups = serverGroups.toList(),
-                                description = description.ifBlank { null },
-                                poster = poster.ifBlank { null },
-                                totalEp = if (totalEp > 0) totalEp else null,
-                                latestEp = if (latestEp > 0) latestEp else null
-                            )
-                        )
-                    }
+            fun mergeDetailPart(part: MovieDetailResult) {
+                if (part.serverGroups.isEmpty()) return
+                serverGroups.addAll(part.serverGroups)
+                if (description.isBlank() && !part.description.isNullOrBlank()) description = part.description
+                if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(part.poster)) {
+                    poster = part.poster.orEmpty()
                 }
+                part.latestEp?.let { latestEp = maxOf(latestEp, it) }
+                part.totalEp?.let { totalEp = maxOf(totalEp, it) }
             }
-            if (isVsmovMovie) {
-                val vsFast = vsmovTask.await()
-                if (vsFast.serverGroups.isNotEmpty()) {
-                    serverGroups.addAll(vsFast.serverGroups)
-                    if (description.isBlank() && !vsFast.description.isNullOrBlank()) description = vsFast.description
-                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(vsFast.poster)) {
-                        poster = vsFast.poster.orEmpty()
-                    }
-                    vsFast.latestEp?.let { latestEp = maxOf(latestEp, it) }
-                    vsFast.totalEp?.let { totalEp = maxOf(totalEp, it) }
-                    if (onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
-                        fastEmitted = true
-                        onFastReady.invoke(
-                            MovieDetailResult(
-                                serverGroups = serverGroups.toList(),
-                                description = description.ifBlank { null },
-                                poster = poster.ifBlank { null },
-                                totalEp = if (totalEp > 0) totalEp else null,
-                                latestEp = if (latestEp > 0) latestEp else null
-                            )
-                        )
-                    }
-                }
-            }
-
-            val yanNowRes = yanNowTask.await()
-            if (yanNowRes.serverGroups.isNotEmpty()) {
-                serverGroups.addAll(yanNowRes.serverGroups)
-                if (description.isBlank() && !yanNowRes.description.isNullOrBlank()) description = yanNowRes.description
-                if (poster.isBlank() && !yanNowRes.poster.isNullOrBlank()) poster = yanNowRes.poster
-                yanNowRes.latestEp?.let { latestEp = maxOf(latestEp, it) }
-                yanNowRes.totalEp?.let { totalEp = maxOf(totalEp, it) }
-
+            suspend fun emitFastReadyIfPossible() {
                 if (!fastEmitted && onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
                     fastEmitted = true
                     onFastReady.invoke(
@@ -938,6 +959,26 @@ object MovieRepository {
                     )
                 }
             }
+
+            if (isPhim500Movie) {
+                mergeDetailPart(phim500Task.await())
+                emitFastReadyIfPossible()
+            }
+            if (isNguonCMovie) {
+                mergeDetailPart(nguonCTask.await())
+                emitFastReadyIfPossible()
+            }
+            if (isKkPhimMovie) {
+                mergeDetailPart(kkphimTask.await())
+                emitFastReadyIfPossible()
+            }
+            if (isVsmovMovie) {
+                mergeDetailPart(vsmovTask.await())
+                emitFastReadyIfPossible()
+            }
+
+            mergeDetailPart(yanNowTask.await())
+            emitFastReadyIfPossible()
 
             val phimApiRes = phimApiTask.await()
             if (phimApiRes != null && phimApiRes.optBoolean("status", false)) {
@@ -1007,28 +1048,16 @@ object MovieRepository {
             }
 
             if (!isPhim500Movie) {
-                val p500Res = phim500Task.await()
-                if (p500Res.serverGroups.isNotEmpty()) {
-                    serverGroups.addAll(p500Res.serverGroups)
-                    if (description.isBlank() && !p500Res.description.isNullOrBlank()) description = p500Res.description
-                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(p500Res.poster)) {
-                        poster = p500Res.poster.orEmpty()
-                    }
-                    p500Res.latestEp?.let { latestEp = maxOf(latestEp, it) }
-                    p500Res.totalEp?.let { totalEp = maxOf(totalEp, it) }
-                }
+                mergeDetailPart(phim500Task.await())
+            }
+            if (!isNguonCMovie) {
+                mergeDetailPart(nguonCTask.await())
+            }
+            if (!isKkPhimMovie) {
+                mergeDetailPart(kkphimTask.await())
             }
             if (!isVsmovMovie) {
-                val vsRes = vsmovTask.await()
-                if (vsRes.serverGroups.isNotEmpty()) {
-                    serverGroups.addAll(vsRes.serverGroups)
-                    if (description.isBlank() && !vsRes.description.isNullOrBlank()) description = vsRes.description
-                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(vsRes.poster)) {
-                        poster = vsRes.poster.orEmpty()
-                    }
-                    vsRes.latestEp?.let { latestEp = maxOf(latestEp, it) }
-                    vsRes.totalEp?.let { totalEp = maxOf(totalEp, it) }
-                }
+                mergeDetailPart(vsmovTask.await())
             }
             val yanRes = yanTask.await()
             val customSrv = customWebTask.await()
@@ -1084,6 +1113,8 @@ object MovieRepository {
         val queries = exp.apiKeywords.take(2)
         val allSources = runCatching { PrefsStore.getSources() }.getOrDefault(emptyList())
         val isPhim500Enabled = allSources.any { it.id == Phim500SourceProvider.SOURCE_ID && it.enabled }
+        val isNguonCEnabled = allSources.any { it.id == NguonCSourceProvider.SOURCE_ID && it.enabled }
+        val isKkPhimEnabled = allSources.any { it.id == KKPhimSourceProvider.SOURCE_ID && it.enabled }
         val isVsmovEnabled = allSources.any { it.id == VsmovSourceProvider.SOURCE_ID && it.enabled }
         val enabledCustomSources = allSources.filter { it.enabled && it.isCustom }
         val allLists = coroutineScope {
@@ -1115,6 +1146,20 @@ object MovieRepository {
                         if (isPhim500Enabled) {
                             runCatching {
                                 Phim500SourceProvider.searchAsDonghuaMovies(kw, limit = 20)
+                            }.getOrDefault(emptyList())
+                        } else emptyList()
+                    },
+                    async {
+                        if (isNguonCEnabled) {
+                            runCatching {
+                                NguonCSourceProvider.searchAsDonghuaMovies(kw, limit = 20)
+                            }.getOrDefault(emptyList())
+                        } else emptyList()
+                    },
+                    async {
+                        if (isKkPhimEnabled) {
+                            runCatching {
+                                KKPhimSourceProvider.searchAsDonghuaMovies(kw, limit = 20)
                             }.getOrDefault(emptyList())
                         } else emptyList()
                     }

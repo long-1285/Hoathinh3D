@@ -36,6 +36,7 @@ object PrefsStore {
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
         const val SOURCES_V57_WITH_VSMOV = "hh3d_sources_v57_with_vsmov"
         const val SOURCES_V59_WITH_500PHIM = "hh3d_sources_v59_with_500phim"
+        const val SOURCES_V61_WITH_NGUONC_KKPHIM = "hh3d_sources_v61_with_nguonc_kkphim"
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
         const val APPEARANCE_TWO_MODES_V51 = "hh3d_appearance_2modes_v51"
         const val QUALITY_AUTO_DEFAULT_V55 = "hh3d_quality_auto_default_v55"
@@ -509,10 +510,14 @@ object PrefsStore {
                             .putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
                             .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
                             .putString(Keys.SOURCES_V59_WITH_500PHIM, "1")
+                            .putString(Keys.SOURCES_V61_WITH_NGUONC_KKPHIM, "1")
                             .apply()
                         return migrated
                     }
-                    if (!prefs.contains(Keys.SOURCES_V57_WITH_VSMOV) || !prefs.contains(Keys.SOURCES_V59_WITH_500PHIM)) {
+                    if (!prefs.contains(Keys.SOURCES_V57_WITH_VSMOV) ||
+                        !prefs.contains(Keys.SOURCES_V59_WITH_500PHIM) ||
+                        !prefs.contains(Keys.SOURCES_V61_WITH_NGUONC_KKPHIM)
+                    ) {
                         val existingIds = list.map { it.id }.toHashSet()
                         val missingBuiltIns = InitialData.DEFAULT_BUILT_IN_SOURCES.filter { !existingIds.contains(it.id) }
                         val merged = if (missingBuiltIns.isNotEmpty()) {
@@ -524,6 +529,7 @@ object PrefsStore {
                         prefs.edit()
                             .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
                             .putString(Keys.SOURCES_V59_WITH_500PHIM, "1")
+                            .putString(Keys.SOURCES_V61_WITH_NGUONC_KKPHIM, "1")
                             .apply()
                         return merged
                     }
@@ -536,6 +542,7 @@ object PrefsStore {
             .putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
             .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
             .putString(Keys.SOURCES_V59_WITH_500PHIM, "1")
+            .putString(Keys.SOURCES_V61_WITH_NGUONC_KKPHIM, "1")
             .apply()
         saveSources(InitialData.DEFAULT_BUILT_IN_SOURCES)
         return InitialData.DEFAULT_BUILT_IN_SOURCES

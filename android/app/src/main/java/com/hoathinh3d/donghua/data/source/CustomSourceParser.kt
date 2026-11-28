@@ -55,6 +55,14 @@ object CustomSourceParser {
                     hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
                     "Next.js RSC + HLS/Sniffer"
                 }
+                normalized.contains("nguonc.com", ignoreCase = true) -> {
+                    hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
+                    "JSON API + StreamC/Sniffer"
+                }
+                normalized.contains("kkphim", ignoreCase = true) || normalized.contains("phimapi.com", ignoreCase = true) -> {
+                    hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
+                    "KKPhim API + HLS"
+                }
                 normalized.contains("vsmov.com", ignoreCase = true) -> {
                     hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
                     "JSON API + StreamVSMov"
@@ -209,6 +217,12 @@ object CustomSourceParser {
             if (url.contains("500phim.net", ignoreCase = true)) {
                 return Phim500SourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
             }
+            if (url.contains("nguonc.com", ignoreCase = true)) {
+                return NguonCSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            }
+            if (url.contains("kkphim", ignoreCase = true) || url.contains("phimapi.com", ignoreCase = true)) {
+                return KKPhimSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            }
             if (url.contains("vsmov.com", ignoreCase = true)) {
                 return VsmovSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
             }
@@ -349,6 +363,18 @@ object CustomSourceParser {
             }
             return Phim500SourceProvider.fetchGenreCatalogForApp(genre, page)
         }
+        if (origin.contains("nguonc.com", ignoreCase = true)) {
+            if (rawSpec.isBlank() || genre.id == "Tất cả") {
+                return NguonCSourceProvider.fetchHomeCatalogForApp(page)
+            }
+            return NguonCSourceProvider.fetchGenreCatalogForApp(genre, page)
+        }
+        if (origin.contains("kkphim", ignoreCase = true) || origin.contains("phimapi.com", ignoreCase = true)) {
+            if (rawSpec.isBlank() || genre.id == "Tất cả") {
+                return KKPhimSourceProvider.fetchHomeCatalogForApp(page)
+            }
+            return KKPhimSourceProvider.fetchGenreCatalogForApp(genre, page)
+        }
         if (origin.contains("vsmov.com", ignoreCase = true)) {
             if (rawSpec.isBlank() || genre.id == "Tất cả") {
                 return VsmovSourceProvider.fetchHomeCatalogForApp(page)
@@ -451,6 +477,12 @@ object CustomSourceParser {
             when {
                 url.contains("500phim.net", ignoreCase = true) -> {
                     Phim500SourceProvider.searchAsDonghuaMovies(query)
+                }
+                url.contains("nguonc.com", ignoreCase = true) -> {
+                    NguonCSourceProvider.searchAsDonghuaMovies(query)
+                }
+                url.contains("kkphim", ignoreCase = true) || url.contains("phimapi.com", ignoreCase = true) -> {
+                    KKPhimSourceProvider.searchAsDonghuaMovies(query)
                 }
                 url.contains("vsmov.com", ignoreCase = true) -> {
                     VsmovSourceProvider.searchAsDonghuaMovies(query)

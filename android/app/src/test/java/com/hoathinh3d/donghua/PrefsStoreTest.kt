@@ -60,11 +60,13 @@ class PrefsStoreTest {
     @Test
     fun defaultSourcesAndSettings_matchWebDefaults() {
         val sources = PrefsStore.getSources()
-        assertEquals(4, sources.size)
+        assertEquals(6, sources.size)
         assertEquals("YanHH3DNow", sources[0].id)
         assertEquals("YanHH3D", sources[1].id)
         assertEquals("VSMov", sources[2].id)
         assertEquals("Phim500", sources[3].id)
+        assertEquals("NguonC", sources[4].id)
+        assertEquals("KKPhim", sources[5].id)
 
         val settings = PrefsStore.getSettings()
         assertEquals("YanHH3DNow", settings.preferredSource)
@@ -408,6 +410,8 @@ class PrefsStoreTest {
         PrefsStore.initForTest(v58Prefs)
         val upgradedSources = PrefsStore.getSources()
         assertTrue(upgradedSources.any { it.id == "Phim500" && !it.isCustom })
+        assertTrue(upgradedSources.any { it.id == "NguonC" && !it.isCustom })
+        assertTrue(upgradedSources.any { it.id == "KKPhim" && !it.isCustom })
         assertTrue(upgradedSources.any { it.id == "custom1" && it.isCustom })
     }
 }

@@ -861,6 +861,38 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 ).apply { marginStart = ThemeManager.dp(context, 8f) }
             }
         )
+        presetRow.addView(
+            styledButton("🎞 phim.nguonc.com", p, false) {
+                draftUrl = "https://phim.nguonc.com"
+                draftName = "NguonC"
+                draftType = "JSON API + StreamC/Sniffer"
+                draftQuality = "4K 60FPS"
+                lastProbeResult = null
+                refreshUi()
+                h.showToast("Đã điền mẫu nguồn: phim.nguonc.com")
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { marginStart = ThemeManager.dp(context, 8f) }
+            }
+        )
+        presetRow.addView(
+            styledButton("⚡ kkphim.com", p, false) {
+                draftUrl = "https://kkphim.com"
+                draftName = "KKPhim"
+                draftType = "KKPhim API + HLS"
+                draftQuality = "4K 60FPS"
+                lastProbeResult = null
+                refreshUi()
+                h.showToast("Đã điền mẫu nguồn: kkphim.com")
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { marginStart = ThemeManager.dp(context, 8f) }
+            }
+        )
         presetScroll.addView(presetRow)
         formBox.addView(presetScroll)
 
@@ -892,7 +924,16 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         formBox.addView(
             spinnerRow(
                 "Loại trình phân tích",
-                listOf("Smart Scraper", "Next.js RSC + HLS/Sniffer", "Laravel Scraper + StreamRPT", "WP Scraper + AJAX", "M3U8 Stream", "JSON / CMS API"),
+                listOf(
+                    "Smart Scraper",
+                    "Next.js RSC + HLS/Sniffer",
+                    "JSON API + StreamC/Sniffer",
+                    "KKPhim API + HLS",
+                    "Laravel Scraper + StreamRPT",
+                    "WP Scraper + AJAX",
+                    "M3U8 Stream",
+                    "JSON / CMS API"
+                ),
                 draftType,
                 p
             ) { picked ->

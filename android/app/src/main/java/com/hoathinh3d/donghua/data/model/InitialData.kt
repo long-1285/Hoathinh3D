@@ -45,6 +45,28 @@ object InitialData {
             desc = "Kho Phim & Hoạt Hình 3D 4K/FHD từ 500Phim.net, đa server Vietsub/Thuyết minh & bộ lọc nâng cao",
             enabled = true,
             isCustom = false
+        ),
+        DonghuaSource(
+            id = "NguonC",
+            name = "NguonC",
+            url = "https://phim.nguonc.com",
+            type = "JSON API + StreamC/Sniffer",
+            ping = "14ms",
+            quality = "FHD / HDR",
+            desc = "Kho 33.700+ Phim & 7.100+ Hoạt Hình (phim.nguonc.com), đa server & giải mã stream tự động",
+            enabled = true,
+            isCustom = false
+        ),
+        DonghuaSource(
+            id = "KKPhim",
+            name = "KKPhim",
+            url = "https://kkphim.com",
+            type = "KKPhim API + HLS",
+            ping = "11ms",
+            quality = "FHD / 4K",
+            desc = "Kho Phim & Hoạt Hình KKPhim (kkphim.com / phimapi.com), link .m3u8 tốc độ cao & lọc đa tiêu chí",
+            enabled = true,
+            isCustom = false
         )
     )
 
