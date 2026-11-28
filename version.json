@@ -1,11 +1,11 @@
 {
-    "versionCode":  61,
-    "versionName":  "3.7.1-v61",
-    "tag":  "v61",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v61/HoatHinh3d.apk",
+    "versionCode":  62,
+    "versionName":  "3.7.2-v62",
+    "tag":  "v62",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v62/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "19fdf4cb3856bf497e91290bf3804490281e7a3557ba460192e7a31ec328ced3",
-    "apkSizeBytes":  12373394,
-    "changelog":  "v3.7.1-v61: Khai thac va tich hop toan dien 2 nguon NguonC (phim.nguonc.com) va KKPhim (kkphim.com / phimapi.com) theo chuan MovieSourceProvider, ho tro HeadlessWebViewSniffer \u0026 custom HTTP headers cho Media3 ExoPlayer.",
-    "releasedAt":  "2026-11-28T09:35:59Z"
+    "sha256":  "20a1d611e4f4df354bdcb024fe23896459eaaec062f14d0733a5fe773f6d8629",
+    "apkSizeBytes":  12376430,
+    "changelog":  "Phien 62 (v3.7.2-v62): Bo nut Ngau nhien; tinh gon thanh loc Trang chu mac dinh Moi cap nhat (Moi cap nhat | Dang chieu | Hoan thanh | Nhieu tap); dong bo web truc tiep Moi cap nhat va Top 10 BXH Thinh Hanh luc khoi dong; chon server nhanh va dung tap tren trinh phat.",
+    "releasedAt":  "2026-11-28T10:23:29Z"
 }
