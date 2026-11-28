@@ -34,6 +34,7 @@ object PrefsStore {
         const val SOURCES_V4_TWO_ONLY = "hh3d_sources_v4_yanhh3d_nguonc_only"
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
+        const val APPEARANCE_TWO_MODES_V51 = "hh3d_appearance_2modes_v51"
         const val SEARCH_HISTORY = "hh3d_search_history_v1"
     }
 
@@ -470,12 +471,19 @@ object PrefsStore {
             prefs.edit()
                 .putString(Keys.AUDIO_DEFAULT_TM_MIGRATED, "1")
                 .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+                .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                 .apply()
             return AppSettings()
         }
         return try {
             val obj = JSONObject(raw)
-            val theme = ThemePreset.fromWire(obj.optString("theme", "pearl")).wireValue
+            val rawThemeWire = obj.optString("theme", "pearl")
+            val darkModeRaw = obj.optString("darkMode", "")
+            val parsedTheme = ThemePreset.fromWire(rawThemeWire).wireValue
+            val isSunsetDark = parsedTheme == ThemePreset.DARK.wireValue ||
+                (rawThemeWire.isBlank() && darkModeRaw == "dark")
+            val theme = if (isSunsetDark) ThemePreset.DARK.wireValue else ThemePreset.PEARL.wireValue
+            val darkMode = if (isSunsetDark) "dark" else "light"
             var defaultAudio = obj.optString("defaultAudio", "Thuyết Minh")
             if (defaultAudio != "Vietsub" && defaultAudio != "Thuyết Minh") {
                 defaultAudio = "Thuyết Minh"
@@ -500,13 +508,9 @@ object PrefsStore {
                 aiUpscale = extObj?.optBoolean("aiUpscale", false) ?: false,
                 bilingualSub = extObj?.optBoolean("bilingualSub", false) ?: false
             )
-            val darkModeRaw = obj.optString("darkMode", "")
-            val darkMode = when (darkModeRaw) {
-                "light", "dark" -> darkModeRaw
-                else -> if (theme == "dark") "dark" else "light"
-            }
 
             val needsV45Migration = !prefs.contains(Keys.APPEARANCE_DEFAULTS_V45)
+            val needsTwoModesMigration = !prefs.contains(Keys.APPEARANCE_TWO_MODES_V51)
             val loaded = AppSettings(
                 deviceMode = obj.optString("deviceMode", "auto"),
                 theme = theme,
@@ -536,10 +540,11 @@ object PrefsStore {
                 showHomeContinue = if (needsV45Migration) true else obj.optBoolean("showHomeContinue", true),
                 showHomeTrending = if (needsV45Migration) true else obj.optBoolean("showHomeTrending", true)
             )
-            if (needsV45Migration) {
+            if (needsV45Migration || needsTwoModesMigration) {
                 prefs.edit()
                     .putString(Keys.SETTINGS, settingsToJson(loaded).toString())
                     .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+                    .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                     .apply()
             }
             loaded
@@ -552,6 +557,7 @@ object PrefsStore {
         prefs.edit()
             .putString(Keys.SETTINGS, settingsToJson(updated).toString())
             .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+            .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
             .apply()
         return updated
     }
@@ -677,6 +683,7 @@ object PrefsStore {
             payload.optJSONObject("settings")?.let {
                 ed.putString(Keys.SETTINGS, it.toString())
                 ed.putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
+                ed.putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
             }
             payload.optJSONObject("user")?.let { ed.putString(Keys.GOOGLE_USER, it.toString()) }
             payload.optJSONObject("watchedEpisodes")?.let { ed.putString(Keys.WATCHED_EPISODES, it.toString()) }

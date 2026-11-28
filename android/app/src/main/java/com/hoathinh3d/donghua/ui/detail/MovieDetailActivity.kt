@@ -125,18 +125,23 @@ class MovieDetailActivity : AppCompatActivity() {
             ).show()
         }
 
-        ThemeManager.applyRoundedOutline(binding.imgDetailPoster, 16f)
-        ThemeManager.applyRoundedOutline(binding.detailInfoGlassPanel, 20f)
-        ThemeManager.applyRoundedOutline(binding.detailEpisodesGlassPanel, 20f)
+        if (!DeviceProfileResolver.shouldUseReducedMotion(this, resolvedDevice, settings.reducedMotion)) {
+            ThemeManager.applyRoundedOutline(binding.imgDetailPoster, 16f)
+            ThemeManager.applyRoundedOutline(binding.detailInfoGlassPanel, 20f)
+            ThemeManager.applyRoundedOutline(binding.detailEpisodesGlassPanel, 20f)
+        }
         binding.btnDetailReadMore.setOnClickListener {
             isDescriptionExpanded = !isDescriptionExpanded
+            val curSettings = PrefsStore.getSettings()
+            val curDev = DeviceProfileResolver.resolve(this, curSettings.deviceMode)
             applyDescriptionState(
                 ThemeManager.palette(
-                    themeWire = PrefsStore.getSettings().theme,
-                    glassBlurPx = PrefsStore.getSettings().glassBlur,
-                    glassOpacityPct = PrefsStore.getSettings().glassOpacity,
-                    darkModeWire = PrefsStore.getSettings().darkMode,
-                    isSystemDark = ThemeManager.isSystemDarkMode(this)
+                    themeWire = curSettings.theme,
+                    glassBlurPx = curSettings.glassBlur,
+                    glassOpacityPct = curSettings.glassOpacity,
+                    darkModeWire = curSettings.darkMode,
+                    isSystemDark = ThemeManager.isSystemDarkMode(this),
+                    liteRender = DeviceProfileResolver.shouldUseReducedMotion(this, curDev, curSettings.reducedMotion)
                 )
             )
         }
@@ -262,17 +267,20 @@ class MovieDetailActivity : AppCompatActivity() {
 
     private fun renderUi() {
         val settings = PrefsStore.getSettings()
+        val resolvedDev = DeviceProfileResolver.resolve(this, settings.deviceMode)
+        val useLite = DeviceProfileResolver.shouldUseReducedMotion(this, resolvedDev, settings.reducedMotion)
         val p = ThemeManager.palette(
             themeWire = settings.theme,
             glassBlurPx = settings.glassBlur,
             glassOpacityPct = settings.glassOpacity,
             darkModeWire = settings.darkMode,
-            isSystemDark = ThemeManager.isSystemDarkMode(this)
+            isSystemDark = ThemeManager.isSystemDarkMode(this),
+            liteRender = useLite
         )
         ThemeManager.applySystemBars(window, p)
         binding.detailRoot.background = ThemeManager.rootBackground(p)
 
-        val isLite = DeviceProfileResolver.isLowRamDevice(this)
+        val isLite = useLite || DeviceProfileResolver.isLowRamDevice(this)
         val isUltraLow = DeviceProfileResolver.isUltraLowRamDevice(this)
         val decodeFmt = if (isLite) com.bumptech.glide.load.DecodeFormat.PREFER_RGB_565 else com.bumptech.glide.load.DecodeFormat.PREFER_ARGB_8888
         val safeBackdropUrl = (movie.thumb ?: movie.poster).takeUnless { MovieRepository.isDeadOrBlankPoster(it) }.orEmpty()

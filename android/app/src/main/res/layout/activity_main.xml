@@ -71,7 +71,9 @@
                 android:layout_weight="1"
                 android:focusable="true"
                 android:gravity="center_vertical"
-                android:nextFocusRight="@+id/headerSourcePill"
+                android:nextFocusDown="@+id/contentContainer"
+                android:nextFocusLeft="@+id/tvRailHome"
+                android:nextFocusRight="@+id/btnQuickTheme"
                 android:orientation="horizontal"
                 android:padding="4dp">
 
@@ -137,6 +139,7 @@
                 android:clickable="true"
                 android:contentDescription="Đổi giao diện Sáng / Tối"
                 android:focusable="true"
+                android:nextFocusDown="@+id/contentContainer"
                 android:nextFocusLeft="@+id/btnBrandHome"
                 android:nextFocusRight="@+id/headerSourcePill">
 
@@ -164,6 +167,7 @@
                     android:layout_height="34dp"
                     android:focusable="true"
                     android:gravity="center_vertical"
+                    android:nextFocusDown="@+id/contentContainer"
                     android:nextFocusLeft="@+id/btnQuickTheme"
                     android:orientation="horizontal"
                     android:paddingStart="10dp"
@@ -415,6 +419,7 @@
             android:gravity="center_vertical"
             android:nextFocusDown="@+id/tvRailSchedule"
             android:nextFocusRight="@+id/contentContainer"
+            android:nextFocusUp="@+id/btnBrandHome"
             android:orientation="horizontal"
             android:paddingHorizontal="10dp">
 

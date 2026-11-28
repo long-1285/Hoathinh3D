@@ -55,6 +55,7 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var yanDayMovies: List<DonghuaMovie> = emptyList()
     private var fetchJob: Job? = null
     private var lastDayTabsKey: String? = null
+    private var lastSchedThemeSig: String? = null
     private var currentCols = 1
     private var restoreDayTabFocus = false
     private lateinit var adapter: ScheduleMovieAdapter
@@ -221,13 +222,18 @@ class ScheduleFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             adapter.palette = p
             adapter.isTvMode = isTv
             adapter.submitList(list)
-            adapter.notifyDataSetChanged()
+            val schedSig = "${p.preset.wireValue}|${p.isDark}|${p.glassOpacityPct}|$isTv|${p.liteRender}"
+            if (schedSig != lastSchedThemeSig) {
+                lastSchedThemeSig = schedSig
+                adapter.notifyDataSetChanged()
+            }
         }
     }
 
     override fun onDestroyView() {
         fetchJob?.cancel()
         lastDayTabsKey = null
+        lastSchedThemeSig = null
         _binding = null
         super.onDestroyView()
     }

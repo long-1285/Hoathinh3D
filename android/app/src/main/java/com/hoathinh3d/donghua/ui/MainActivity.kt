@@ -176,6 +176,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     private var isSourcePickerOpen = false
     private var isGenrePickerOpen = false
     private var lastSourceTriggerView: View? = null
+    private var lastRealtimeSyncMs: Long = 0L
     private var pendingInstallManifest: com.hoathinh3d.donghua.core.UpdateManifest? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,15 +208,17 @@ class MainActivity : AppCompatActivity(), AppHost {
 
         setupHeaderAndNav()
         ThemeManager.applyRoundedOutline(binding.imgHeaderAvatar, 10f)
-        ThemeManager.applyRoundedOutline(binding.headerContainer, 24f)
-        ThemeManager.applyRoundedOutline(binding.headerSourcePill, 18f)
-        ThemeManager.applyRoundedOutline(binding.floatingSearchContainer, 24f)
-        ThemeManager.applyRoundedOutline(binding.bottomNavContainer, 30f)
-        ThemeManager.applyRoundedOutline(binding.tvNavRail, 24f)
-        ThemeManager.applyRoundedOutline(binding.floatingSourcePickerContainer, 22f)
-        ThemeManager.applyRoundedOutline(binding.floatingGenrePickerContainer, 22f)
-        ThemeManager.applyRoundedOutline(binding.btnCollapsedSearch, 24f)
-        ThemeManager.applyRoundedOutline(binding.btnCollapsedSource, 24f)
+        if (!DeviceProfileResolver.shouldUseReducedMotion(this, state.resolvedDevice, savedSettings.reducedMotion)) {
+            ThemeManager.applyRoundedOutline(binding.headerContainer, 24f)
+            ThemeManager.applyRoundedOutline(binding.headerSourcePill, 18f)
+            ThemeManager.applyRoundedOutline(binding.floatingSearchContainer, 24f)
+            ThemeManager.applyRoundedOutline(binding.bottomNavContainer, 30f)
+            ThemeManager.applyRoundedOutline(binding.tvNavRail, 24f)
+            ThemeManager.applyRoundedOutline(binding.floatingSourcePickerContainer, 22f)
+            ThemeManager.applyRoundedOutline(binding.floatingGenrePickerContainer, 22f)
+            ThemeManager.applyRoundedOutline(binding.btnCollapsedSearch, 24f)
+            ThemeManager.applyRoundedOutline(binding.btnCollapsedSource, 24f)
+        }
 
         val updateChromeMeasure = {
             val isTv = state.resolvedDevice == ResolvedDeviceProfile.TV
@@ -305,7 +308,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         setupSourceSpinner()
         updateBottomNavUi()
         notifyActiveFragment()
-        if (!state.isLoadingFeed) {
+        if (!state.isLoadingFeed && System.currentTimeMillis() - lastRealtimeSyncMs >= 45_000L) {
             syncRealtimeTrendingNow(state.activeSourceId)
         }
         val pendingManifest = pendingInstallManifest
@@ -544,7 +547,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         binding.tvRailTheme.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 16f, liteRender = isLite)
         binding.tvRailThemeIcon.setImageResource(if (p.isDark) R.drawable.ic_theme_moon else R.drawable.ic_theme_sun)
         binding.tvRailThemeIcon.imageTintList = ThemeManager.tintColorState(p.accentFrom)
-        binding.tvRailThemeLabel.text = if (p.isDark) "Giao diện Tối" else "Giao diện Sáng"
+        binding.tvRailThemeLabel.text = if (p.isDark) "Hoàng Hôn Đêm" else "Sáng Ngọc Trai"
         binding.tvRailThemeLabel.setTextColor(p.textMain)
 
         val isTv = state.resolvedDevice == ResolvedDeviceProfile.TV
@@ -1164,10 +1167,11 @@ class MainActivity : AppCompatActivity(), AppHost {
             MainTab.FAVORITES -> FavoritesFragment()
             MainTab.SETTINGS -> SettingsFragment()
         }
-        supportFragmentManager.beginTransaction()
-            .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
-            .replace(R.id.contentContainer, fragment)
-            .commit()
+        val tx = supportFragmentManager.beginTransaction()
+        if (!DeviceProfileResolver.shouldUseReducedMotion(this, state.resolvedDevice, state.settings.reducedMotion)) {
+            tx.setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
+        tx.replace(R.id.contentContainer, fragment).commit()
     }
 
     private fun notifyActiveFragment() {
@@ -1191,6 +1195,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     private fun syncRealtimeTrendingNow(sourceId: String) {
         realtimeTrendingJob?.cancel()
         realtimeTrendingJob = lifecycleScope.launch {
+            lastRealtimeSyncMs = System.currentTimeMillis()
             val activeSelected = state.selectedGenre
             val genreObj = if (activeSelected != "Tất cả") {
                 state.genres.firstOrNull { it.id == activeSelected }
@@ -1263,9 +1268,11 @@ class MainActivity : AppCompatActivity(), AppHost {
                     MovieRepository.mergeCatalogPages(customOnly, moviesTask)
                 } else state.allMovies
 
+                val nowMs = System.currentTimeMillis()
+                lastRealtimeSyncMs = nowMs
                 state = state.copy(
                     genres = genres,
-                    genresLastSyncAtMs = System.currentTimeMillis(),
+                    genresLastSyncAtMs = nowMs,
                     allMovies = mergedCatalog,
                     trendingTop10 = if (top10Task.isNotEmpty()) top10Task else state.trendingTop10,
                     activeGenreMovies = null,
@@ -1341,7 +1348,12 @@ class MainActivity : AppCompatActivity(), AppHost {
         glassBlurPx = state.settings.glassBlur,
         glassOpacityPct = state.settings.glassOpacity,
         darkModeWire = state.settings.darkMode,
-        isSystemDark = ThemeManager.isSystemDarkMode(this)
+        isSystemDark = ThemeManager.isSystemDarkMode(this),
+        liteRender = DeviceProfileResolver.shouldUseReducedMotion(
+            this,
+            state.resolvedDevice,
+            state.settings.reducedMotion
+        )
     )
     override fun getChromeInsets(): Pair<Int, Int> {
         val fallbackTop = insetTopPx + ThemeManager.dp(this, 72f)
@@ -1867,24 +1879,27 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     private fun toggleQuickDarkMode() {
         val isCurrentlyDark = getPalette().isDark
-        val nextWire = if (isCurrentlyDark) "light" else "dark"
-        updateSettings { it.copy(darkMode = nextWire) }
-        showToast(if (nextWire == "dark") "Đã bật Giao diện Tối (Liquid Dark)" else "Đã bật Giao diện Sáng (Liquid Light)")
+        val nextPreset = if (isCurrentlyDark) {
+            com.hoathinh3d.donghua.data.model.ThemePreset.PEARL
+        } else {
+            com.hoathinh3d.donghua.data.model.ThemePreset.DARK
+        }
+        val nextDarkWire = if (nextPreset == com.hoathinh3d.donghua.data.model.ThemePreset.DARK) "dark" else "light"
+        updateSettings { it.copy(theme = nextPreset.wireValue, darkMode = nextDarkWire) }
+        showToast("Đã bật: ${nextPreset.displayName}")
     }
 
     private fun showQuickThemePickerDialog() {
         val presets = com.hoathinh3d.donghua.data.model.ThemePreset.entries
         val labels = presets.map { "${it.displayName} — ${it.desc}" }.toTypedArray()
-        val curIdx = presets.indexOfFirst { it.wireValue == state.settings.theme }.coerceAtLeast(0)
+        val curIdx = if (getPalette().isDark) 1 else 0
         AlertDialog.Builder(this)
-            .setTitle("Chọn Chủ Đề Liquid Glass")
+            .setTitle("Chọn Chế Độ Giao Diện")
             .setSingleChoiceItems(labels, curIdx) { dlg, which ->
                 val picked = presets[which]
-                updateSettings {
-                    val nextDark = if (picked == com.hoathinh3d.donghua.data.model.ThemePreset.DARK) "dark" else it.darkMode
-                    it.copy(theme = picked.wireValue, darkMode = nextDark)
-                }
-                showToast("Đã chuyển chủ đề: ${picked.displayName}")
+                val nextDark = if (picked == com.hoathinh3d.donghua.data.model.ThemePreset.DARK) "dark" else "light"
+                updateSettings { it.copy(theme = picked.wireValue, darkMode = nextDark) }
+                showToast("Đã chuyển giao diện: ${picked.displayName}")
                 dlg.dismiss()
             }
             .setNegativeButton("Đóng", null)

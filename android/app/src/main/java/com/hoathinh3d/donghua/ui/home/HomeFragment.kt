@@ -63,6 +63,8 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var lastHeroSlidesKey: String? = null
     private var lastHeroImgUrl: String? = null
     private var lastTvCarouselsKey: String? = null
+    private var lastTvThemeSig: String? = null
+    private var lastTvMetaSig: String? = null
     private var lastTrendingThemeSig: String? = null
     private var lastTrendingMetaSig: String? = null
     private var lastCatalogThemeSig: String? = null
@@ -300,7 +302,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val heroSlides = trending.take(5)
         lastHeroSlides = heroSlides
 
-        if (st.settings.showHomeHero && !isSearchActive && heroSlides.isNotEmpty()) {
+        if (st.settings.showHomeHero && !isSearchActive && !isTv && heroSlides.isNotEmpty()) {
             b.heroCard.visibility = View.VISIBLE
             val heroKey = "${p.preset.wireValue}_${p.isDark}_${heroSlides.joinToString(",") { "${it.id}:${it.latestEp}" }}"
             if (heroKey != lastHeroSlidesKey) {
@@ -320,6 +322,10 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             }
         } else {
             b.heroCard.visibility = View.GONE
+            if (lastHeroImgUrl != null) {
+                lastHeroImgUrl = null
+                Glide.with(b.imgHeroBg).clear(b.imgHeroBg)
+            }
             lastHeroSlidesKey = null
             heroTimerJob?.cancel()
         }
@@ -389,9 +395,11 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             val isUltraLow = DeviceProfileResolver.isUltraLowRamDevice(ctx)
             val maxRowItems = if (isUltraLow) 5 else if (tvLite) 8 else 12
             val maxRows = if (isUltraLow) 1 else 3
-            val tvKey = "${p.preset.wireValue}_${p.isDark}_${tvLite}_${maxRowItems}_${maxRows}_${st.allMovies.take(24).joinToString(",") { it.id }}"
+            val tvKey = "${maxRowItems}_${maxRows}_${st.allMovies.take(24).joinToString(",") { "${it.id}:${it.latestEp}" }}"
             if (tvKey != lastTvCarouselsKey) {
                 lastTvCarouselsKey = tvKey
+                lastTvThemeSig = themeRenderSig
+                lastTvMetaSig = metaRenderSig
                 b.tvCarouselsContainer.removeAllViews()
                 tvRowAdapters.clear()
                 val rowDefs = listOf(
@@ -453,6 +461,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                         setRecycledViewPool(sharedTvCardPool)
                         setHasFixedSize(true)
                         isNestedScrollingEnabled = false
+                        if (tvLite) itemAnimator = null
                         adapter = rowAdapter
                     }
                     b.tvCarouselsContainer.addView(header)
@@ -460,14 +469,30 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 }
                 b.tvCarouselsContainer.visibility = if (anyTvRow) View.VISIBLE else View.GONE
             } else {
-                tvRowAdapters.forEach { adapter ->
-                    adapter.palette = p
-                    adapter.reducedMotion = tvLite
-                    adapter.notifyDataSetChanged()
+                when {
+                    themeRenderSig != lastTvThemeSig -> {
+                        lastTvThemeSig = themeRenderSig
+                        lastTvMetaSig = metaRenderSig
+                        tvRowAdapters.forEach { adapter ->
+                            adapter.palette = p
+                            adapter.reducedMotion = tvLite
+                            adapter.notifyDataSetChanged()
+                        }
+                    }
+                    metaRenderSig != lastTvMetaSig -> {
+                        lastTvMetaSig = metaRenderSig
+                        tvRowAdapters.forEach { adapter ->
+                            if (adapter.itemCount > 0) {
+                                adapter.notifyItemRangeChanged(0, adapter.itemCount, MovieCardAdapter.PAYLOAD_META)
+                            }
+                        }
+                    }
                 }
             }
         } else {
             lastTvCarouselsKey = null
+            lastTvThemeSig = null
+            lastTvMetaSig = null
             tvRowAdapters.clear()
             b.tvCarouselsContainer.removeAllViews()
             b.tvCarouselsContainer.visibility = View.GONE

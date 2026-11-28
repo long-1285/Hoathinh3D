@@ -38,7 +38,8 @@ data class ThemePalette(
     val accentTo: Int,
     val inputBg: Int,
     val glassBlurPx: Int = 32,
-    val glassOpacityPct: Int = 52
+    val glassOpacityPct: Int = 52,
+    val liteRender: Boolean = false
 )
 
 object ThemeManager {
@@ -52,7 +53,8 @@ object ThemeManager {
         glassBlurPx: Int = 32,
         glassOpacityPct: Int = 52,
         darkModeWire: String? = null,
-        @Suppress("UNUSED_PARAMETER") isSystemDark: Boolean = false
+        @Suppress("UNUSED_PARAMETER") isSystemDark: Boolean = false,
+        liteRender: Boolean = false
     ): ThemePalette {
         val blur = glassBlurPx.coerceIn(8, 40)
         val opacityPct = glassOpacityPct.coerceIn(10, 90)
@@ -64,112 +66,47 @@ object ThemeManager {
         val inputAlpha = (244f - transparency * 165f + blurShift).toInt().coerceIn(68, 240)
 
         val rawPreset = ThemePreset.fromWire(themeWire)
-        val effectiveDark = when (darkModeWire) {
-            "dark" -> true
-            "light" -> false
-            else -> rawPreset == ThemePreset.DARK
-        }
-        val preset = if (!effectiveDark && rawPreset == ThemePreset.DARK) {
-            ThemePreset.PEARL
-        } else {
-            rawPreset
-        }
+        val isSunsetDark = rawPreset == ThemePreset.DARK || (themeWire.isNullOrBlank() && darkModeWire == "dark")
 
-        if (effectiveDark) {
-            val (bg1, bg2, acc1, acc2, rimBase) = when (preset) {
-                ThemePreset.SAKURA -> arrayOf(
-                    Color.parseColor("#160F19"),
-                    Color.parseColor("#231727"),
-                    Color.parseColor("#DC82A6"),
-                    Color.parseColor("#AE8FD8"),
-                    Color.argb(54, 244, 182, 208)
-                )
-                ThemePreset.PEARL -> arrayOf(
-                    Color.parseColor("#0B111E"),
-                    Color.parseColor("#141E30"),
-                    Color.parseColor("#739EF5"),
-                    Color.parseColor("#54C9B3"),
-                    Color.argb(54, 226, 232, 240)
-                )
-                ThemePreset.DARK -> arrayOf(
-                    Color.parseColor("#040507"),
-                    Color.parseColor("#0C0E14"),
-                    Color.parseColor("#E2AE58"),
-                    Color.parseColor("#D1844B"),
-                    Color.argb(62, 226, 174, 88)
-                )
-            }
-            val isSunsetDark = preset == ThemePreset.DARK
+        if (isSunsetDark) {
             return ThemePalette(
-                preset = preset,
+                preset = ThemePreset.DARK,
                 isDark = true,
-                bgPrimary = bg1,
-                bgSecondary = bg2,
-                textMain = Color.parseColor(if (isSunsetDark) "#F7F3EA" else "#F1F5F9"),
-                textMuted = Color.parseColor(if (isSunsetDark) "#A39A8B" else "#94A3B8"),
-                glassSurface = Color.argb(
-                    surfaceAlpha,
-                    if (isSunsetDark) 11 else 19,
-                    if (isSunsetDark) 13 else 27,
-                    if (isSunsetDark) 19 else 44
-                ),
-                glassCard = Color.argb(
-                    cardAlpha,
-                    if (isSunsetDark) 18 else 28,
-                    if (isSunsetDark) 20 else 39,
-                    if (isSunsetDark) 29 else 59
-                ),
-                glassBorder = rimBase,
-                glassSubtleBorder = if (isSunsetDark) Color.argb(38, 226, 174, 88) else Color.argb(34, 255, 255, 255),
-                accentFrom = acc1,
-                accentTo = acc2,
-                inputBg = Color.argb(
-                    inputAlpha,
-                    if (isSunsetDark) 22 else 32,
-                    if (isSunsetDark) 25 else 44,
-                    if (isSunsetDark) 35 else 66
-                ),
+                bgPrimary = Color.parseColor("#040507"),
+                bgSecondary = Color.parseColor("#0C0E14"),
+                textMain = Color.parseColor("#F7F3EA"),
+                textMuted = Color.parseColor("#A39A8B"),
+                glassSurface = Color.argb(surfaceAlpha, 11, 13, 19),
+                glassCard = Color.argb(cardAlpha, 18, 20, 29),
+                glassBorder = Color.argb(62, 226, 174, 88),
+                glassSubtleBorder = Color.argb(38, 226, 174, 88),
+                accentFrom = Color.parseColor("#E2AE58"),
+                accentTo = Color.parseColor("#D1844B"),
+                inputBg = Color.argb(inputAlpha, 22, 25, 35),
                 glassBlurPx = blur,
-                glassOpacityPct = opacityPct
+                glassOpacityPct = opacityPct,
+                liteRender = liteRender
             )
         }
 
-        return when (preset) {
-            ThemePreset.PEARL, ThemePreset.DARK -> ThemePalette(
-                preset = ThemePreset.PEARL,
-                isDark = false,
-                bgPrimary = Color.parseColor("#F6F8FC"),
-                bgSecondary = Color.parseColor("#ECF2F9"),
-                textMain = Color.parseColor("#1E293B"),
-                textMuted = Color.parseColor("#64748B"),
-                glassSurface = Color.argb(surfaceAlpha, 255, 255, 255),
-                glassCard = Color.argb(cardAlpha, 255, 255, 255),
-                glassBorder = Color.argb(232, 255, 255, 255),
-                glassSubtleBorder = Color.argb(46, 148, 163, 184),
-                accentFrom = Color.parseColor("#5C6BC0"),
-                accentTo = Color.parseColor("#43A6B8"),
-                inputBg = Color.argb(inputAlpha, 255, 255, 255),
-                glassBlurPx = blur,
-                glassOpacityPct = opacityPct
-            )
-            ThemePreset.SAKURA -> ThemePalette(
-                preset = preset,
-                isDark = false,
-                bgPrimary = Color.parseColor("#FDF7F9"),
-                bgSecondary = Color.parseColor("#F7EBF1"),
-                textMain = Color.parseColor("#312538"),
-                textMuted = Color.parseColor("#786A7D"),
-                glassSurface = Color.argb(surfaceAlpha, 255, 255, 255),
-                glassCard = Color.argb(cardAlpha, 255, 255, 255),
-                glassBorder = Color.argb(232, 255, 255, 255),
-                glassSubtleBorder = Color.argb(48, 201, 100, 138),
-                accentFrom = Color.parseColor("#C9648A"),
-                accentTo = Color.parseColor("#9B78C4"),
-                inputBg = Color.argb(inputAlpha, 255, 255, 255),
-                glassBlurPx = blur,
-                glassOpacityPct = opacityPct
-            )
-        }
+        return ThemePalette(
+            preset = ThemePreset.PEARL,
+            isDark = false,
+            bgPrimary = Color.parseColor("#F6F8FC"),
+            bgSecondary = Color.parseColor("#ECF2F9"),
+            textMain = Color.parseColor("#1E293B"),
+            textMuted = Color.parseColor("#64748B"),
+            glassSurface = Color.argb(surfaceAlpha, 255, 255, 255),
+            glassCard = Color.argb(cardAlpha, 255, 255, 255),
+            glassBorder = Color.argb(232, 255, 255, 255),
+            glassSubtleBorder = Color.argb(46, 148, 163, 184),
+            accentFrom = Color.parseColor("#5C6BC0"),
+            accentTo = Color.parseColor("#43A6B8"),
+            inputBg = Color.argb(inputAlpha, 255, 255, 255),
+            glassBlurPx = blur,
+            glassOpacityPct = opacityPct,
+            liteRender = liteRender
+        )
     }
 
     fun dp(context: Context, value: Float): Int =
@@ -219,6 +156,7 @@ object ThemeManager {
         radiusDp: Float = 26f,
         liteRender: Boolean = false
     ): StateListDrawable {
+        val useLite = liteRender || palette.liteRender
         val radiusPx = dp(context, radiusDp).toFloat()
         val rimColor = when {
             palette.preset == ThemePreset.DARK -> Color.argb(72, 226, 174, 88)
@@ -231,7 +169,7 @@ object ThemeManager {
             setColor(palette.glassSurface)
             setStroke(dp(context, 1.25f).coerceAtLeast(1), rimColor)
         }
-        val normal: Drawable = if (liteRender) {
+        val normal: Drawable = if (useLite) {
             baseNormal
         } else {
             LayerDrawable(arrayOf(baseNormal, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
@@ -243,7 +181,7 @@ object ThemeManager {
             setColor(palette.glassSurface)
             setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
-        val focused: Drawable = if (liteRender) {
+        val focused: Drawable = if (useLite) {
             baseFocused
         } else {
             LayerDrawable(arrayOf(baseFocused, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
@@ -262,7 +200,8 @@ object ThemeManager {
         isCard: Boolean = false,
         liteRender: Boolean = false
     ): StateListDrawable {
-        if (!isCard) return liquidGlassSheetDrawable(context, palette, radiusDp)
+        val useLite = liteRender || palette.liteRender
+        if (!isCard) return liquidGlassSheetDrawable(context, palette, radiusDp, liteRender = useLite)
         val radiusPx = dp(context, radiusDp).toFloat()
         // Content Layer uses cleaner Apple Thin System Material so floating glass controls stand out
         val normalBase = GradientDrawable().apply {
@@ -277,12 +216,12 @@ object ThemeManager {
             setColor(palette.glassCard)
             setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
         }
-        val normal: Drawable = if (liteRender) {
+        val normal: Drawable = if (useLite) {
             normalBase
         } else {
             LayerDrawable(arrayOf(normalBase, specularSheenLayer(palette, radiusPx, strongSpecular = false)))
         }
-        val focused: Drawable = if (liteRender) {
+        val focused: Drawable = if (useLite) {
             focusedBase
         } else {
             LayerDrawable(arrayOf(focusedBase, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
@@ -297,10 +236,12 @@ object ThemeManager {
         context: Context,
         palette: ThemePalette,
         active: Boolean,
-        radiusDp: Float = 16f
+        radiusDp: Float = 16f,
+        liteRender: Boolean = false
     ): StateListDrawable {
+        val useLite = liteRender || palette.liteRender
         val radiusPx = dp(context, radiusDp).toFloat()
-        val normal = if (active) {
+        val normal: Drawable = if (active) {
             val grad = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(palette.accentFrom, palette.accentTo)
@@ -308,14 +249,14 @@ object ThemeManager {
                 cornerRadius = radiusPx
                 setStroke(dp(context, 1f).coerceAtLeast(1), Color.argb(140, 255, 255, 255))
             }
-            LayerDrawable(arrayOf(grad, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+            if (useLite) grad else LayerDrawable(arrayOf(grad, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
         } else {
             val base = GradientDrawable().apply {
                 cornerRadius = radiusPx
                 setColor(palette.glassCard)
                 setStroke(dp(context, 1f).coerceAtLeast(1), palette.glassBorder)
             }
-            LayerDrawable(arrayOf(base, specularSheenLayer(palette, radiusPx, strongSpecular = false)))
+            if (useLite) base else LayerDrawable(arrayOf(base, specularSheenLayer(palette, radiusPx, strongSpecular = false)))
         }
         val focused = GradientDrawable().apply {
             if (active) {
@@ -336,8 +277,10 @@ object ThemeManager {
     fun accentGradientDrawable(
         context: Context,
         palette: ThemePalette,
-        radiusDp: Float = 16f
+        radiusDp: Float = 16f,
+        liteRender: Boolean = false
     ): StateListDrawable {
+        val useLite = liteRender || palette.liteRender
         val radiusPx = dp(context, radiusDp).toFloat()
         val baseNormal = GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
@@ -346,7 +289,11 @@ object ThemeManager {
             cornerRadius = radiusPx
             setStroke(dp(context, 1f).coerceAtLeast(1), Color.argb(120, 255, 255, 255))
         }
-        val normal = LayerDrawable(arrayOf(baseNormal, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        val normal: Drawable = if (useLite) {
+            baseNormal
+        } else {
+            LayerDrawable(arrayOf(baseNormal, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+        }
         val focused = GradientDrawable(
             GradientDrawable.Orientation.LEFT_RIGHT,
             intArrayOf(palette.accentFrom, palette.accentTo)
@@ -370,6 +317,7 @@ object ThemeManager {
         radiusDp: Float = 22f,
         liteRender: Boolean = false
     ): Drawable {
+        val useLite = liteRender || palette.liteRender
         val radiusPx = dp(context, radiusDp).toFloat()
         val focusCol = focusStrokeColor(palette)
         val normal: Drawable = if (active) {
@@ -390,7 +338,7 @@ object ThemeManager {
                 setColor(lensFill)
                 setStroke(dp(context, 1.25f).coerceAtLeast(1), lensRim)
             }
-            if (liteRender) lens else LayerDrawable(arrayOf(lens, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
+            if (useLite) lens else LayerDrawable(arrayOf(lens, specularSheenLayer(palette, radiusPx, strongSpecular = true)))
         } else {
             GradientDrawable().apply {
                 cornerRadius = radiusPx
@@ -406,7 +354,7 @@ object ThemeManager {
             addState(intArrayOf(android.R.attr.state_focused), focused)
             addState(intArrayOf(), normal)
         }
-        if (liteRender) return states
+        if (useLite) return states
         val rippleTint = Color.argb(
             if (palette.isDark) 82 else 68,
             Color.red(palette.accentFrom),

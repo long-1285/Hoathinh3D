@@ -1177,59 +1177,20 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         binding.settingsSubtabContent.addView(devBox)
 
         val themeBox = cardContainer(p)
-        themeBox.addView(headingText("Chế Độ Sáng / Tối & Tông Màu Liquid Glass", p, 15f))
+        themeBox.addView(headingText("Chế Độ Giao Diện (2 Chế Độ)", p, 15f))
         themeBox.addView(
             mutedText(
-                "Chọn nền Sáng thanh thoát hoặc Chế độ Tối dịu mắt (kính trong suốt 52% • mờ nền 32%).",
+                "Chọn 1 trong 2 chế độ: 1. Sáng dịu Ngọc Trai hoặc 2. Hoàng Hôn Đêm dịu mắt (kính trong suốt 52%).",
                 p
             )
         )
 
-        val darkModeRow = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, ThemeManager.dp(context, 10f), 0, ThemeManager.dp(context, 4f))
-        }
-        for ((idx, dm) in DarkModePreference.entries.withIndex()) {
-            val active = st.settings.darkMode == dm.wireValue
-            val tagStr = "darkmode_${dm.wireValue}"
-            darkModeRow.addView(
-                styledButton(if (active) "${dm.label} ✓" else dm.label, p, active) {
-                    pendingFocusTag = tagStr
-                    h.updateSettings { cur ->
-                        val nextTheme = if (dm == DarkModePreference.LIGHT && cur.theme == ThemePreset.DARK.wireValue) {
-                            ThemePreset.PEARL.wireValue
-                        } else {
-                            cur.theme
-                        }
-                        cur.copy(darkMode = dm.wireValue, theme = nextTheme)
-                    }
-                    h.showToast("Chế độ hiển thị: ${dm.label}")
-                }.apply {
-                    tag = tagStr
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f
-                    ).apply {
-                        if (idx > 0) marginStart = ThemeManager.dp(context, 8f)
-                    }
-                }
-            )
-        }
-        themeBox.addView(darkModeRow)
-
-        themeBox.addView(
-            headingText("Tông Màu Chủ Đề Liquid Glass (3 Chủ Đề Dịu Nhẹ)", p, 13.5f).apply {
-                setPadding(0, ThemeManager.dp(context, 12f), 0, ThemeManager.dp(context, 2f))
-            }
-        )
         val themeButtons = ThemePreset.entries.map { preset ->
-            val active = st.settings.theme == preset.wireValue
+            val active = if (preset == ThemePreset.DARK) p.isDark else !p.isDark
             val tagStr = "theme_${preset.wireValue}"
-            val darkTag = if (p.isDark && preset != ThemePreset.DARK) " • Tối" else ""
+            val iconPrefix = if (preset == ThemePreset.DARK) "🌙 " else "☀ "
             styledButton(
-                if (active) "${preset.displayName}$darkTag ✓" else "${preset.displayName} — ${preset.desc}",
+                if (active) "$iconPrefix${preset.displayName} ✓" else "$iconPrefix${preset.displayName} — ${preset.desc}",
                 p,
                 active
             ) {
@@ -1238,14 +1199,14 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                     val nextDarkMode = if (preset == ThemePreset.DARK) {
                         DarkModePreference.DARK.wireValue
                     } else {
-                        cur.darkMode
+                        DarkModePreference.LIGHT.wireValue
                     }
                     cur.copy(theme = preset.wireValue, darkMode = nextDarkMode)
                 }
-                h.showToast("Đã áp dụng tông màu: ${preset.displayName}")
+                h.showToast("Đã chuyển giao diện: ${preset.displayName}")
             }.apply { tag = tagStr }
         }
-        themeBox.addView(buttonGrid(themeButtons, columns = if (isWide) 3 else 1, topMarginDp = 8f))
+        themeBox.addView(buttonGrid(themeButtons, columns = if (isWide) 2 else 1, topMarginDp = 10f))
 
         val isLowRam = DeviceProfileResolver.isLowRamDevice(requireContext())
         val liteHint = if (isLowRam) {

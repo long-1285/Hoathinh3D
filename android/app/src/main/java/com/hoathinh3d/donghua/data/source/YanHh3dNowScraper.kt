@@ -13,6 +13,8 @@ import com.hoathinh3d.donghua.player.EmbedFallbackView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.Request
@@ -37,6 +39,9 @@ object YanHh3dNowScraper {
     private data class CacheEntry(val value: Any, val expiresAtMs: Long)
 
     private val cache = ConcurrentHashMap<String, CacheEntry>()
+    private val homeHtmlMutex = Mutex()
+    private val homeHtmlCache = ConcurrentHashMap<String, Pair<String, Long>>()
+    private const val HOME_HTML_SHARED_TTL_MS = 15_000L
 
     @Volatile
     private var cachedCsrfToken: String = ""
@@ -374,15 +379,7 @@ object YanHh3dNowScraper {
     ): List<DonghuaMovie> {
         val cleanBase = baseUrl.trimEnd('/')
         return try {
-            val html = HttpClientProvider.getText(
-                "$cleanBase/",
-                mapOf(
-                    "Referer" to "$cleanBase/",
-                    "Cache-Control" to "no-cache",
-                    "Pragma" to "no-cache"
-                ),
-                8000L
-            )
+            val html = fetchHtmlAndCaptureSession(cleanBase, bypassCache = false)
             parseRealtimeRankingHtml(html, cleanBase, sourceName)
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) throw t
@@ -502,23 +499,49 @@ object YanHh3dNowScraper {
         }
     }
 
-    private suspend fun fetchHtmlAndCaptureSession(baseUrl: String): String = withContext(Dispatchers.IO) {
+    private suspend fun fetchHtmlAndCaptureSession(
+        baseUrl: String,
+        bypassCache: Boolean = false
+    ): String {
         val cleanBase = baseUrl.trimEnd('/')
-        val req = Request.Builder()
-            .url("$cleanBase/")
-            .header("User-Agent", HttpClientProvider.DEFAULT_UA)
-            .header("Referer", "$cleanBase/")
-            .build()
-        HttpClientProvider.okHttpClient.newCall(req).execute().use { resp ->
-            val setCookies = resp.headers("Set-Cookie")
-            if (setCookies.isNotEmpty()) {
-                cachedCookieHeader = setCookies.joinToString("; ") { it.substringBefore(';') }
+        val now = System.currentTimeMillis()
+        if (!bypassCache) {
+            homeHtmlCache[cleanBase]?.let { (cachedHtml, ts) ->
+                if (now - ts < HOME_HTML_SHARED_TTL_MS && cachedHtml.isNotEmpty()) {
+                    return cachedHtml
+                }
             }
-            val html = resp.body?.string().orEmpty()
-            val csrf = Regex("""<meta[^>]+name=["']csrf-token["'][^>]+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-                .find(html)?.groupValues?.getOrNull(1).orEmpty()
-            if (csrf.isNotBlank()) cachedCsrfToken = csrf
-            html
+        }
+        return homeHtmlMutex.withLock {
+            val lockedNow = System.currentTimeMillis()
+            if (!bypassCache) {
+                homeHtmlCache[cleanBase]?.let { (cachedHtml, ts) ->
+                    if (lockedNow - ts < HOME_HTML_SHARED_TTL_MS && cachedHtml.isNotEmpty()) {
+                        return@withLock cachedHtml
+                    }
+                }
+            }
+            withContext(Dispatchers.IO) {
+                val req = Request.Builder()
+                    .url("$cleanBase/")
+                    .header("User-Agent", HttpClientProvider.DEFAULT_UA)
+                    .header("Referer", "$cleanBase/")
+                    .build()
+                HttpClientProvider.okHttpClient.newCall(req).execute().use { resp ->
+                    val setCookies = resp.headers("Set-Cookie")
+                    if (setCookies.isNotEmpty()) {
+                        cachedCookieHeader = setCookies.joinToString("; ") { it.substringBefore(';') }
+                    }
+                    val html = resp.body?.string().orEmpty()
+                    val csrf = Regex("""<meta[^>]+name=["']csrf-token["'][^>]+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+                        .find(html)?.groupValues?.getOrNull(1).orEmpty()
+                    if (csrf.isNotBlank()) cachedCsrfToken = csrf
+                    if (html.isNotEmpty()) {
+                        homeHtmlCache[cleanBase] = html to System.currentTimeMillis()
+                    }
+                    html
+                }
+            }
         }
     }
 
