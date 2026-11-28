@@ -23,6 +23,7 @@ import com.hoathinh3d.donghua.data.model.ResolvedDeviceProfile
 import com.hoathinh3d.donghua.data.model.ServerGroup
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
 import com.hoathinh3d.donghua.data.source.MovieRepository
+import com.hoathinh3d.donghua.data.source.Phim500SourceProvider
 import com.hoathinh3d.donghua.data.source.VsmovSourceProvider
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.databinding.ActivityMovieDetailBinding
@@ -149,6 +150,16 @@ class MovieDetailActivity : AppCompatActivity() {
         loadFullDetail()
     }
 
+    private fun pickPreferredServerInPool(poolIndices: List<Int>, isDub: Boolean): Int {
+        if (poolIndices.isEmpty()) return activeServerIdx
+        val poolServers = poolIndices.map { serverGroups[it] }
+        val pickedInPool = MovieRepository.selectPreferredServerIdx(
+            poolServers,
+            if (isDub) "Thuyết Minh" else "Vietsub"
+        )
+        return poolIndices.getOrElse(pickedInPool) { poolIndices.first() }
+    }
+
     private fun syncAudioAndServerSelection() {
         val visibleIndices = MovieRepository.visibleServerIndices(serverGroups, activeServerIdx)
         val dubIndices = visibleIndices.filter { MovieRepository.isDubbedServerName(serverGroups[it].serverName) }
@@ -163,10 +174,7 @@ class MovieDetailActivity : AppCompatActivity() {
         }
         val poolIndices = if (selectedAudioIsDub) dubIndices else subIndices
         if (poolIndices.isNotEmpty()) {
-            activeServerIdx = MovieRepository.selectPreferredServerIdx(
-                serverGroups,
-                if (selectedAudioIsDub) "Thuyết Minh" else "Vietsub"
-            )
+            activeServerIdx = pickPreferredServerInPool(poolIndices, selectedAudioIsDub)
         }
         epRangeIdx = 0
     }
@@ -236,6 +244,10 @@ class MovieDetailActivity : AppCompatActivity() {
                 val streamRes = when {
                     ep.linkM3u8.contains(".m3u8", ignoreCase = true) ->
                         com.hoathinh3d.donghua.data.model.StreamResult(linkM3u8 = ep.linkM3u8)
+                    ep.wpServerType == Phim500SourceProvider.SERVER_TYPE_500PHIM -> {
+                        val playUrl = ep.wpPageUrl.orEmpty().ifBlank { ep.linkEmbed }
+                        Phim500SourceProvider.resolveStreamResult(playUrl)
+                    }
                     ep.wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV -> {
                         val embedUrl = ep.linkEmbed.ifBlank { ep.wpPageUrl.orEmpty() }
                         VsmovSourceProvider.resolveStreamResult(embedUrl)
@@ -351,11 +363,7 @@ class MovieDetailActivity : AppCompatActivity() {
         }
         val activeGroupIndices = if (selectedAudioIsDub) dubIndices else subIndices
         if (activeGroupIndices.isNotEmpty() && activeServerIdx !in activeGroupIndices) {
-            activeServerIdx = MovieRepository.selectPreferredServerIdx(
-                serverGroups,
-                if (selectedAudioIsDub) "Thuyết Minh" else "Vietsub"
-            )
-            if (activeServerIdx !in activeGroupIndices) activeServerIdx = activeGroupIndices.first()
+            activeServerIdx = pickPreferredServerInPool(activeGroupIndices, selectedAudioIsDub)
         }
         val currentSrv = if (activeGroupIndices.isNotEmpty()) serverGroups.getOrNull(activeServerIdx) else null
 
@@ -438,11 +446,7 @@ class MovieDetailActivity : AppCompatActivity() {
                     selectedAudioIsDub = isDubTab
                     val targetPool = if (isDubTab) dubIndices else subIndices
                     if (targetPool.isNotEmpty()) {
-                        activeServerIdx = MovieRepository.selectPreferredServerIdx(
-                            serverGroups,
-                            if (isDubTab) "Thuyết Minh" else "Vietsub"
-                        )
-                        if (activeServerIdx !in targetPool) activeServerIdx = targetPool.first()
+                        activeServerIdx = pickPreferredServerInPool(targetPool, isDubTab)
                     }
                     epRangeIdx = 0
                     renderUi()
@@ -610,9 +614,14 @@ class MovieDetailActivity : AppCompatActivity() {
     }
 
     private fun openPlayer(episode: Int, serverIdx: Int, resumeTimeSec: Double = -1.0) {
+        val resolvedServerIdx = MovieRepository.resolveServerIdxForEpisode(
+            serverGroups = serverGroups,
+            preferredServerIdx = serverIdx,
+            targetEpNum = episode
+        )
         val enriched = movie.copy(
             serverGroups = if (serverGroups.isNotEmpty()) serverGroups else movie.serverGroups
         )
-        startActivity(PlayerActivity.createIntent(this, enriched, episode, serverIdx, resumeTimeSec))
+        startActivity(PlayerActivity.createIntent(this, enriched, episode, resolvedServerIdx, resumeTimeSec))
     }
 }

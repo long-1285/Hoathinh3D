@@ -34,6 +34,17 @@ object InitialData {
             desc = "Kho 21.000+ Phim & Hoạt Hình (VSMov API chính chủ), đa thể loại & tự khử PNG-TS",
             enabled = true,
             isCustom = false
+        ),
+        DonghuaSource(
+            id = "Phim500",
+            name = "500Phim",
+            url = "https://www.500phim.net",
+            type = "Next.js RSC + HLS/Sniffer",
+            ping = "12ms",
+            quality = "4K / FHD",
+            desc = "Kho Phim & Hoạt Hình 3D 4K/FHD từ 500Phim.net, đa server Vietsub/Thuyết minh & bộ lọc nâng cao",
+            enabled = true,
+            isCustom = false
         )
     )
 

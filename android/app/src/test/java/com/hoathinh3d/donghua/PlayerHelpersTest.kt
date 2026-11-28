@@ -22,6 +22,10 @@ class PlayerHelpersTest {
         assertEquals(1440, PlayerUtils.maxHeightForQualityPreset("2K HDR"))
         assertEquals(1080, PlayerUtils.maxHeightForQualityPreset("1080p Pro"))
         assertEquals(null, PlayerUtils.maxHeightForQualityPreset("Auto"))
+        assertEquals(null, PlayerUtils.maxHeightForQualityPreset("Nguồn tốt nhất"))
+        assertTrue(PlayerUtils.isBestQualityPreset("Nguồn tốt nhất"))
+        assertEquals("Tốt nhất", PlayerUtils.quickQualityBadgeLabel("Nguồn tốt nhất"))
+        assertEquals("Auto", PlayerUtils.quickQualityBadgeLabel("Auto"))
     }
 
     @Test

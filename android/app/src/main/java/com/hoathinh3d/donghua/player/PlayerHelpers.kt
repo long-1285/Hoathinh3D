@@ -172,6 +172,21 @@ object PlayerUtils {
         }
     }
 
+    fun isBestQualityPreset(preset: String?): Boolean {
+        val norm = preset?.trim()?.lowercase().orEmpty()
+        return norm == "nguồn tốt nhất" || norm == "nguon tot nhat" || norm == "best"
+    }
+
+    fun quickQualityBadgeLabel(preset: String?, fallbackMovieQuality: String? = null): String {
+        val clean = preset?.trim().orEmpty()
+        return when {
+            isBestQualityPreset(clean) -> "Tốt nhất"
+            clean.equals("Auto", ignoreCase = true) -> "Auto"
+            clean.isNotEmpty() -> clean.substringBefore(" ")
+            else -> fallbackMovieQuality?.trim()?.takeIf { it.isNotEmpty() }?.substringBefore(" ") ?: "Tốt nhất"
+        }
+    }
+
     fun maxHeightForQualityPreset(preset: String?): Int? {
         return when (preset?.trim()) {
             "4K 60FPS" -> 2160

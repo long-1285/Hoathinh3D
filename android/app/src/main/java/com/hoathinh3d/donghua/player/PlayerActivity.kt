@@ -71,6 +71,7 @@ import com.hoathinh3d.donghua.data.model.StreamResult
 import com.hoathinh3d.donghua.data.model.WatchProgress
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
 import com.hoathinh3d.donghua.data.source.MovieRepository
+import com.hoathinh3d.donghua.data.source.Phim500SourceProvider
 import com.hoathinh3d.donghua.data.source.VsmovSourceProvider
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.data.source.YanHh3dScraper
@@ -324,11 +325,8 @@ class PlayerActivity : AppCompatActivity() {
         binding.txtRewindSec.text = seekStep.toString()
         binding.txtForwardSec.text = seekStep.toString()
         binding.btnQuickSpeed.text = PlayerUtils.formatSpeedChip(playbackSpeed)
-        binding.btnQuickQuality.text = if (settings.defaultQuality.equals("Auto", ignoreCase = true)) {
-            "Auto"
-        } else {
-            movie.quality.ifBlank { "Auto" }.substringBefore(" ")
-        }
+        activeQualityIdx = if (PlayerUtils.isBestQualityPreset(settings.defaultQuality)) -2 else -1
+        binding.btnQuickQuality.text = PlayerUtils.quickQualityBadgeLabel(settings.defaultQuality, movie.quality)
         binding.txtActionSubtitles.text = if (settings.extensions.bilingualSub || settings.bilingualSub) {
             "Phụ đề: Bật"
         } else {
@@ -489,6 +487,8 @@ class PlayerActivity : AppCompatActivity() {
         val ts = DefaultTrackSelector(this, adaptiveFactory).apply {
             val builder = buildUponParameters()
             builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !biOn)
+            val isBestPreset = PlayerUtils.isBestQualityPreset(settings.defaultQuality)
+            builder.setForceHighestSupportedBitrate(isBestPreset)
             val presetMaxH = PlayerUtils.maxHeightForQualityPreset(settings.defaultQuality)
             val deviceCapH = DeviceProfileResolver.recommendedMaxVideoHeight(this@PlayerActivity, presetMaxH)
             deviceCapH?.let { maxH ->
@@ -1039,10 +1039,13 @@ class PlayerActivity : AppCompatActivity() {
         val wpBaseUrl = epItem?.wpBaseUrl ?: YanHh3dScraper.YAN_BASE
         val wpServerSv = epItem?.wpServerSv ?: "1"
         val wpPageUrl = epItem?.wpPageUrl ?: epItem?.yanPageUrl
+        val isPhim500Server = wpServerType == Phim500SourceProvider.SERVER_TYPE_500PHIM &&
+            (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
         val isVsmovServer = wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV &&
             (!epItem?.linkEmbed.isNullOrBlank() || !wpPageUrl.isNullOrBlank())
         val isNowServer = !wpServerType.isNullOrBlank() && wpServerType.startsWith("now:") && !wpPageUrl.isNullOrBlank()
         val wpKey = when {
+            isPhim500Server -> "p500_${wpPageUrl?.ifBlank { epItem?.linkEmbed }.orEmpty()}"
             isVsmovServer -> "vsmov_${epItem?.linkEmbed?.ifBlank { wpPageUrl }.orEmpty()}"
             isNowServer -> "${wpBaseUrl}_${wpPageUrl}_$wpServerType"
             wpPostId != null && !wpEpSlug.isNullOrBlank() && !wpServerType.isNullOrBlank() ->
@@ -1058,11 +1061,19 @@ class PlayerActivity : AppCompatActivity() {
             var m3u8 = epItem?.linkM3u8.orEmpty()
             var embed = epItem?.linkEmbed.orEmpty()
 
-            if (m3u8.isBlank() && isVsmovServer) {
+            if (m3u8.isBlank() && (isPhim500Server || isVsmovServer)) {
                 val cachedResolved = resolvedStreams[wpKey]
                 val res = cachedResolved ?: runCatching {
-                    val targetEmbed = embed.ifBlank { wpPageUrl.orEmpty() }
-                    VsmovSourceProvider.resolveStreamResult(targetEmbed, context = this@PlayerActivity)
+                    val targetPlayUrl = if (isPhim500Server) {
+                        wpPageUrl.orEmpty().ifBlank { embed }
+                    } else {
+                        embed.ifBlank { wpPageUrl.orEmpty() }
+                    }
+                    if (isPhim500Server) {
+                        Phim500SourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
+                    } else {
+                        VsmovSourceProvider.resolveStreamResult(targetPlayUrl, context = this@PlayerActivity)
+                    }
                 }.getOrNull()
                 if (res != null && (res.linkM3u8.isNotBlank() || res.linkEmbed.isNotBlank())) {
                     resolvedStreams[wpKey] = res
@@ -1149,8 +1160,9 @@ class PlayerActivity : AppCompatActivity() {
 
         val qualityTag = when {
             isOffline -> "Offline HLS"
-            activeQualityIdx < 0 || settings.defaultQuality.equals("Auto", ignoreCase = true) -> "Auto"
-            else -> movie.quality.ifBlank { "Auto" }
+            activeQualityIdx == -2 -> "Tốt nhất"
+            activeQualityIdx == -1 -> "Auto"
+            else -> PlayerUtils.quickQualityBadgeLabel(settings.defaultQuality, movie.quality)
         }
         binding.txtPlayerBadge.visibility = View.VISIBLE
         binding.txtPlayerBadge.text = "Trình phát Tích hợp • $qualityTag"
@@ -1451,6 +1463,32 @@ class PlayerActivity : AppCompatActivity() {
         val wpBaseUrl = nextEp.wpBaseUrl ?: YanHh3dScraper.YAN_BASE
         val wpServerSv = nextEp.wpServerSv ?: "1"
         val wpPageUrl = nextEp.wpPageUrl ?: nextEp.yanPageUrl
+        if (wpServerType == Phim500SourceProvider.SERVER_TYPE_500PHIM) {
+            val playUrl = wpPageUrl.orEmpty().ifBlank { nextEp.linkEmbed }
+            if (playUrl.isBlank()) return
+            val p500Key = "p500_$playUrl"
+            val existing = resolvedStreams[p500Key]
+            if (existing != null) {
+                if (existing.linkM3u8.isNotBlank()) {
+                    HlsCacheProvider.registerStreamHeaders(existing.linkM3u8, existing.headers)
+                    lifecycleScope.launch {
+                        HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, existing.linkM3u8)
+                    }
+                }
+                return
+            }
+            lifecycleScope.launch {
+                runCatching {
+                    val res = Phim500SourceProvider.resolveStreamResult(playUrl)
+                    if (res.linkM3u8.isNotBlank()) {
+                        resolvedStreams[p500Key] = res
+                        HlsCacheProvider.registerStreamHeaders(res.linkM3u8, res.headers)
+                        HlsCacheProvider.prefetchHlsStart(this@PlayerActivity, res.linkM3u8)
+                    }
+                }
+            }
+            return
+        }
         if (wpServerType == VsmovSourceProvider.SERVER_TYPE_VSMOV) {
             val embedUrl = nextEp.linkEmbed.ifBlank { wpPageUrl.orEmpty() }
             if (embedUrl.isBlank()) return
@@ -1647,6 +1685,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun updateQualityLevelsFromTracks(tracks: Tracks) {
         qualityOptions.clear()
+        qualityOptions.add(QualityTrackOption(-2, "Nguồn tốt nhất", 0, Int.MAX_VALUE))
         qualityOptions.add(QualityTrackOption(-1, "Tự động (ABR)", 0, 0))
         var idx = 0
         for (group in tracks.groups) {
@@ -1663,8 +1702,10 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         val activeLabel = qualityOptions.firstOrNull { it.index == activeQualityIdx }
-            ?.label?.replace("Tự động (ABR)", "Auto")
-            ?: if (settings.defaultQuality.equals("Auto", ignoreCase = true)) "Auto" else movie.quality.ifBlank { "Auto" }
+            ?.label
+            ?.replace("Nguồn tốt nhất", "Tốt nhất")
+            ?.replace("Tự động (ABR)", "Auto")
+            ?: PlayerUtils.quickQualityBadgeLabel(settings.defaultQuality, movie.quality)
         binding.btnQuickQuality.text = activeLabel.substringBefore(" ")
         binding.txtPlayerBadge.text = "Trình phát Tích hợp • $activeLabel"
     }
@@ -1673,18 +1714,30 @@ class PlayerActivity : AppCompatActivity() {
         val ts = trackSelector ?: return
         activeQualityIdx = opt.index
         val builder = ts.buildUponParameters()
-        if (opt.index < 0 || opt.height <= 0) {
+        if (opt.index == -2) {
+            builder.setForceHighestSupportedBitrate(true)
+            val deviceCapH = DeviceProfileResolver.recommendedMaxVideoHeight(this, null)
+            if (deviceCapH != null) {
+                builder.setMaxVideoSize(Int.MAX_VALUE, deviceCapH).setMinVideoSize(0, 0)
+            } else {
+                builder.clearVideoSizeConstraints()
+            }
+        } else if (opt.index < 0 || opt.height <= 0) {
+            builder.setForceHighestSupportedBitrate(false)
             if (DeviceProfileResolver.isLowRamDevice(this)) {
                 builder.setMaxVideoSize(1920, 1080).setMinVideoSize(0, 0)
             } else {
                 builder.clearVideoSizeConstraints()
             }
         } else {
+            builder.setForceHighestSupportedBitrate(false)
             builder.setMaxVideoSize(Int.MAX_VALUE, opt.height)
             builder.setMinVideoSize(0, opt.height)
         }
         ts.setParameters(builder)
-        val cleanLabel = opt.label.replace("Tự động (ABR)", "Auto")
+        val cleanLabel = opt.label
+            .replace("Nguồn tốt nhất", "Tốt nhất")
+            .replace("Tự động (ABR)", "Auto")
         binding.btnQuickQuality.text = cleanLabel.substringBefore(" ")
         binding.txtPlayerBadge.text = "Trình phát Tích hợp • $cleanLabel"
         closeDrawer()

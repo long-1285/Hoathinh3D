@@ -704,13 +704,14 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         box.addView(headingText("Cấu Hình Trình Phát Tích Hợp (Media3 ExoPlayer)", p, 15f))
 
         val qualityOptions = listOf(
-            "Auto" to "Auto • Thuyết minh (Theo mạng thực tế)",
+            "Nguồn tốt nhất" to "Nguồn tốt nhất (Ưu tiên nét nhất)",
+            "Auto" to "Auto (Theo mạng thực tế)",
             "4K 60FPS" to "4K 60FPS",
             "2K HDR" to "2K HDR",
             "1080p Pro" to "1080p Pro"
         )
         val curQualityLabel = qualityOptions.firstOrNull { it.first == s.defaultQuality }?.second
-            ?: "Auto • Thuyết minh (Theo mạng thực tế)"
+            ?: "Nguồn tốt nhất (Ưu tiên nét nhất)"
         val spinners = listOf(
             spinnerRow(
                 "Chất lượng mặc định",
@@ -718,7 +719,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 curQualityLabel,
                 p
             ) { pickedLabel ->
-                val wire = qualityOptions.firstOrNull { it.second == pickedLabel }?.first ?: "Auto"
+                val wire = qualityOptions.firstOrNull { it.second == pickedLabel }?.first ?: "Nguồn tốt nhất"
                 h.updateSettings { it.copy(defaultQuality = wire) }
                 h.showToast("Đã đặt chất lượng mặc định: $pickedLabel")
             },
@@ -810,6 +811,9 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         formBox.addView(mutedText("Nhập URL trang web xem hoạt hình 3D hoặc link M3U8 / Embed / JSON API", p))
 
         // Quick presets
+        val presetScroll = android.widget.HorizontalScrollView(requireContext()).apply {
+            isHorizontalScrollBarEnabled = false
+        }
         val presetRow = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, ThemeManager.dp(context, 8f), 0, ThemeManager.dp(context, 8f))
@@ -841,7 +845,24 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
                 ).apply { marginStart = ThemeManager.dp(context, 8f) }
             }
         )
-        formBox.addView(presetRow)
+        presetRow.addView(
+            styledButton("🎬 500phim.net", p, false) {
+                draftUrl = "https://www.500phim.net"
+                draftName = "500Phim"
+                draftType = "Next.js RSC + HLS/Sniffer"
+                draftQuality = "4K 60FPS"
+                lastProbeResult = null
+                refreshUi()
+                h.showToast("Đã điền mẫu nguồn: 500phim.net")
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { marginStart = ThemeManager.dp(context, 8f) }
+            }
+        )
+        presetScroll.addView(presetRow)
+        formBox.addView(presetScroll)
 
         val urlInput = EditText(requireContext()).apply {
             hint = "https://ten-trang-web-bat-ky.com/..."
@@ -871,7 +892,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         formBox.addView(
             spinnerRow(
                 "Loại trình phân tích",
-                listOf("Smart Scraper", "Laravel Scraper + StreamRPT", "WP Scraper + AJAX", "M3U8 Stream", "JSON / CMS API"),
+                listOf("Smart Scraper", "Next.js RSC + HLS/Sniffer", "Laravel Scraper + StreamRPT", "WP Scraper + AJAX", "M3U8 Stream", "JSON / CMS API"),
                 draftType,
                 p
             ) { picked ->

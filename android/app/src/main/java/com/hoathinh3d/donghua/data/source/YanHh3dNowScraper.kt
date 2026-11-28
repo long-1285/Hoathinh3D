@@ -656,6 +656,58 @@ object YanHh3dNowScraper {
         return base + resRank
     }
 
+    internal fun isTrailerEpisode(ep: EpisodeItem): Boolean =
+        isTrailerLabelOrSlug(ep.name, ep.slug)
+
+    internal fun isTrailerLabelOrSlug(name: String, slug: String): Boolean {
+        val combined = "$name $slug".lowercase()
+        return Regex("""(?:^|[^a-z0-9])(tl|trailer|preview|teaser)(?:[^a-z0-9]|$)""").containsMatchIn(combined)
+    }
+
+    private fun pickSampleEpisodeUrlsForTab(tab: NowTabEpisodes): List<String> {
+        val withUrl = tab.episodes.filter { !it.wpPageUrl.isNullOrBlank() }
+        if (withUrl.isEmpty()) return emptyList()
+        val nonTrailer = withUrl.filterNot { isTrailerEpisode(it) }
+        val candidates = LinkedHashSet<String>()
+        if (nonTrailer.isNotEmpty()) {
+            nonTrailer.lastOrNull()?.wpPageUrl?.let { candidates.add(it) }
+            if (nonTrailer.size >= 2) {
+                nonTrailer[nonTrailer.size - 2].wpPageUrl?.let { candidates.add(it) }
+            }
+            nonTrailer.firstOrNull()?.wpPageUrl?.let { candidates.add(it) }
+        }
+        withUrl.lastOrNull()?.wpPageUrl?.let { candidates.add(it) }
+        return candidates.toList()
+    }
+
+    internal suspend fun resolveButtonsForTab(
+        tab: NowTabEpisodes,
+        primarySampleUrl: String,
+        primaryBtns: List<WatchServerBtn>,
+        fetchWatchHtml: suspend (String) -> String
+    ): List<WatchServerBtn> {
+        val candidates = pickSampleEpisodeUrlsForTab(tab)
+        if (candidates.isEmpty()) return primaryBtns
+        var firstNonEmpty: List<WatchServerBtn> = emptyList()
+        for (sampleEpUrl in candidates) {
+            val btns = if (sampleEpUrl == primarySampleUrl) {
+                primaryBtns
+            } else {
+                runCatching {
+                    parseWatchButtons(fetchWatchHtml(sampleEpUrl)).sortedBy { serverPriorityScore(it) }
+                }.getOrDefault(emptyList())
+            }
+            if (btns.any { isDirectNativeServer(it) }) {
+                return btns
+            }
+            if (firstNonEmpty.isEmpty() && btns.isNotEmpty()) {
+                firstNonEmpty = btns
+            }
+        }
+        return if (primaryBtns.any { isDirectNativeServer(it) }) primaryBtns
+        else firstNonEmpty.ifEmpty { primaryBtns }
+    }
+
     private fun isDirectNativeServer(btn: WatchServerBtn): Boolean {
         val src = btn.dataSrc.lowercase()
         // streamc.xyz dùng Cloudflare Turnstile JS shell, không trả .m3u8 trực tiếp cho ExoPlayer
@@ -718,12 +770,17 @@ object YanHh3dNowScraper {
                 ?.ifBlank { doc.selectFirst(".film-poster-img")?.absUrl("src").orEmpty() }
 
             val targetSlug = targetDetailUrl.trimEnd('/').substringAfterLast('/')
-            val watchHref = doc.select("a[href]").firstOrNull { a ->
+            val watchCandidates = doc.select("a[href]").mapNotNull { a ->
                 val h = a.absUrl("href")
-                h.contains("/$targetSlug/tap-", ignoreCase = true) ||
+                val isWatch = h.contains("/$targetSlug/tap-", ignoreCase = true) ||
                     h.contains("/sever2/$targetSlug/", ignoreCase = true) ||
                     (h.contains("/$targetSlug/") && !h.endsWith("/$targetSlug") && !h.endsWith("/$targetSlug/"))
-            }?.absUrl("href") ?: return MovieDetailResult(emptyList(), description.ifBlank { null }, poster)
+                if (!isWatch) null else (h to a.text().trim())
+            }
+            val watchHref = watchCandidates.firstOrNull { (h, text) ->
+                !isTrailerLabelOrSlug(text, h.substringAfterLast('/'))
+            }?.first ?: watchCandidates.firstOrNull()?.first
+                ?: return MovieDetailResult(emptyList(), description.ifBlank { null }, poster)
 
             val watchHtml = HttpClientProvider.getText(watchHref, mapOf("Referer" to targetDetailUrl), 7500L)
             val audioTabs = parseWatchPageEpisodes(watchHtml, cleanBase)
@@ -734,19 +791,18 @@ object YanHh3dNowScraper {
             val primaryBtns = parseWatchButtons(watchHtml).sortedBy { serverPriorityScore(it) }
             val primarySampleUrl = watchHref
 
-            // If another audio tab exists (e.g. Vietsub alongside Thuyết Minh), fetch one watch page to discover its servers too
+            // Bỏ qua các tập Trailer/Preview (VD: "169 TL") khi dò máy chủ cho từng tab âm thanh
+            // để tránh việc nút "Trailer" (Facebook embed) che mất các máy chủ streamrpt1 trực tiếp.
             val tabButtonsMap = LinkedHashMap<Int, List<WatchServerBtn>>()
             coroutineScope {
                 val jobs = audioTabs.mapIndexed { idx, tab ->
                     async {
-                        val sampleEpUrl = tab.episodes.lastOrNull()?.wpPageUrl
-                        val btns = when {
-                            sampleEpUrl.isNullOrBlank() -> primaryBtns
-                            sampleEpUrl == primarySampleUrl -> primaryBtns
-                            else -> runCatching {
-                                val h = HttpClientProvider.getText(sampleEpUrl, mapOf("Referer" to targetDetailUrl), 6000L)
-                                parseWatchButtons(h).sortedBy { serverPriorityScore(it) }.ifEmpty { primaryBtns }
-                            }.getOrDefault(primaryBtns)
+                        val btns = resolveButtonsForTab(
+                            tab = tab,
+                            primarySampleUrl = primarySampleUrl,
+                            primaryBtns = primaryBtns
+                        ) { epUrl ->
+                            HttpClientProvider.getText(epUrl, mapOf("Referer" to targetDetailUrl), 6000L)
                         }
                         idx to btns
                     }

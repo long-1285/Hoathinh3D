@@ -2,7 +2,9 @@ package com.hoathinh3d.donghua
 
 import com.hoathinh3d.donghua.data.source.YanHh3dNowScraper
 import com.hoathinh3d.donghua.player.HlsCacheProvider
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
@@ -168,5 +170,62 @@ class YanHh3dNowScraperTest {
         assertTrue(ids.contains("Phim Hành Động"))
         assertTrue(ids.contains("Tình Cảm"))
         assertTrue(ids.contains("Tiên Hiệp"))
+    }
+
+    @Test
+    fun resolveButtonsForTab_skipsTrailerEpisodeAndKeepsDirectThuyetMinhServers() = runBlocking {
+        val watchHtmlWithTrailerAtEnd = """
+            <div id="list_sv">
+                <a class="btn btn3dsv" id="sv_LINK1" name="LINK1" data-src="https://scontent.streamrpt1.site/o2/v/vs1.m3u8">1080</a>
+                <a class="btn btn3dsv" id="sv_LINK5" name="LINK5" data-src="https://scontent.streamrpt1.site/o2/v/vs4k.m3u8">4K</a>
+            </div>
+            <div id="detail-ss-list">
+                <ul class="nav nav-tabs pre-tabs sever-ep">
+                    <li class="nav-item"><a href="#top-comment" class="nav-link">Thuyết Minh</a></li>
+                    <li class="nav-item"><a href="#new-comment" class="nav-link">Vietsub</a></li>
+                </ul>
+                <div id="comment-widget">
+                    <div id="top-comment" class="tab-pane active">
+                        <a class="ssl-item ep-item" href="https://yanhh3d.now/tien-nghich/tap-168" title="168">168</a>
+                        <a class="ssl-item ep-item" href="https://yanhh3d.now/tien-nghich/tap-169" title="169 TL">169 TL</a>
+                    </div>
+                    <div id="new-comment" class="tab-pane">
+                        <a class="ssl-item ep-item" href="https://yanhh3d.now/sever2/tien-nghich/tap-168" title="168">168</a>
+                    </div>
+                </div>
+            </div>
+        """.trimIndent()
+
+        val tabs = YanHh3dNowScraper.parseWatchPageEpisodes(watchHtmlWithTrailerAtEnd)
+        val tmTab = tabs[0]
+        assertEquals("Thuyết Minh", tmTab.audioLabel)
+        assertFalse(YanHh3dNowScraper.isTrailerEpisode(tmTab.episodes[0]))
+        assertTrue(YanHh3dNowScraper.isTrailerEpisode(tmTab.episodes[1]))
+
+        val tmButtons = YanHh3dNowScraper.resolveButtonsForTab(
+            tab = tmTab,
+            primarySampleUrl = "https://yanhh3d.now/sever2/tien-nghich/tap-168",
+            primaryBtns = YanHh3dNowScraper.parseWatchButtons(watchHtmlWithTrailerAtEnd)
+        ) { epUrl ->
+            when (epUrl) {
+                "https://yanhh3d.now/tien-nghich/tap-169" -> """
+                    <div id="list_sv">
+                        <a class="btn btn3dsv" id="sv_Trailer" name="Trailer" data-src="https://www.facebook.com/plugins/video.php?href=123">Trailer</a>
+                    </div>
+                """.trimIndent()
+                "https://yanhh3d.now/tien-nghich/tap-168" -> """
+                    <div id="list_sv">
+                        <a class="btn btn3dsv" id="sv_LINK1" name="LINK1" data-src="https://scontent.streamrpt1.site/o2/v/tm1080.m3u8">1080</a>
+                        <a class="btn btn3dsv" id="sv_LINK5" name="LINK5" data-src="https://scontent.streamrpt1.site/o2/v/tm4k.m3u8">4K</a>
+                    </div>
+                """.trimIndent()
+                else -> ""
+            }
+        }
+
+        assertEquals(2, tmButtons.size)
+        assertEquals("4K", tmButtons[0].label)
+        assertTrue(tmButtons[0].dataSrc.contains("tm4k.m3u8"))
+        assertEquals("1080", tmButtons[1].label)
     }
 }

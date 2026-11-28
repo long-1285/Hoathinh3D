@@ -35,10 +35,12 @@ object PrefsStore {
         const val SOURCES_V4_TWO_ONLY = "hh3d_sources_v4_yanhh3d_nguonc_only"
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
         const val SOURCES_V57_WITH_VSMOV = "hh3d_sources_v57_with_vsmov"
+        const val SOURCES_V59_WITH_500PHIM = "hh3d_sources_v59_with_500phim"
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
         const val APPEARANCE_TWO_MODES_V51 = "hh3d_appearance_2modes_v51"
         const val QUALITY_AUTO_DEFAULT_V55 = "hh3d_quality_auto_default_v55"
         const val QUALITY_AUTO_TM_DEFAULT_V58 = "hh3d_quality_auto_tm_default_v58"
+        const val QUALITY_BEST_SOURCE_DEFAULT_V59 = "hh3d_quality_best_source_v59"
         const val SEARCH_HISTORY = "hh3d_search_history_v1"
     }
 
@@ -506,10 +508,11 @@ object PrefsStore {
                         prefs.edit()
                             .putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
                             .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
+                            .putString(Keys.SOURCES_V59_WITH_500PHIM, "1")
                             .apply()
                         return migrated
                     }
-                    if (!prefs.contains(Keys.SOURCES_V57_WITH_VSMOV)) {
+                    if (!prefs.contains(Keys.SOURCES_V57_WITH_VSMOV) || !prefs.contains(Keys.SOURCES_V59_WITH_500PHIM)) {
                         val existingIds = list.map { it.id }.toHashSet()
                         val missingBuiltIns = InitialData.DEFAULT_BUILT_IN_SOURCES.filter { !existingIds.contains(it.id) }
                         val merged = if (missingBuiltIns.isNotEmpty()) {
@@ -518,7 +521,10 @@ object PrefsStore {
                             list
                         }
                         saveSources(merged)
-                        prefs.edit().putString(Keys.SOURCES_V57_WITH_VSMOV, "1").apply()
+                        prefs.edit()
+                            .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
+                            .putString(Keys.SOURCES_V59_WITH_500PHIM, "1")
+                            .apply()
                         return merged
                     }
                     return list
@@ -529,6 +535,7 @@ object PrefsStore {
         prefs.edit()
             .putString(Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
             .putString(Keys.SOURCES_V57_WITH_VSMOV, "1")
+            .putString(Keys.SOURCES_V59_WITH_500PHIM, "1")
             .apply()
         saveSources(InitialData.DEFAULT_BUILT_IN_SOURCES)
         return InitialData.DEFAULT_BUILT_IN_SOURCES
@@ -582,6 +589,7 @@ object PrefsStore {
                 .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                 .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
                 .putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
+                .putString(Keys.QUALITY_BEST_SOURCE_DEFAULT_V59, "1")
                 .apply()
             return AppSettings()
         }
@@ -623,6 +631,7 @@ object PrefsStore {
             val needsTwoModesMigration = !prefs.contains(Keys.APPEARANCE_TWO_MODES_V51)
             val needsQualityAutoMigration = !prefs.contains(Keys.QUALITY_AUTO_DEFAULT_V55)
             val needsAutoTmMigration = !prefs.contains(Keys.QUALITY_AUTO_TM_DEFAULT_V58)
+            val needsBestSourceMigration = !prefs.contains(Keys.QUALITY_BEST_SOURCE_DEFAULT_V59)
             if (needsAutoTmMigration) {
                 defaultAudio = "Thuyết Minh"
             }
@@ -640,7 +649,11 @@ object PrefsStore {
                 seekStep = obj.optInt("seekStep", 10),
                 bilingualSub = obj.optBoolean("bilingualSub", false),
                 defaultAudio = defaultAudio,
-                defaultQuality = if (needsQualityAutoMigration || needsAutoTmMigration) "Auto" else obj.optString("defaultQuality", "Auto"),
+                defaultQuality = if (needsQualityAutoMigration || needsAutoTmMigration || needsBestSourceMigration) {
+                    "Nguồn tốt nhất"
+                } else {
+                    obj.optString("defaultQuality", "Nguồn tốt nhất")
+                },
                 aspectRatio = obj.optString("aspectRatio", "16:9"),
                 volume = obj.optDouble("volume", 1.0).toFloat().coerceIn(0f, 1f),
                 playbackSpeed = obj.optDouble("playbackSpeed", 1.0).toFloat().coerceIn(0.25f, 2f),
@@ -658,13 +671,14 @@ object PrefsStore {
                 showHomeContinue = if (needsV45Migration) true else obj.optBoolean("showHomeContinue", true),
                 showHomeTrending = if (needsV45Migration) true else obj.optBoolean("showHomeTrending", true)
             )
-            if (needsV45Migration || needsTwoModesMigration || needsQualityAutoMigration || needsAutoTmMigration) {
+            if (needsV45Migration || needsTwoModesMigration || needsQualityAutoMigration || needsAutoTmMigration || needsBestSourceMigration) {
                 prefs.edit()
                     .putString(Keys.SETTINGS, settingsToJson(loaded).toString())
                     .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
                     .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                     .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
                     .putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
+                    .putString(Keys.QUALITY_BEST_SOURCE_DEFAULT_V59, "1")
                     .apply()
             }
             loaded
@@ -680,6 +694,7 @@ object PrefsStore {
             .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
             .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
             .putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
+            .putString(Keys.QUALITY_BEST_SOURCE_DEFAULT_V59, "1")
             .apply()
         return updated
     }
@@ -813,6 +828,7 @@ object PrefsStore {
                 ed.putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
                 ed.putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
                 ed.putString(Keys.QUALITY_AUTO_TM_DEFAULT_V58, "1")
+                ed.putString(Keys.QUALITY_BEST_SOURCE_DEFAULT_V59, "1")
             }
             payload.optJSONObject("user")?.let { ed.putString(Keys.GOOGLE_USER, it.toString()) }
             payload.optJSONObject("watchedEpisodes")?.let { ed.putString(Keys.WATCHED_EPISODES, it.toString()) }

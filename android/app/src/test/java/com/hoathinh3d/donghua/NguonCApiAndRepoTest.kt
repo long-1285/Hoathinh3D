@@ -93,6 +93,28 @@ class NguonCApiAndRepoTest {
     }
 
     @Test
+    fun resolveServerIdxForEpisode_fallsBackWithinSameAudioGroupWhenEpisodeMissing() {
+        val servers = listOf(
+            ServerGroup(
+                "YanHH3D Now • Thuyết Minh (4K)",
+                (44..168).map { EpisodeItem("Tập $it", "tap-$it", wpServerSv = "hls") }
+            ),
+            ServerGroup(
+                "500Phim • 500 (Thuyết Minh)",
+                (1..107).map { EpisodeItem("Tập $it", "tap-$it", wpServerSv = "hls") }
+            ),
+            ServerGroup(
+                "YanHH3D Now • Vietsub (4K)",
+                (1..168).map { EpisodeItem("Tập $it", "tap-$it", wpServerSv = "hls") }
+            )
+        )
+        // Tập 163 có ở YanHH3D Now • Thuyết Minh (index 0) -> giữ nguyên
+        assertEquals(0, MovieRepository.resolveServerIdxForEpisode(servers, 0, 163))
+        // Tập 1 không có ở YanHH3D Now • Thuyết Minh (44..168) -> tự động chọn 500Phim • 500 (Thuyết Minh) (index 1)
+        assertEquals(1, MovieRepository.resolveServerIdxForEpisode(servers, 0, 1))
+    }
+
+    @Test
     fun embedFallbackView_wrapsIframeAndExtractsDirectM3u8() {
         val html = EmbedFallbackView.buildIframeWrapperHtml("https://streamfree.vip/embed/abc?autoplay=1")
         assertTrue(html.contains("<iframe"))

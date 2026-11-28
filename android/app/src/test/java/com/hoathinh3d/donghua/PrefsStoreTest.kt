@@ -60,15 +60,16 @@ class PrefsStoreTest {
     @Test
     fun defaultSourcesAndSettings_matchWebDefaults() {
         val sources = PrefsStore.getSources()
-        assertEquals(3, sources.size)
+        assertEquals(4, sources.size)
         assertEquals("YanHH3DNow", sources[0].id)
         assertEquals("YanHH3D", sources[1].id)
         assertEquals("VSMov", sources[2].id)
+        assertEquals("Phim500", sources[3].id)
 
         val settings = PrefsStore.getSettings()
         assertEquals("YanHH3DNow", settings.preferredSource)
         assertEquals("Thuyết Minh", settings.defaultAudio)
-        assertEquals("Auto", settings.defaultQuality)
+        assertEquals("Nguồn tốt nhất", settings.defaultQuality)
         assertEquals("pearl", settings.theme)
         assertEquals("light", settings.darkMode)
         assertEquals(52, settings.glassOpacity)
@@ -379,7 +380,7 @@ class PrefsStoreTest {
         PrefsStore.clearWatchedEpisodes("tiennghich")
         assertTrue(PrefsStore.getWatchedEpisodes("tiennghich").isEmpty())
 
-        // Verify v58 migration enforces Auto + Thuyết Minh once on legacy prefs, then preserves user changes
+        // Verify v59 migration enforces Nguồn tốt nhất + Thuyết Minh once on legacy prefs, then preserves user changes
         val legacyPrefs = InMemorySharedPrefs()
         legacyPrefs.edit().putString(
             PrefsStore.Keys.SETTINGS,
@@ -387,11 +388,26 @@ class PrefsStoreTest {
         ).apply()
         PrefsStore.initForTest(legacyPrefs)
         val migrated = PrefsStore.getSettings()
-        assertEquals("Auto", migrated.defaultQuality)
+        assertEquals("Nguồn tốt nhất", migrated.defaultQuality)
         assertEquals("Thuyết Minh", migrated.defaultAudio)
 
-        val userChanged = PrefsStore.saveSettings(migrated.copy(defaultAudio = "Vietsub", defaultQuality = "1080p Pro"))
+        val userChanged = PrefsStore.saveSettings(migrated.copy(defaultAudio = "Vietsub", defaultQuality = "Auto"))
         assertEquals("Vietsub", userChanged.defaultAudio)
-        assertEquals("1080p Pro", PrefsStore.getSettings().defaultQuality)
+        assertEquals("Auto", PrefsStore.getSettings().defaultQuality)
+
+        // Verify v59 sources migration appends Phim500 to existing v57/v58 sources without losing custom sources
+        val v58Prefs = InMemorySharedPrefs()
+        v58Prefs.edit()
+            .putString(PrefsStore.Keys.SOURCES_V5_YAN_NOW_NO_NGUONC, "1")
+            .putString(PrefsStore.Keys.SOURCES_V57_WITH_VSMOV, "1")
+            .putString(
+                PrefsStore.Keys.SOURCES,
+                """[{"id":"YanHH3DNow","name":"YanHH3D Now","url":"https://yanhh3d.now","type":"Laravel","ping":"11ms","quality":"4K","desc":"","enabled":true,"isCustom":false},{"id":"custom1","name":"CustomWeb","url":"https://custom.test","type":"Smart","ping":"20ms","quality":"HD","desc":"","enabled":true,"isCustom":true}]"""
+            )
+            .apply()
+        PrefsStore.initForTest(v58Prefs)
+        val upgradedSources = PrefsStore.getSources()
+        assertTrue(upgradedSources.any { it.id == "Phim500" && !it.isCustom })
+        assertTrue(upgradedSources.any { it.id == "custom1" && it.isCustom })
     }
 }

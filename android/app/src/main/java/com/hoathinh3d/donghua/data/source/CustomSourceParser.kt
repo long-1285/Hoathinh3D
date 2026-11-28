@@ -51,6 +51,10 @@ object CustomSourceParser {
                     hintCount = Regex("\"slug\"").findAll(trimmed).count()
                     "JSON / CMS API"
                 }
+                normalized.contains("500phim.net", ignoreCase = true) -> {
+                    hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
+                    "Next.js RSC + HLS/Sniffer"
+                }
                 normalized.contains("vsmov.com", ignoreCase = true) -> {
                     hintCount = Regex("\"slug\"").findAll(trimmed).count().coerceAtLeast(10)
                     "JSON API + StreamVSMov"
@@ -202,6 +206,9 @@ object CustomSourceParser {
         val url = normalizeUrl(source.url)
         val origin = extractOrigin(url)
         return try {
+            if (url.contains("500phim.net", ignoreCase = true)) {
+                return Phim500SourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            }
             if (url.contains("vsmov.com", ignoreCase = true)) {
                 return VsmovSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
             }
@@ -336,14 +343,20 @@ object CustomSourceParser {
     ): CatalogPageResult {
         val origin = extractOrigin(source.url)
         val rawSpec = genre.sourceSlug?.trim().orEmpty()
-        if (rawSpec.isBlank() || genre.id == "Tất cả") {
-            return fetchMoviesByUrl(normalizeUrl(source.url), source, page = page, forcedGenre = null)
+        if (origin.contains("500phim.net", ignoreCase = true)) {
+            if (rawSpec.isBlank() || genre.id == "Tất cả") {
+                return Phim500SourceProvider.fetchHomeCatalogForApp(page)
+            }
+            return Phim500SourceProvider.fetchGenreCatalogForApp(genre, page)
         }
         if (origin.contains("vsmov.com", ignoreCase = true)) {
             if (rawSpec.isBlank() || genre.id == "Tất cả") {
                 return VsmovSourceProvider.fetchHomeCatalogForApp(page)
             }
             return VsmovSourceProvider.fetchGenreCatalogForApp(genre, page)
+        }
+        if (rawSpec.isBlank() || genre.id == "Tất cả") {
+            return fetchMoviesByUrl(normalizeUrl(source.url), source, page = page, forcedGenre = null)
         }
         if (origin.contains("yanhh3d.now", ignoreCase = true) && !rawSpec.startsWith("http", true)) {
             val res = YanHh3dNowScraper.fetchMoviesByPath(
@@ -436,6 +449,9 @@ object CustomSourceParser {
         val url = normalizeUrl(source.url)
         return try {
             when {
+                url.contains("500phim.net", ignoreCase = true) -> {
+                    Phim500SourceProvider.searchAsDonghuaMovies(query)
+                }
                 url.contains("vsmov.com", ignoreCase = true) -> {
                     VsmovSourceProvider.searchAsDonghuaMovies(query)
                 }

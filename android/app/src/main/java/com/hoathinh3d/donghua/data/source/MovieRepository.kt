@@ -95,6 +95,8 @@ object MovieRepository {
         if (low.contains("wsrv.nl") ||
             low.endsWith(".webp") ||
             low.endsWith(".avif") ||
+            low.contains("output=webp") ||
+            low.contains("cdn.500phim.net") ||
             low.contains("phimimg.com") ||
             low.contains("yanhh3d.") ||
             low.contains("googleusercontent.com")
@@ -179,6 +181,48 @@ object MovieRepository {
             }
         )
         return sorted.first().idx
+    }
+
+    /**
+     * Khi người dùng chọn phát tập [targetEpNum] ở máy chủ [preferredServerIdx],
+     * nếu máy chủ đó không có tập [targetEpNum] (VD: chỉ có Tập 44..168) thì tìm máy chủ khác
+     * cùng nhóm âm thanh có chứa đúng tập [targetEpNum] (VD: 500Phim / PhimAPI có Tập 1..107).
+     */
+    fun resolveServerIdxForEpisode(
+        serverGroups: List<ServerGroup>,
+        preferredServerIdx: Int,
+        targetEpNum: Int
+    ): Int {
+        if (serverGroups.isEmpty()) return 0
+        val safeIdx = preferredServerIdx.coerceIn(0, serverGroups.lastIndex)
+        fun serverHasExactEpisode(srv: ServerGroup): Boolean {
+            return srv.episodes.anyIndexed { idx, ep ->
+                if (com.hoathinh3d.donghua.player.PlayerUtils.extractEpisodeNumber(ep, idx) == targetEpNum) {
+                    return@anyIndexed true
+                }
+                val target = ep.slug.ifEmpty { ep.name }
+                val m = Regex("""(\d+)\s*[-–]\s*(\d+)""").find(target) ?: return@anyIndexed false
+                val start = m.groupValues[1].toIntOrNull() ?: return@anyIndexed false
+                val end = m.groupValues[2].toIntOrNull() ?: return@anyIndexed false
+                targetEpNum in minOf(start, end)..maxOf(start, end)
+            }
+        }
+        if (serverHasExactEpisode(serverGroups[safeIdx])) return safeIdx
+
+        val wantDub = isDubbedServerName(serverGroups[safeIdx].serverName)
+        val visible = visibleServerIndices(serverGroups, safeIdx)
+        val sameAudioMatch = visible.firstOrNull { idx ->
+            isDubbedServerName(serverGroups[idx].serverName) == wantDub &&
+                serverHasExactEpisode(serverGroups[idx])
+        }
+        return sameAudioMatch ?: safeIdx
+    }
+
+    private inline fun <T> List<T>.anyIndexed(predicate: (Int, T) -> Boolean): Boolean {
+        for (i in indices) {
+            if (predicate(i, get(i))) return true
+        }
+        return false
     }
 
     private fun canonicalSlugKey(movie: DonghuaMovie): String {
@@ -283,6 +327,14 @@ object MovieRepository {
             }
         }
 
+        if (sourceId == Phim500SourceProvider.SOURCE_ID) {
+            val cats = Phim500SourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
+            if (cats.isNotEmpty()) {
+                val normalized = normalizeLeadingGenre(cats)
+                setCached(cacheKey, normalized, CAT_CACHE_TTL_MS)
+                return normalized
+            }
+        }
         if (sourceId == VsmovSourceProvider.SOURCE_ID) {
             val cats = VsmovSourceProvider.fetchCategoriesForApp(forceRefresh = forceRefresh)
             if (cats.isNotEmpty()) {
@@ -334,6 +386,8 @@ object MovieRepository {
             val topicSlug = genre.sourceSlug ?: ""
             val result: CatalogPageResult = if (customSrc != null) {
                 CustomSourceParser.fetchMoviesByCategory(customSrc, genre, page)
+            } else if (sourceId == Phim500SourceProvider.SOURCE_ID) {
+                Phim500SourceProvider.fetchGenreCatalogForApp(genre, page)
             } else if (sourceId == VsmovSourceProvider.SOURCE_ID) {
                 VsmovSourceProvider.fetchGenreCatalogForApp(genre, page)
             } else if (sourceId == "YanHH3DNow") {
@@ -552,6 +606,7 @@ object MovieRepository {
 
         val primary = runCatching {
             when (preferredSourceId) {
+                Phim500SourceProvider.SOURCE_ID -> Phim500SourceProvider.fetchHomeCatalogForApp(page)
                 VsmovSourceProvider.SOURCE_ID -> VsmovSourceProvider.fetchHomeCatalogForApp(page)
                 "YanHH3D" -> {
                     val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit)
@@ -614,6 +669,13 @@ object MovieRepository {
                 CustomSourceParser.fetchFromCustomSource(customSrc).take(10)
             }.getOrDefault(emptyList())
             if (customTop.isNotEmpty()) return customTop
+        }
+
+        if (preferredSourceId == Phim500SourceProvider.SOURCE_ID) {
+            val p500Top = runCatching {
+                Phim500SourceProvider.fetchTrendingTop10ForApp()
+            }.getOrDefault(emptyList())
+            if (p500Top.isNotEmpty()) return p500Top
         }
 
         if (preferredSourceId == VsmovSourceProvider.SOURCE_ID) {
@@ -688,6 +750,12 @@ object MovieRepository {
         var latestEp = 0
 
         val targetNormTitle = movie?.title?.let { VietnameseSearch.removeVietnameseTones(it) }.orEmpty()
+        val isPhim500Movie = movie?.sources?.contains(Phim500SourceProvider.SOURCE_ID) == true ||
+            movie?.sources?.contains(Phim500SourceProvider.SOURCE_NAME) == true ||
+            movie?.wpSources?.any { it.baseUrl.contains("500phim.net", ignoreCase = true) } == true
+        val isPhim500Enabled = runCatching {
+            PrefsStore.getSources().any { it.id == Phim500SourceProvider.SOURCE_ID && it.enabled }
+        }.getOrDefault(false)
         val isVsmovMovie = movie?.sources?.contains(VsmovSourceProvider.SOURCE_ID) == true ||
             movie?.wpSources?.any { it.baseUrl.contains("vsmov.com", ignoreCase = true) } == true
         val isVsmovEnabled = runCatching {
@@ -695,6 +763,15 @@ object MovieRepository {
         }.getOrDefault(false)
 
         return coroutineScope {
+            val phim500Task = async {
+                if (slug.isNotBlank() && (isPhim500Movie || isPhim500Enabled)) {
+                    withTimeoutOrNull(6500L) {
+                        Phim500SourceProvider.fetchDetailForApp(slug)
+                    } ?: MovieDetailResult()
+                } else {
+                    MovieDetailResult()
+                }
+            }
             val vsmovTask = async {
                 if (slug.isNotBlank() && (isVsmovMovie || isVsmovEnabled)) {
                     withTimeoutOrNull(5000L) {
@@ -791,6 +868,30 @@ object MovieRepository {
             }
 
             var fastEmitted = false
+            if (isPhim500Movie) {
+                val p500Fast = phim500Task.await()
+                if (p500Fast.serverGroups.isNotEmpty()) {
+                    serverGroups.addAll(p500Fast.serverGroups)
+                    if (description.isBlank() && !p500Fast.description.isNullOrBlank()) description = p500Fast.description
+                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(p500Fast.poster)) {
+                        poster = p500Fast.poster.orEmpty()
+                    }
+                    p500Fast.latestEp?.let { latestEp = maxOf(latestEp, it) }
+                    p500Fast.totalEp?.let { totalEp = maxOf(totalEp, it) }
+                    if (onFastReady != null && serverGroups.any { isDirectStreamServer(it) }) {
+                        fastEmitted = true
+                        onFastReady.invoke(
+                            MovieDetailResult(
+                                serverGroups = serverGroups.toList(),
+                                description = description.ifBlank { null },
+                                poster = poster.ifBlank { null },
+                                totalEp = if (totalEp > 0) totalEp else null,
+                                latestEp = if (latestEp > 0) latestEp else null
+                            )
+                        )
+                    }
+                }
+            }
             if (isVsmovMovie) {
                 val vsFast = vsmovTask.await()
                 if (vsFast.serverGroups.isNotEmpty()) {
@@ -905,6 +1006,18 @@ object MovieRepository {
                 }
             }
 
+            if (!isPhim500Movie) {
+                val p500Res = phim500Task.await()
+                if (p500Res.serverGroups.isNotEmpty()) {
+                    serverGroups.addAll(p500Res.serverGroups)
+                    if (description.isBlank() && !p500Res.description.isNullOrBlank()) description = p500Res.description
+                    if (isDeadOrBlankPoster(poster) && !isDeadOrBlankPoster(p500Res.poster)) {
+                        poster = p500Res.poster.orEmpty()
+                    }
+                    p500Res.latestEp?.let { latestEp = maxOf(latestEp, it) }
+                    p500Res.totalEp?.let { totalEp = maxOf(totalEp, it) }
+                }
+            }
             if (!isVsmovMovie) {
                 val vsRes = vsmovTask.await()
                 if (vsRes.serverGroups.isNotEmpty()) {
@@ -970,6 +1083,7 @@ object MovieRepository {
 
         val queries = exp.apiKeywords.take(2)
         val allSources = runCatching { PrefsStore.getSources() }.getOrDefault(emptyList())
+        val isPhim500Enabled = allSources.any { it.id == Phim500SourceProvider.SOURCE_ID && it.enabled }
         val isVsmovEnabled = allSources.any { it.id == VsmovSourceProvider.SOURCE_ID && it.enabled }
         val enabledCustomSources = allSources.filter { it.enabled && it.isCustom }
         val allLists = coroutineScope {
@@ -994,6 +1108,13 @@ object MovieRepository {
                         if (isVsmovEnabled) {
                             runCatching {
                                 VsmovSourceProvider.searchAsDonghuaMovies(kw, limit = 20)
+                            }.getOrDefault(emptyList())
+                        } else emptyList()
+                    },
+                    async {
+                        if (isPhim500Enabled) {
+                            runCatching {
+                                Phim500SourceProvider.searchAsDonghuaMovies(kw, limit = 20)
                             }.getOrDefault(emptyList())
                         } else emptyList()
                     }
