@@ -582,11 +582,6 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         }
         b.txtCatalogCount.setTextColor(p.textMuted)
 
-        val randomPool = if (isSearchActive) st.remoteSearchResults else (st.activeGenreMovies ?: st.allMovies)
-        b.btnHomeRandom.visibility = if (!isSearchActive && randomPool.isNotEmpty()) View.VISIBLE else View.GONE
-        b.btnHomeRandom.background = ThemeManager.pillDrawable(ctx, p, false, 12f, liteRender = isLite)
-        b.btnHomeRandom.setTextColor(p.accentFrom)
-
         b.btnRefreshTvFeed.visibility = if (isTv && !isSearchActive) View.VISIBLE else View.GONE
         b.btnRefreshTvFeed.isEnabled = !st.isLoadingFeed
         b.btnRefreshTvFeed.text = if (st.isLoadingFeed) "⏳ Đang tải..." else "↻ Làm mới"
@@ -598,8 +593,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         if (filteredCount == 0) {
             b.emptyCatalogBox.visibility = View.VISIBLE
             b.txtEmptyCatalog.setTextColor(p.textMuted)
-            val hasCustomFilter = st.catalogAudioFilter != CatalogAudioFilter.ALL ||
-                st.catalogStatusFilter != CatalogStatusFilter.ALL ||
+            val hasCustomFilter = st.catalogStatusFilter != CatalogStatusFilter.ALL ||
                 st.catalogSortMode != CatalogSortMode.DEFAULT ||
                 st.selectedGenre != "Tất cả"
             b.btnResetCatalogFilters.visibility = if (hasCustomFilter && !isSearchActive) View.VISIBLE else View.GONE
@@ -722,26 +716,21 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private fun renderFilterAndSortBar(p: ThemePalette, st: MainState) {
         val b = headerBinding ?: return
         val ctx = b.root.context
-        val filterBarKey = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_${st.catalogStatusFilter.wireValue}_${st.catalogAudioFilter.wireValue}_${st.catalogSortMode.wireValue}"
+        val isLite = DeviceProfileResolver.shouldUseReducedMotion(ctx, st.resolvedDevice, st.settings.reducedMotion)
+        val filterBarKey = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_${st.catalogStatusFilter.wireValue}_${st.catalogSortMode.wireValue}_$isLite"
         if (filterBarKey == lastFilterBarKey) return
         lastFilterBarKey = filterBarKey
 
-        b.catalogStatusDivider.setBackgroundColor(p.glassSubtleBorder)
-        b.catalogFilterDivider.setBackgroundColor(p.glassSubtleBorder)
+        val isLatestDefault = st.catalogStatusFilter == CatalogStatusFilter.ALL &&
+            st.catalogSortMode == CatalogSortMode.DEFAULT
         val pills = listOf(
-            b.chipStatusAll to (st.catalogStatusFilter == CatalogStatusFilter.ALL),
+            b.chipStatusAll to isLatestDefault,
             b.chipStatusOngoing to (st.catalogStatusFilter == CatalogStatusFilter.ONGOING),
             b.chipStatusCompleted to (st.catalogStatusFilter == CatalogStatusFilter.COMPLETED),
-            b.chipAudioAll to (st.catalogAudioFilter == CatalogAudioFilter.ALL),
-            b.chipAudioDub to (st.catalogAudioFilter == CatalogAudioFilter.DUBBED),
-            b.chipAudioSub to (st.catalogAudioFilter == CatalogAudioFilter.SUB),
-            b.chipSortDefault to (st.catalogSortMode == CatalogSortMode.DEFAULT),
-            b.chipSortEpisodes to (st.catalogSortMode == CatalogSortMode.MOST_EPISODES),
-            b.chipSortRating to (st.catalogSortMode == CatalogSortMode.TOP_RATED),
-            b.chipSortTitleAz to (st.catalogSortMode == CatalogSortMode.TITLE_AZ)
+            b.chipSortEpisodes to (st.catalogSortMode == CatalogSortMode.MOST_EPISODES)
         )
         for ((pill, active) in pills) {
-            pill.background = ThemeManager.pillDrawable(ctx, p, active = active, radiusDp = 18f)
+            pill.background = ThemeManager.pillDrawable(ctx, p, active = active, radiusDp = 18f, liteRender = isLite)
             pill.setTextColor(if (active) Color.WHITE else p.textMain)
         }
     }
@@ -813,7 +802,14 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             if (isUltraLow) req.dontAnimate().into(b.imgHeroBg) else req.into(b.imgHeroBg)
         }
 
-        b.btnHeroPlay.setOnClickListener { h.quickPlayMovie(hero, 1) }
+        b.btnHeroPlay.setOnClickListener {
+            val prog = h.getState().watchHistory[hero.id]
+            if (prog != null && prog.episode > 0) {
+                h.quickPlayMovie(hero, prog.episode, resumeTimeSec = prog.currentTime)
+            } else {
+                h.quickPlayMovie(hero, 1)
+            }
+        }
         b.btnHeroDetail.setOnClickListener { h.openMovieDetail(hero) }
 
         b.heroDotsContainer.removeAllViews()
@@ -903,35 +899,20 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.btnHomeClearSearch.setOnClickListener { host?.clearSearch() }
             b.btnContinueClear.setOnClickListener { host?.clearHistory() }
             b.btnFavUpdatesAll.setOnClickListener { host?.navigateTab(MainTab.FAVORITES) }
-            b.btnHomeRandom.setOnClickListener {
-                val st = host?.getState() ?: return@setOnClickListener
-                val pool = st.activeGenreMovies ?: st.allMovies
-                val picked = PlayerUtils.pickRandomMovie(pool)
-                if (picked != null) {
-                    host?.showToast("🎲 Gợi ý ngẫu nhiên: ${picked.title}")
-                    host?.openMovieDetail(picked)
-                } else {
-                    host?.showToast("Đang nạp danh sách phim...")
-                }
-            }
             b.btnRefreshTvFeed.setOnClickListener {
                 host?.showToast("Đang làm mới danh sách phim...")
                 host?.reloadActiveSourceFeed()
             }
             b.btnResetCatalogFilters.setOnClickListener { host?.resetCatalogFilters() }
 
-            b.chipStatusAll.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.ALL) }
+            b.chipStatusAll.setOnClickListener { host?.resetHomeLatestFilter() }
             b.chipStatusOngoing.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.ONGOING) }
             b.chipStatusCompleted.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.COMPLETED) }
-
-            b.chipAudioAll.setOnClickListener { host?.setCatalogAudioFilter(CatalogAudioFilter.ALL) }
-            b.chipAudioDub.setOnClickListener { host?.setCatalogAudioFilter(CatalogAudioFilter.DUBBED) }
-            b.chipAudioSub.setOnClickListener { host?.setCatalogAudioFilter(CatalogAudioFilter.SUB) }
-
-            b.chipSortDefault.setOnClickListener { host?.setCatalogSortMode(CatalogSortMode.DEFAULT) }
-            b.chipSortEpisodes.setOnClickListener { host?.setCatalogSortMode(CatalogSortMode.MOST_EPISODES) }
-            b.chipSortRating.setOnClickListener { host?.setCatalogSortMode(CatalogSortMode.TOP_RATED) }
-            b.chipSortTitleAz.setOnClickListener { host?.setCatalogSortMode(CatalogSortMode.TITLE_AZ) }
+            b.chipSortEpisodes.setOnClickListener {
+                val cur = host?.getState()?.catalogSortMode ?: CatalogSortMode.DEFAULT
+                val next = if (cur == CatalogSortMode.MOST_EPISODES) CatalogSortMode.DEFAULT else CatalogSortMode.MOST_EPISODES
+                host?.setCatalogSortMode(next)
+            }
 
             val isLite = h?.let {
                 DeviceProfileResolver.shouldUseReducedMotion(

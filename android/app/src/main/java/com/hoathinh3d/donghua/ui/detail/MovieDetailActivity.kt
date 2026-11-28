@@ -237,8 +237,9 @@ class MovieDetailActivity : AppCompatActivity() {
     }
 
     private fun prewarmTargetEpisodeStream() {
-        val srv = serverGroups.getOrNull(activeServerIdx) ?: return
         val targetEpNum = PrefsStore.getHistory()[movie.id]?.episode ?: 1
+        val resolvedIdx = MovieRepository.resolveServerIdxForEpisode(serverGroups, activeServerIdx, targetEpNum)
+        val srv = serverGroups.getOrNull(resolvedIdx) ?: return
         val epIdx = PlayerUtils.findEpisodeIdxByNumber(srv.episodes, targetEpNum)
         val ep = srv.episodes.getOrNull(epIdx) ?: return
         lifecycleScope.launch {

@@ -729,7 +729,6 @@ object NguonCSourceProvider : MovieSourceProvider {
         val featured = listOf(
             GenreItem("Hoạt Hình", "Hoạt Hình (7.100+)", "dragon", sourceSlug = "the-loai/hoat-hinh"),
             GenreItem("Mới Cập Nhật", "Phim Mới Cập Nhật", "sparkles", sourceSlug = "danh-sach/phim-moi-cap-nhat"),
-            GenreItem("Đang Chiếu", "Phim Đang Chiếu", "broadcast", sourceSlug = "danh-sach/phim-dang-chieu"),
             GenreItem("Phim Bộ", "Phim Bộ", "grid", sourceSlug = "danh-sach/phim-bo"),
             GenreItem("Phim Lẻ", "Phim Lẻ", "film", sourceSlug = "danh-sach/phim-le"),
             GenreItem("Trung Quốc", "Trung Quốc", "dragon", sourceSlug = "quoc-gia/trung-quoc"),

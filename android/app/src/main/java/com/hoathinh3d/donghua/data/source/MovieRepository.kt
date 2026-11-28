@@ -183,6 +183,19 @@ object MovieRepository {
         return sorted.first().idx
     }
 
+    fun serverHasEpisode(srv: ServerGroup, targetEpNum: Int): Boolean {
+        return srv.episodes.anyIndexed { idx, ep ->
+            if (com.hoathinh3d.donghua.player.PlayerUtils.extractEpisodeNumber(ep, idx) == targetEpNum) {
+                return@anyIndexed true
+            }
+            val target = ep.slug.ifEmpty { ep.name }
+            val m = Regex("""(\d+)\s*[-–]\s*(\d+)""").find(target) ?: return@anyIndexed false
+            val start = m.groupValues[1].toIntOrNull() ?: return@anyIndexed false
+            val end = m.groupValues[2].toIntOrNull() ?: return@anyIndexed false
+            targetEpNum in minOf(start, end)..maxOf(start, end)
+        }
+    }
+
     /**
      * Khi người dùng chọn phát tập [targetEpNum] ở máy chủ [preferredServerIdx],
      * nếu máy chủ đó không có tập [targetEpNum] (VD: chỉ có Tập 44..168) thì tìm máy chủ khác
@@ -195,27 +208,17 @@ object MovieRepository {
     ): Int {
         if (serverGroups.isEmpty()) return 0
         val safeIdx = preferredServerIdx.coerceIn(0, serverGroups.lastIndex)
-        fun serverHasExactEpisode(srv: ServerGroup): Boolean {
-            return srv.episodes.anyIndexed { idx, ep ->
-                if (com.hoathinh3d.donghua.player.PlayerUtils.extractEpisodeNumber(ep, idx) == targetEpNum) {
-                    return@anyIndexed true
-                }
-                val target = ep.slug.ifEmpty { ep.name }
-                val m = Regex("""(\d+)\s*[-–]\s*(\d+)""").find(target) ?: return@anyIndexed false
-                val start = m.groupValues[1].toIntOrNull() ?: return@anyIndexed false
-                val end = m.groupValues[2].toIntOrNull() ?: return@anyIndexed false
-                targetEpNum in minOf(start, end)..maxOf(start, end)
-            }
-        }
-        if (serverHasExactEpisode(serverGroups[safeIdx])) return safeIdx
+        if (serverHasEpisode(serverGroups[safeIdx], targetEpNum)) return safeIdx
 
         val wantDub = isDubbedServerName(serverGroups[safeIdx].serverName)
         val visible = visibleServerIndices(serverGroups, safeIdx)
         val sameAudioMatch = visible.firstOrNull { idx ->
             isDubbedServerName(serverGroups[idx].serverName) == wantDub &&
-                serverHasExactEpisode(serverGroups[idx])
+                serverHasEpisode(serverGroups[idx], targetEpNum)
         }
-        return sameAudioMatch ?: safeIdx
+        return sameAudioMatch ?: visible.firstOrNull { idx ->
+            serverHasEpisode(serverGroups[idx], targetEpNum)
+        } ?: safeIdx
     }
 
     private inline fun <T> List<T>.anyIndexed(predicate: (Int, T) -> Boolean): Boolean {
@@ -607,10 +610,13 @@ object MovieRepository {
     suspend fun fetchDonghuaPage(
         page: Int = 1,
         limit: Int = 30,
-        preferredSourceId: String = "YanHH3DNow"
+        preferredSourceId: String = "YanHH3DNow",
+        bypassCache: Boolean = false
     ): CatalogPageResult {
         val cacheKey = "page_src_v5_${preferredSourceId}_${page}_$limit"
-        getCached<CatalogPageResult>(cacheKey)?.let { if (it.movies.isNotEmpty()) return it }
+        if (!bypassCache) {
+            getCached<CatalogPageResult>(cacheKey)?.let { if (it.movies.isNotEmpty()) return it }
+        }
 
         // Check if custom source
         val customSrc = PrefsStore.getSources().firstOrNull { it.id == preferredSourceId && it.isCustom }
@@ -631,11 +637,11 @@ object MovieRepository {
                 KKPhimSourceProvider.SOURCE_ID -> KKPhimSourceProvider.fetchHomeCatalogForApp(page)
                 VsmovSourceProvider.SOURCE_ID -> VsmovSourceProvider.fetchHomeCatalogForApp(page)
                 "YanHH3D" -> {
-                    val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit)
+                    val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit, bypassCache = bypassCache)
                     CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
                 }
                 else -> {
-                    val res = YanHh3dNowScraper.fetchMoviesByPath("moi-cap-nhat", page)
+                    val res = YanHh3dNowScraper.fetchMoviesByPath("moi-cap-nhat", page, bypassCache = bypassCache)
                     CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
                 }
             }
@@ -649,10 +655,10 @@ object MovieRepository {
 
         val fallback = runCatching {
             if (preferredSourceId == "YanHH3D") {
-                val res = YanHh3dNowScraper.fetchMoviesByPath("moi-cap-nhat", page)
+                val res = YanHh3dNowScraper.fetchMoviesByPath("moi-cap-nhat", page, bypassCache = bypassCache)
                 CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
             } else {
-                val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit)
+                val res = YanHh3dScraper.fetchMovies(YanHh3dScraper.YAN_BASE, "YanHH3D", page, limit, bypassCache = bypassCache)
                 CatalogPageResult(res.movies, page, res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1))
             }
         }.getOrDefault(CatalogPageResult(emptyList(), page, 1))
@@ -661,6 +667,73 @@ object MovieRepository {
             setCached(cacheKey, fallback)
         }
         return fallback
+    }
+
+    /**
+     * Đồng bộ trực tiếp danh sách phim theo Trạng thái (Đang chiếu / Hoàn thành) từ nguồn đang chọn.
+     */
+    suspend fun fetchStatusCatalogPage(
+        sourceId: String,
+        statusFilter: CatalogStatusFilter,
+        page: Int = 1
+    ): CatalogPageResult {
+        if (statusFilter == CatalogStatusFilter.ALL) {
+            return fetchDonghuaPage(page, 30, sourceId)
+        }
+        val wantCompleted = statusFilter == CatalogStatusFilter.COMPLETED
+        return runCatching {
+            when (sourceId) {
+                "YanHH3DNow" -> {
+                    val path = if (wantCompleted) "hoan-thanh" else "dang-chieu"
+                    val res = YanHh3dNowScraper.fetchMoviesByPath(
+                        path = path,
+                        page = page,
+                        baseUrl = YanHh3dNowScraper.YAN_NOW_BASE,
+                        sourceName = "YanHH3D Now",
+                        forcedGenre = if (wantCompleted) "Hoàn thành" else "Đang chiếu",
+                        bypassCache = page == 1
+                    )
+                    CatalogPageResult(
+                        movies = res.movies,
+                        page = page,
+                        totalPages = res.totalPages.coerceAtLeast(if (res.movies.isNotEmpty()) page else 1)
+                    )
+                }
+                "YanHH3D" -> {
+                    val res = if (wantCompleted) {
+                        YanHh3dScraper.fetchMovies(
+                            baseUrl = YanHh3dScraper.YAN_BASE,
+                            sourceName = "YanHH3D",
+                            page = page,
+                            perPage = 30,
+                            statusId = 12,
+                            bypassCache = page == 1
+                        )
+                    } else {
+                        YanHh3dScraper.fetchMovies(
+                            baseUrl = YanHh3dScraper.YAN_BASE,
+                            sourceName = "YanHH3D",
+                            page = page,
+                            perPage = 30,
+                            bypassCache = page == 1
+                        )
+                    }
+                    val filtered = res.movies.filter { CatalogQueryEngine.matchesStatusFilter(it, statusFilter) }
+                    CatalogPageResult(filtered, page, res.totalPages.coerceAtLeast(1))
+                }
+                else -> {
+                    val p1 = fetchDonghuaPage(page, 30, sourceId, bypassCache = page == 1)
+                    val extra = if (page == 1 && p1.totalPages > 1) {
+                        fetchDonghuaPage(2, 30, sourceId)
+                    } else {
+                        CatalogPageResult(emptyList(), page, p1.totalPages)
+                    }
+                    val combined = mergeCatalogPages(p1.movies, extra.movies)
+                    val matched = combined.filter { CatalogQueryEngine.matchesStatusFilter(it, statusFilter) }
+                    CatalogPageResult(matched, page, maxOf(p1.totalPages, 1))
+                }
+            }
+        }.getOrDefault(CatalogPageResult(emptyList(), page, 1))
     }
 
     suspend fun fetchDonghuaList(
@@ -1272,16 +1345,16 @@ object CatalogQueryEngine {
             CatalogStatusFilter.ONGOING -> {
                 val lbl = movie.statusLabel.orEmpty().lowercase()
                 when {
-                    lbl.contains("hoàn") || lbl.contains("full") -> false
-                    lbl.contains("đang") -> true
+                    lbl.contains("hoàn") || lbl.contains("full") || lbl.contains("completed") -> false
+                    lbl.contains("đang") || lbl.contains("trailer") || lbl.contains("lên sóng") || lbl.contains("sắp") || lbl.contains("ongoing") -> true
                     else -> movie.totalEp <= 0 || movie.latestEp < movie.totalEp
                 }
             }
             CatalogStatusFilter.COMPLETED -> {
                 val lbl = movie.statusLabel.orEmpty().lowercase()
                 when {
-                    lbl.contains("hoàn") || lbl.contains("full") -> true
-                    lbl.contains("đang") -> false
+                    lbl.contains("hoàn") || lbl.contains("full") || lbl.contains("completed") -> true
+                    lbl.contains("đang") || lbl.contains("trailer") || lbl.contains("lên sóng") || lbl.contains("sắp") || lbl.contains("ongoing") -> false
                     else -> movie.totalEp > 0 && movie.latestEp >= movie.totalEp
                 }
             }

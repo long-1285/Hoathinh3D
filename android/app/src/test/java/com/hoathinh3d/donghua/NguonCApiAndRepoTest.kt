@@ -317,6 +317,21 @@ class NguonCApiAndRepoTest {
         )
         assertEquals(listOf("done"), resDone.map { it.id })
 
+        val unknownTotalOngoing = sampleMovie("unk", "Luyện Khí 202/...", latestEp = 202, totalEp = 0)
+            .copy(statusLabel = null)
+        assertTrue(CatalogQueryEngine.matchesStatusFilter(unknownTotalOngoing, CatalogStatusFilter.ONGOING))
+        assertFalse(CatalogQueryEngine.matchesStatusFilter(unknownTotalOngoing, CatalogStatusFilter.COMPLETED))
+        assertTrue(
+            CatalogQueryEngine.matchesStatusFilter(
+                sampleMovie("tr", "Trailer", latestEp = 29, totalEp = 29).copy(statusLabel = "Trailer - 29/11 Lên Sóng"),
+                CatalogStatusFilter.ONGOING
+            )
+        )
+
+        val defaultState = com.hoathinh3d.donghua.ui.MainState()
+        assertEquals(CatalogStatusFilter.ALL, defaultState.catalogStatusFilter)
+        assertEquals(CatalogSortMode.DEFAULT, defaultState.catalogSortMode)
+
         assertEquals(
             "https://phimimg.com/upload/poster.jpg",
             MovieRepository.getOptimizedPosterUrl("https://phimimg.com/upload/poster.jpg")

@@ -77,7 +77,9 @@ object YanHh3dScraper {
     data class YanHomeEpisodeMeta(
         val latestEp: Int,
         val totalEp: Int,
-        val quality: String? = null
+        val quality: String? = null,
+        val isCompletedHint: Boolean = false,
+        val isOngoingHint: Boolean = false
     )
 
     data class YanTaxonomyResult(
@@ -97,16 +99,64 @@ object YanHh3dScraper {
         if (clean.isEmpty()) return null
         val qualityMatch = Regex("\\[([^\\]]+)]").find(clean)
         val quality = qualityMatch?.groupValues?.getOrNull(1)?.trim()
-        val stripped = clean.replace(Regex("\\[[^\\]]+]"), "")
-        if (stripped.contains("FULL", ignoreCase = true)) {
-            return YanHomeEpisodeMeta(latestEp = 1, totalEp = 1, quality = quality ?: "Full HD")
+        val stripped = clean.replace(Regex("\\[[^\\]]+]"), "").trim()
+        if (stripped.contains("TRAILER", ignoreCase = true) ||
+            stripped.contains("LÊN SÓNG", ignoreCase = true) ||
+            stripped.contains("SẮP CHIẾU", ignoreCase = true)
+        ) {
+            return YanHomeEpisodeMeta(
+                latestEp = 1,
+                totalEp = 0,
+                quality = quality,
+                isCompletedHint = false,
+                isOngoingHint = true
+            )
+        }
+        if (stripped.contains("FULL", ignoreCase = true) ||
+            stripped.contains("HOÀN", ignoreCase = true) ||
+            stripped.contains("END", ignoreCase = true)
+        ) {
+            return YanHomeEpisodeMeta(
+                latestEp = 1,
+                totalEp = 1,
+                quality = quality ?: "Full HD",
+                isCompletedHint = true,
+                isOngoingHint = false
+            )
+        }
+        val ratioMatch = Regex("""(\d+)\s*/\s*(\d+)""").find(stripped)
+        if (ratioMatch != null) {
+            val latestEp = ratioMatch.groupValues[1].toIntOrNull() ?: 0
+            val rawTotal = ratioMatch.groupValues[2].toIntOrNull() ?: 0
+            if (latestEp > 0) {
+                val totalEp = maxOf(latestEp, rawTotal)
+                val completed = rawTotal > 0 && latestEp >= totalEp
+                return YanHomeEpisodeMeta(
+                    latestEp = latestEp,
+                    totalEp = totalEp,
+                    quality = quality,
+                    isCompletedHint = completed,
+                    isOngoingHint = !completed
+                )
+            }
         }
         val nums = Regex("\\d+").findAll(stripped).mapNotNull { it.value.toIntOrNull() }.toList()
         if (nums.isEmpty()) return null
         val latestEp = nums[0]
         if (latestEp <= 0) return null
-        val totalEp = if (nums.size >= 2) maxOf(latestEp, nums[1]) else latestEp
-        return YanHomeEpisodeMeta(latestEp = latestEp, totalEp = totalEp, quality = quality)
+        val hasUnknownTotalMarker = stripped.contains("/...") ||
+            stripped.contains("/?") ||
+            stripped.contains("/+") ||
+            Regex("""\d+\s*/\s*$""").containsMatchIn(stripped)
+        val totalEp = if (nums.size >= 2) maxOf(latestEp, nums[1]) else if (hasUnknownTotalMarker) 0 else latestEp
+        val isOngoing = hasUnknownTotalMarker || totalEp == 0 || latestEp < totalEp
+        return YanHomeEpisodeMeta(
+            latestEp = latestEp,
+            totalEp = totalEp,
+            quality = quality,
+            isCompletedHint = !isOngoing && nums.size >= 2 && latestEp >= totalEp,
+            isOngoingHint = isOngoing
+        )
     }
 
     fun parseHomeEpisodeMetaHtml(html: String): Map<String, YanHomeEpisodeMeta> {
@@ -226,9 +276,16 @@ object YanHh3dScraper {
                     wpSources = listOf(WpSourceRef(cleanBase, 0, rawHref, sourceName)),
                     title = title,
                     originalTitle = "$sourceName • $title",
+                    statusLabel = when {
+                        forcedGenre == "Đang chiếu" -> "Đang chiếu"
+                        forcedGenre == "Hoàn thành" -> "Hoàn thành"
+                        tickMeta?.isCompletedHint == true -> "Hoàn thành"
+                        tickMeta?.isOngoingHint == true -> "Đang chiếu"
+                        else -> null
+                    },
                     studio = "$sourceName 4K",
                     latestEp = tickMeta?.latestEp ?: 1,
-                    totalEp = tickMeta?.totalEp ?: 1,
+                    totalEp = tickMeta?.totalEp ?: 0,
                     rating = 9.8,
                     views = String.format(java.util.Locale.US, "%.1fM", 18.0 - (idx * 0.4).coerceAtMost(9.0)),
                     viewsNum = (100 - idx).coerceAtLeast(1).toDouble(),
@@ -573,10 +630,13 @@ object YanHh3dScraper {
         statusId: Int? = null,
         showtimeId: Int? = null,
         postOptionsId: Int? = null,
-        search: String? = null
+        search: String? = null,
+        bypassCache: Boolean = false
     ): WpMoviesPage {
         val cacheKey = "wp_posts_v2_${baseUrl}_${page}_${perPage}_${categoryId ?: ""}_${statusId ?: ""}_${showtimeId ?: ""}_${postOptionsId ?: ""}_${search ?: ""}"
-        getCache<WpMoviesPage>(cacheKey)?.let { return it }
+        if (!bypassCache) {
+            getCache<WpMoviesPage>(cacheKey)?.let { return it }
+        }
 
         val catMap = categoryMaps[baseUrl] ?: defaultCatMap()
         val qs = buildString {

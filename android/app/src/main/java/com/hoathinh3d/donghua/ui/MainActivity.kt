@@ -85,6 +85,7 @@ interface AppHost {
     fun setCatalogStatusFilter(filter: CatalogStatusFilter)
     fun setCatalogAudioFilter(filter: CatalogAudioFilter)
     fun setCatalogSortMode(mode: CatalogSortMode)
+    fun resetHomeLatestFilter()
     fun resetCatalogFilters()
     fun setSearchSourceFilter(sourceName: String?)
     fun loadMoreCatalog()
@@ -168,6 +169,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     private var genreJob: Job? = null
     private var loadMoreJob: Job? = null
     private var realtimeTrendingJob: Job? = null
+    private var statusFilterJob: Job? = null
     private var insetTopPx = 0
     private var insetBottomPx = 0
     private var insetLeftPx = 0
@@ -1300,7 +1302,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         lifecycleScope.launch {
             try {
                 val (pageRes, catsTask, top10Task) = coroutineScope {
-                    val mDef = async { MovieRepository.fetchDonghuaPage(1, 30, sourceId) }
+                    val mDef = async { MovieRepository.fetchDonghuaPage(1, 30, sourceId, bypassCache = true) }
                     val cDef = async { MovieRepository.fetchCategoriesForSource(sourceId, forceRefresh = true) }
                     val tDef = async { MovieRepository.fetchRealtimeTrendingTop10(sourceId) }
                     Triple(mDef.await(), cDef.await(), tDef.await())
@@ -1652,8 +1654,37 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     override fun setCatalogStatusFilter(filter: CatalogStatusFilter) {
         if (state.catalogStatusFilter == filter) return
-        state = state.copy(catalogStatusFilter = filter)
+        statusFilterJob?.cancel()
+        state = state.copy(catalogStatusFilter = filter, isLoadingGenre = false)
         notifyActiveFragment()
+        if (filter == CatalogStatusFilter.ALL || state.selectedGenre != "Tất cả") return
+
+        val snapshotSource = state.activeSourceId
+        state = state.copy(isLoadingGenre = true)
+        notifyActiveFragment()
+        statusFilterJob = lifecycleScope.launch {
+            try {
+                val res = MovieRepository.fetchStatusCatalogPage(snapshotSource, filter, page = 1)
+                if (state.activeSourceId != snapshotSource ||
+                    state.catalogStatusFilter != filter ||
+                    state.selectedGenre != "Tất cả"
+                ) {
+                    return@launch
+                }
+                val merged = if (res.movies.isNotEmpty()) {
+                    MovieRepository.mergeCatalogPages(state.allMovies, res.movies)
+                } else state.allMovies
+                state = state.copy(
+                    allMovies = merged,
+                    catalogTotalPages = maxOf(state.catalogTotalPages, res.totalPages),
+                    isLoadingGenre = false
+                )
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                state = state.copy(isLoadingGenre = false)
+            }
+            notifyActiveFragment()
+        }
     }
 
     override fun setCatalogAudioFilter(filter: CatalogAudioFilter) {
@@ -1668,13 +1699,33 @@ class MainActivity : AppCompatActivity(), AppHost {
         notifyActiveFragment()
     }
 
+    override fun resetHomeLatestFilter() {
+        statusFilterJob?.cancel()
+        if (state.catalogStatusFilter == CatalogStatusFilter.ALL &&
+            state.catalogAudioFilter == CatalogAudioFilter.ALL &&
+            state.catalogSortMode == CatalogSortMode.DEFAULT &&
+            !state.isLoadingGenre
+        ) {
+            return
+        }
+        state = state.copy(
+            catalogStatusFilter = CatalogStatusFilter.ALL,
+            catalogAudioFilter = CatalogAudioFilter.ALL,
+            catalogSortMode = CatalogSortMode.DEFAULT,
+            isLoadingGenre = false
+        )
+        notifyActiveFragment()
+    }
+
     override fun resetCatalogFilters() {
+        statusFilterJob?.cancel()
         val genreChanged = state.selectedGenre != "Tất cả"
         state = state.copy(
             catalogStatusFilter = CatalogStatusFilter.ALL,
             catalogAudioFilter = CatalogAudioFilter.ALL,
             catalogSortMode = CatalogSortMode.DEFAULT,
-            searchSourceFilter = null
+            searchSourceFilter = null,
+            isLoadingGenre = false
         )
         if (genreChanged) {
             selectGenre("Tất cả")
@@ -1696,6 +1747,7 @@ class MainActivity : AppCompatActivity(), AppHost {
 
         val snapshotSourceId = state.activeSourceId
         val snapshotGenre = state.selectedGenre
+        val snapshotStatus = state.catalogStatusFilter
         val nextPage = state.activeCatalogPage + 1
 
         state = state.copy(isLoadingMore = true)
@@ -1705,7 +1757,11 @@ class MainActivity : AppCompatActivity(), AppHost {
         loadMoreJob = lifecycleScope.launch {
             try {
                 if (snapshotGenre == "Tất cả") {
-                    val pageRes = MovieRepository.fetchDonghuaPage(nextPage, 30, snapshotSourceId)
+                    val pageRes = if (snapshotStatus != CatalogStatusFilter.ALL) {
+                        MovieRepository.fetchStatusCatalogPage(snapshotSourceId, snapshotStatus, nextPage)
+                    } else {
+                        MovieRepository.fetchDonghuaPage(nextPage, 30, snapshotSourceId)
+                    }
                     if (state.activeSourceId != snapshotSourceId || state.selectedGenre != snapshotGenre) return@launch
                     val merged = MovieRepository.mergeCatalogPages(state.allMovies, pageRes.movies)
                     val newTotalPages = if (pageRes.movies.isNotEmpty()) {
@@ -1751,10 +1807,14 @@ class MainActivity : AppCompatActivity(), AppHost {
     override fun selectSource(sourceId: String) {
         genreJob?.cancel()
         loadMoreJob?.cancel()
+        statusFilterJob?.cancel()
         state = state.copy(
             activeSourceId = sourceId,
             selectedGenre = "Tất cả",
             activeGenreMovies = null,
+            catalogStatusFilter = CatalogStatusFilter.ALL,
+            catalogAudioFilter = CatalogAudioFilter.ALL,
+            catalogSortMode = CatalogSortMode.DEFAULT,
             catalogPage = 1,
             catalogTotalPages = 1,
             genrePage = 1,

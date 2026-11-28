@@ -21,6 +21,19 @@ class YanHh3dScraperTest {
         assertEquals(1, fullMeta!!.latestEp)
         assertEquals(1, fullMeta.totalEp)
         assertEquals("4K", fullMeta.quality)
+        assertTrue(fullMeta.isCompletedHint)
+
+        val unknownMeta = YanHh3dScraper.parseTickRateBadge("202/... [4K]")
+        assertNotNull(unknownMeta)
+        assertEquals(202, unknownMeta!!.latestEp)
+        assertEquals(0, unknownMeta.totalEp)
+        assertEquals("4K", unknownMeta.quality)
+        assertTrue(unknownMeta.isOngoingHint)
+
+        val trailerMeta = YanHh3dScraper.parseTickRateBadge("Trailer - 29/11 Lên Sóng")
+        assertNotNull(trailerMeta)
+        assertEquals(0, trailerMeta!!.totalEp)
+        assertTrue(trailerMeta.isOngoingHint)
     }
 
     @Test

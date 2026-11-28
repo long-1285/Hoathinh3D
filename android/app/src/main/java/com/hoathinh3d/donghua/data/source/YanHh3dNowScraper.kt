@@ -267,14 +267,16 @@ object YanHh3dNowScraper {
                     originalTitle = "$sourceName • $title",
                     yanUrl = rawHref,
                     wpSources = listOf(WpSourceRef(cleanBase, 0, rawHref, sourceName)),
-                    statusLabel = when (forcedGenre) {
-                        "Đang chiếu" -> "Đang chiếu"
-                        "Hoàn thành" -> "Hoàn thành"
+                    statusLabel = when {
+                        forcedGenre == "Đang chiếu" -> "Đang chiếu"
+                        forcedGenre == "Hoàn thành" -> "Hoàn thành"
+                        tickMeta?.isCompletedHint == true -> "Hoàn thành"
+                        tickMeta?.isOngoingHint == true -> "Đang chiếu"
                         else -> null
                     },
                     studio = "$sourceName • $quality",
                     latestEp = tickMeta?.latestEp ?: 1,
-                    totalEp = tickMeta?.totalEp ?: maxOf(tickMeta?.latestEp ?: 1, 1),
+                    totalEp = tickMeta?.totalEp ?: 0,
                     rating = 9.8,
                     views = "4K VIP",
                     viewsNum = (100 - idx).coerceAtLeast(1).toDouble(),
@@ -375,11 +377,12 @@ object YanHh3dNowScraper {
      */
     suspend fun fetchRealtimeTrendingTop10(
         baseUrl: String = YAN_NOW_BASE,
-        sourceName: String = "YanHH3D Now"
+        sourceName: String = "YanHH3D Now",
+        bypassCache: Boolean = true
     ): List<DonghuaMovie> {
         val cleanBase = baseUrl.trimEnd('/')
         return try {
-            val html = fetchHtmlAndCaptureSession(cleanBase, bypassCache = false)
+            val html = fetchHtmlAndCaptureSession(cleanBase, bypassCache = bypassCache)
             parseRealtimeRankingHtml(html, cleanBase, sourceName)
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) throw t

@@ -462,19 +462,6 @@
             android:textSize="11sp" />
 
         <TextView
-            android:id="@+id/btnHomeRandom"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp"
-            android:text="🎲 Ngẫu nhiên"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <TextView
             android:id="@+id/btnRefreshTvFeed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -489,12 +476,12 @@
             android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Combined Status + Audio Filter + Sort Bar -->
+    <!-- Simplified Filter Bar: Mới cập nhật (mặc định) • Đang chiếu • Hoàn thành • Nhiều tập -->
     <HorizontalScrollView
         android:id="@+id/catalogFilterScroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_marginBottom="8dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -511,10 +498,13 @@
                 android:layout_marginEnd="6dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:paddingHorizontal="11dp"
+                android:gravity="center"
+                android:minHeight="30dp"
+                android:nextFocusRight="@+id/chipStatusOngoing"
+                android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
-                android:text="Tất cả trạng thái"
-                android:textSize="11sp"
+                android:text="Mới cập nhật"
+                android:textSize="11.5sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -524,127 +514,46 @@
                 android:layout_marginEnd="6dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:paddingHorizontal="11dp"
+                android:gravity="center"
+                android:minHeight="30dp"
+                android:nextFocusLeft="@+id/chipStatusAll"
+                android:nextFocusRight="@+id/chipStatusCompleted"
+                android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:text="Đang chiếu"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/chipStatusCompleted"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:paddingHorizontal="11dp"
+                android:gravity="center"
+                android:minHeight="30dp"
+                android:nextFocusLeft="@+id/chipStatusOngoing"
+                android:nextFocusRight="@+id/chipSortEpisodes"
+                android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:text="Hoàn thành"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <View
-                android:id="@+id/catalogStatusDivider"
-                android:layout_width="1dp"
-                android:layout_height="18dp"
-                android:layout_marginEnd="8dp"
-                android:background="#4D94A3B8" />
-
-            <TextView
-                android:id="@+id/chipAudioAll"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="11dp"
-                android:paddingVertical="6dp"
-                android:text="Tất cả âm thanh"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipAudioDub"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="11dp"
-                android:paddingVertical="6dp"
-                android:text="Thuyết Minh"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipAudioSub"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="11dp"
-                android:paddingVertical="6dp"
-                android:text="Vietsub"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <View
-                android:id="@+id/catalogFilterDivider"
-                android:layout_width="1dp"
-                android:layout_height="18dp"
-                android:layout_marginEnd="8dp"
-                android:background="#4D94A3B8" />
-
-            <TextView
-                android:id="@+id/chipSortDefault"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="11dp"
-                android:paddingVertical="6dp"
-                android:text="Mới cập nhật"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/chipSortEpisodes"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:paddingHorizontal="11dp"
+                android:gravity="center"
+                android:minHeight="30dp"
+                android:nextFocusLeft="@+id/chipStatusCompleted"
+                android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:text="Nhiều tập"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipSortRating"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="11dp"
-                android:paddingVertical="6dp"
-                android:text="★ Đánh giá cao"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chipSortTitleAz"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="11dp"
-                android:paddingVertical="6dp"
-                android:text="Tên A - Z"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </HorizontalScrollView>

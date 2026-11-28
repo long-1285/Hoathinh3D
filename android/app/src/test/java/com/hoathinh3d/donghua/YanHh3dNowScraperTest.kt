@@ -29,8 +29,39 @@ class YanHh3dNowScraperTest {
         assertEquals("tien-nghich", page.movies[0].slug)
         assertEquals(168, page.movies[0].latestEp)
         assertEquals(180, page.movies[0].totalEp)
+        assertEquals("Đang chiếu", page.movies[0].statusLabel)
         assertTrue(page.movies[0].audioModes.contains("Thuyết Minh"))
         assertEquals(20, page.totalPages)
+
+        val mixedStatusHtml = """
+            <div class="flw-item">
+                <div class="film-poster">
+                    <div class="tick tick-rate">202/... [4K]</div>
+                    <div class="tick ltr"><h4>Luyện Khí Mười Vạn Năm</h4></div>
+                    <a href="https://yanhh3d.now/luyen-khi-muoi-van-nam"></a>
+                </div>
+            </div>
+            <div class="flw-item">
+                <div class="film-poster">
+                    <div class="tick tick-rate">Full Movie [4K]</div>
+                    <div class="tick ltr"><h4>Tiên Nghịch Movie</h4></div>
+                    <a href="https://yanhh3d.now/tien-nghich-movie"></a>
+                </div>
+            </div>
+            <div class="flw-item">
+                <div class="film-poster">
+                    <div class="tick tick-rate">Trailer - 29/11 Lên Sóng</div>
+                    <div class="tick ltr"><h4>Bí Ẩn</h4></div>
+                    <a href="https://yanhh3d.now/bi-an"></a>
+                </div>
+            </div>
+        """.trimIndent()
+        val mixed = YanHh3dNowScraper.parseMoviesListHtml(mixedStatusHtml)
+        assertEquals(3, mixed.movies.size)
+        assertEquals("Đang chiếu", mixed.movies[0].statusLabel)
+        assertEquals(0, mixed.movies[0].totalEp)
+        assertEquals("Hoàn thành", mixed.movies[1].statusLabel)
+        assertEquals("Đang chiếu", mixed.movies[2].statusLabel)
     }
 
     @Test

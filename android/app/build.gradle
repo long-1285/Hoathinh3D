@@ -62,8 +62,8 @@ android {
         applicationId "com.hoathinh3d.donghua"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 61
-        versionName "3.7.1-v61"
+        versionCode 62
+        versionName "3.7.2-v62"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += ["vi", "en"]

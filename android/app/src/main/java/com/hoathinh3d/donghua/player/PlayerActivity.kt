@@ -273,11 +273,16 @@ class PlayerActivity : AppCompatActivity() {
 
         serverGroups = movie.serverGroups.orEmpty()
         if (serverGroups.isNotEmpty()) {
-            activeServerIdx = if (initialServerIdx in serverGroups.indices) {
+            val baseServerIdx = if (initialServerIdx in serverGroups.indices) {
                 initialServerIdx
             } else {
                 MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
             }
+            activeServerIdx = MovieRepository.resolveServerIdxForEpisode(
+                serverGroups = serverGroups,
+                preferredServerIdx = baseServerIdx,
+                targetEpNum = initialEpisode
+            )
             val eps = serverGroups.getOrNull(activeServerIdx)?.episodes.orEmpty()
             currentEpIdx = PlayerUtils.findEpisodeIdxByNumber(eps, initialEpisode)
             epRangeIdx = currentEpIdx / PlayerUtils.EP_PAGE_SIZE
@@ -948,17 +953,27 @@ class PlayerActivity : AppCompatActivity() {
             val detail = runCatching {
                 MovieRepository.fetchMovieDetailFast(movie.slug.orEmpty(), movie) { fast ->
                     if (!fastStarted && fast.serverGroups.isNotEmpty()) {
-                        fastStarted = true
-                        runOnUiThread {
-                            serverGroups = fast.serverGroups
-                            activeServerIdx = if (initialServerIdx in serverGroups.indices) {
-                                initialServerIdx
-                            } else {
-                                MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
+                        val baseIdx = if (initialServerIdx in fast.serverGroups.indices) {
+                            initialServerIdx
+                        } else {
+                            MovieRepository.selectPreferredServerIdx(fast.serverGroups, settings.defaultAudio)
+                        }
+                        val resolvedIdx = MovieRepository.resolveServerIdxForEpisode(
+                            fast.serverGroups,
+                            baseIdx,
+                            initialEpisode
+                        )
+                        val resolvedSrv = fast.serverGroups.getOrNull(resolvedIdx)
+                        if (resolvedSrv != null && (MovieRepository.serverHasEpisode(resolvedSrv, initialEpisode) || initialEpisode <= 1)) {
+                            fastStarted = true
+                            runOnUiThread {
+                                serverGroups = fast.serverGroups
+                                activeServerIdx = resolvedIdx
+                                val eps = serverGroups[activeServerIdx].episodes
+                                currentEpIdx = PlayerUtils.findEpisodeIdxByNumber(eps, initialEpisode)
+                                epRangeIdx = currentEpIdx / PlayerUtils.EP_PAGE_SIZE
+                                loadCurrentEpisodeStream()
                             }
-                            val eps = serverGroups[activeServerIdx].episodes
-                            currentEpIdx = PlayerUtils.findEpisodeIdxByNumber(eps, initialEpisode)
-                            loadCurrentEpisodeStream()
                         }
                     }
                 }
@@ -966,13 +981,19 @@ class PlayerActivity : AppCompatActivity() {
             if (detail != null && detail.serverGroups.isNotEmpty()) {
                 if (!fastStarted) {
                     serverGroups = detail.serverGroups
-                    activeServerIdx = if (initialServerIdx in serverGroups.indices) {
+                    val baseIdx = if (initialServerIdx in serverGroups.indices) {
                         initialServerIdx
                     } else {
                         MovieRepository.selectPreferredServerIdx(serverGroups, settings.defaultAudio)
                     }
+                    activeServerIdx = MovieRepository.resolveServerIdxForEpisode(
+                        serverGroups,
+                        baseIdx,
+                        initialEpisode
+                    )
                     val eps = serverGroups[activeServerIdx].episodes
                     currentEpIdx = PlayerUtils.findEpisodeIdxByNumber(eps, initialEpisode)
+                    epRangeIdx = currentEpIdx / PlayerUtils.EP_PAGE_SIZE
                     loadCurrentEpisodeStream()
                 } else {
                     // Nền nạp thêm máy chủ dự phòng: giữ nguyên máy chủ & tập đang phát
