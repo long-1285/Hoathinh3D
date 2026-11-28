@@ -1,11 +1,11 @@
 {
-    "versionCode":  52,
-    "versionName":  "3.6.2-v52",
-    "tag":  "v52",
-    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v52/HoatHinh3d.apk",
+    "versionCode":  53,
+    "versionName":  "3.6.3-v53",
+    "tag":  "v53",
+    "apkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/download/v53/HoatHinh3d.apk",
     "fallbackApkUrl":  "https://github.com/long-1285/Hoathinh3D/releases/latest/download/HoatHinh3d.apk",
-    "sha256":  "b3c28292503d52bcf5688d693ec9d4163c4c84a22e7f8dedefe3a966463a4df7",
-    "apkSizeBytes":  12198455,
-    "changelog":  "v3.6.2-v52: Nen WebP + resConfigs giam APK con 11.63 MB \u0026 tiet kiem RAM MiTV4, ten App tu dong kem so phien ban (HoatHinh3D v3.6.2-v52), tim kiem giong noi TV/Mobile, loc quang cao HLS tai cho, do giai ma video phan cung va chinh phu de truc tiep tren video.",
-    "releasedAt":  "2026-11-28T02:18:54Z"
+    "sha256":  "c6f858a0ef2c19ecc41a099f76222d025ad732bb7839623669e17bc01517b47b",
+    "apkSizeBytes":  12198569,
+    "changelog":  "v3.6.3-v53: Chuan hoa \u0026 dong bo chu ky so Shared Keystore giua 2 may (Cong ty \u0026 Nha) de cai de OTA muot ma khong bao gio xung dot goi, kem kiem tra apksigner tu dong truoc khi build va phat hanh.",
+    "releasedAt":  "2026-11-28T02:24:48Z"
 }
