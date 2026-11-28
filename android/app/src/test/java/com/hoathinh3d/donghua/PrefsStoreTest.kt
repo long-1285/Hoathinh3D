@@ -106,7 +106,17 @@ class PrefsStoreTest {
             )
         )
         assertTrue(PrefsStore.toggleFavorite("dptk"))
-        PrefsStore.saveSettings(AppSettings(theme = "dark", darkMode = "dark", glassOpacity = 75, seekStep = 15))
+        PrefsStore.saveSettings(
+            AppSettings(
+                theme = "dark",
+                darkMode = "dark",
+                glassOpacity = 75,
+                seekStep = 15,
+                subtitleBottomPct = 0.14f,
+                subtitleBgAlpha = 0,
+                subtitleTextColor = android.graphics.Color.YELLOW
+            )
+        )
 
         val exported = PrefsStore.exportFullBackup()
         assertTrue(exported.contains("3.5.0-universal"))
@@ -123,6 +133,9 @@ class PrefsStoreTest {
         assertEquals("dark", PrefsStore.getSettings().darkMode)
         assertEquals(75, PrefsStore.getSettings().glassOpacity)
         assertEquals(15, PrefsStore.getSettings().seekStep)
+        assertEquals(0.14f, PrefsStore.getSettings().subtitleBottomPct, 0.001f)
+        assertEquals(0, PrefsStore.getSettings().subtitleBgAlpha)
+        assertEquals(android.graphics.Color.YELLOW, PrefsStore.getSettings().subtitleTextColor)
     }
 
     @Test

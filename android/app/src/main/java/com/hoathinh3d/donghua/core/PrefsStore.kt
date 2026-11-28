@@ -531,6 +531,9 @@ object PrefsStore {
                 playbackSpeed = obj.optDouble("playbackSpeed", 1.0).toFloat().coerceIn(0.25f, 2f),
                 extensions = extensions,
                 subtitleScale = obj.optDouble("subtitleScale", 0.055).toFloat().coerceIn(0.035f, 0.095f),
+                subtitleBottomPct = obj.optDouble("subtitleBottomPct", 0.08).toFloat().coerceIn(0.04f, 0.30f),
+                subtitleBgAlpha = obj.optInt("subtitleBgAlpha", 175).coerceIn(0, 240),
+                subtitleTextColor = obj.optInt("subtitleTextColor", -1),
                 reducedMotion = obj.optBoolean("reducedMotion", false),
                 nightModeDrc = obj.optBoolean("nightModeDrc", false),
                 autoClearCacheOnExit = obj.optBoolean("autoClearCacheOnExit", false),
@@ -877,6 +880,9 @@ object PrefsStore {
         put("volume", s.volume.toDouble())
         put("playbackSpeed", s.playbackSpeed.toDouble())
         put("subtitleScale", s.subtitleScale.toDouble())
+        put("subtitleBottomPct", s.subtitleBottomPct.toDouble())
+        put("subtitleBgAlpha", s.subtitleBgAlpha)
+        put("subtitleTextColor", s.subtitleTextColor)
         put("reducedMotion", s.reducedMotion)
         put("nightModeDrc", s.nightModeDrc)
         put("autoClearCacheOnExit", s.autoClearCacheOnExit)

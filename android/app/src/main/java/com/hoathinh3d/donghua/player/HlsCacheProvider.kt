@@ -18,13 +18,147 @@ import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import com.hoathinh3d.donghua.core.HttpClientProvider
+import com.hoathinh3d.donghua.core.PrefsStore
 import com.hoathinh3d.donghua.data.offline.HlsOfflineManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
+import java.net.URI
 import java.util.Collections
 import java.util.concurrent.TimeUnit
+
+/**
+ * Bộ lọc phân đoạn quảng cáo nhúng trong playlist HLS (#EXT-X-DISCONTINUITY / CDN quảng cáo)
+ * chạy trực tiếp trong bộ nhớ mà không cần mở HTTP server trung gian.
+ */
+object HlsPlaylistAdFilter {
+    private val AD_KEYWORDS = listOf(
+        "adcenter", "doubleclick", "googlesyndication", "googleads", "adservice",
+        "/ads/", "/ad_", "quangcao", "casino", "bet88", "jun88", "fb88", "okvip", "hi88", "new88", "mb66"
+    )
+
+    fun isKnownAdSegmentUrl(url: String): Boolean {
+        val low = url.lowercase()
+        return AD_KEYWORDS.any { low.contains(it) }
+    }
+
+    private fun extractHost(rawUrl: String, baseUrl: String): String? {
+        return runCatching {
+            val trimmed = rawUrl.trim()
+            val resolved = if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
+                URI(trimmed)
+            } else if (baseUrl.isNotBlank()) {
+                URI(baseUrl).resolve(trimmed)
+            } else {
+                null
+            }
+            resolved?.host?.lowercase()
+        }.getOrNull()
+    }
+
+    private data class SegmentBlock(
+        val lines: MutableList<String> = mutableListOf(),
+        var durationSec: Double = 0.0,
+        val hosts: MutableSet<String> = mutableSetOf(),
+        var hasAdUrl: Boolean = false,
+        var segmentCount: Int = 0
+    )
+
+    fun stripAdSegments(playlistText: String, playlistUrl: String = ""): Pair<String, Int> {
+        if (!playlistText.contains("#EXT-X-DISCONTINUITY", ignoreCase = true) ||
+            playlistText.contains("#EXT-X-STREAM-INF", ignoreCase = true)
+        ) {
+            return playlistText to 0
+        }
+
+        val rawLines = playlistText.lines()
+        val headerLines = mutableListOf<String>()
+        val footerLines = mutableListOf<String>()
+        val blocks = mutableListOf<SegmentBlock>()
+        var currentBlock: SegmentBlock? = null
+        var inSegments = false
+
+        for (line in rawLines) {
+            val trimmed = line.trim()
+            if (trimmed.equals("#EXT-X-ENDLIST", ignoreCase = true)) {
+                footerLines.add(line)
+                continue
+            }
+            if (!inSegments && !trimmed.startsWith("#EXTINF:", ignoreCase = true) &&
+                !trimmed.startsWith("#EXT-X-DISCONTINUITY", ignoreCase = true) &&
+                !trimmed.startsWith("#EXT-X-KEY", ignoreCase = true)
+            ) {
+                headerLines.add(line)
+                continue
+            }
+            if (trimmed.startsWith("#EXT-X-DISCONTINUITY", ignoreCase = true) &&
+                !trimmed.startsWith("#EXT-X-DISCONTINUITY-SEQUENCE", ignoreCase = true)
+            ) {
+                inSegments = true
+                if (currentBlock != null && currentBlock.lines.isNotEmpty()) {
+                    blocks.add(currentBlock)
+                }
+                currentBlock = SegmentBlock()
+                continue
+            }
+            inSegments = true
+            val blk = currentBlock ?: SegmentBlock().also { currentBlock = it }
+            blk.lines.add(line)
+            if (trimmed.startsWith("#EXTINF:", ignoreCase = true)) {
+                val dur = trimmed.substringAfter(':').substringBefore(',').trim().toDoubleOrNull() ?: 0.0
+                blk.durationSec += dur
+            } else if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
+                blk.segmentCount++
+                if (isKnownAdSegmentUrl(trimmed)) blk.hasAdUrl = true
+                extractHost(trimmed, playlistUrl)?.let { blk.hosts.add(it) }
+            }
+        }
+        if (currentBlock != null && currentBlock.lines.isNotEmpty()) {
+            blocks.add(currentBlock)
+        }
+        if (blocks.size < 2) return playlistText to 0
+
+        val hostDurations = HashMap<String, Double>()
+        for (b in blocks) {
+            if (!b.hasAdUrl) {
+                for (h in b.hosts) {
+                    hostDurations[h] = (hostDurations[h] ?: 0.0) + b.durationSec
+                }
+            }
+        }
+        val dominantEntry = hostDurations.maxByOrNull { it.value }
+        val dominantHost = dominantEntry?.key
+        val dominantDur = dominantEntry?.value ?: 0.0
+
+        val keptBlocks = mutableListOf<SegmentBlock>()
+        var removedSegments = 0
+        for (b in blocks) {
+            val foreignHostOnly = dominantHost != null &&
+                dominantDur >= 90.0 &&
+                b.hosts.isNotEmpty() &&
+                !b.hosts.contains(dominantHost)
+            val isSuspiciousForeignInsert = foreignHostOnly && b.durationSec in 0.1..45.0
+            if (b.hasAdUrl || isSuspiciousForeignInsert) {
+                removedSegments += b.segmentCount.coerceAtLeast(1)
+            } else {
+                keptBlocks.add(b)
+            }
+        }
+        if (removedSegments == 0 || keptBlocks.none { it.segmentCount > 0 }) {
+            return playlistText to 0
+        }
+
+        val out = StringBuilder(playlistText.length)
+        for (h in headerLines) out.append(h).append('\n')
+        for ((idx, b) in keptBlocks.withIndex()) {
+            if (idx > 0) out.append("#EXT-X-DISCONTINUITY\n")
+            for (l in b.lines) out.append(l).append('\n')
+        }
+        for (f in footerLines) out.append(f).append('\n')
+        return out.toString() to removedSegments
+    }
+}
 
 @OptIn(UnstableApi::class)
 object HlsCacheProvider {
@@ -114,13 +248,26 @@ object HlsCacheProvider {
         return 0
     }
 
-    private class SanitizingTsDataSource(private val upstream: DataSource) : DataSource {
+    private class SanitizingTsDataSource(
+        private val upstream: DataSource,
+        private val adBlockEnabled: () -> Boolean = { true }
+    ) : DataSource {
         private val peekBuf = ByteArray(MAX_IMAGE_HEADER_PEEK_BYTES)
         private var peekPos = 0
         private var peekLimit = 0
+        private var filteredPlaylistBytes: ByteArray? = null
+        private var filteredPlaylistPos = 0
 
         override fun addTransferListener(transferListener: TransferListener) {
             upstream.addTransferListener(transferListener)
+        }
+
+        private fun isProbablyPlaylist(uri: Uri, headers: Map<String, List<String>>): Boolean {
+            val uriStr = uri.toString().lowercase()
+            if (uriStr.contains(".m3u8") || uriStr.contains("/stream-plain")) return true
+            val contentType = headers.entries.firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
+                ?.value?.joinToString(" ")?.lowercase().orEmpty()
+            return contentType.contains("mpegurl")
         }
 
         private fun shouldInspectSegment(uri: Uri): Boolean {
@@ -142,7 +289,41 @@ object HlsCacheProvider {
         override fun open(dataSpec: DataSpec): Long {
             peekPos = 0
             peekLimit = 0
+            filteredPlaylistBytes = null
+            filteredPlaylistPos = 0
             val len = upstream.open(dataSpec)
+            if (dataSpec.position == 0L && adBlockEnabled() && isProbablyPlaylist(dataSpec.uri, upstream.responseHeaders)) {
+                val maxPlaylistBytes = 512 * 1024
+                val baos = java.io.ByteArrayOutputStream()
+                val tmp = ByteArray(8192)
+                var total = 0
+                var hitCap = false
+                while (true) {
+                    val n = upstream.read(tmp, 0, tmp.size)
+                    if (n == C.RESULT_END_OF_INPUT || n <= 0) break
+                    baos.write(tmp, 0, n)
+                    total += n
+                    if (total > maxPlaylistBytes) {
+                        hitCap = true
+                        break
+                    }
+                }
+                val rawBytes = baos.toByteArray()
+                if (!hitCap && rawBytes.isNotEmpty()) {
+                    val text = rawBytes.toString(Charsets.UTF_8)
+                    val (cleanText, removedCount) = HlsPlaylistAdFilter.stripAdSegments(text, dataSpec.uri.toString())
+                    val outBytes = if (removedCount > 0) cleanText.toByteArray(Charsets.UTF_8) else rawBytes
+                    filteredPlaylistBytes = outBytes
+                    filteredPlaylistPos = 0
+                    return outBytes.size.toLong()
+                }
+                // Vượt 512KB thì không giữ toàn bộ trong memory, vẫn trả phần đã đọc nếu nhỏ hoặc fallback:
+                if (rawBytes.isNotEmpty()) {
+                    filteredPlaylistBytes = rawBytes
+                    filteredPlaylistPos = 0
+                    return C.LENGTH_UNSET.toLong()
+                }
+            }
             if (dataSpec.position == 0L && shouldInspectSegment(dataSpec.uri)) {
                 var filled = 0
                 while (filled < INITIAL_PEEK_BYTES) {
@@ -170,6 +351,17 @@ object HlsCacheProvider {
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
             if (length == 0) return 0
+            val plBytes = filteredPlaylistBytes
+            if (plBytes != null) {
+                if (filteredPlaylistPos < plBytes.size) {
+                    val avail = plBytes.size - filteredPlaylistPos
+                    val toCopy = minOf(avail, length)
+                    System.arraycopy(plBytes, filteredPlaylistPos, buffer, offset, toCopy)
+                    filteredPlaylistPos += toCopy
+                    return toCopy
+                }
+                return upstream.read(buffer, offset, length)
+            }
             if (peekPos < peekLimit) {
                 val avail = peekLimit - peekPos
                 val toCopy = minOf(avail, length)
@@ -187,6 +379,8 @@ object HlsCacheProvider {
         override fun close() {
             peekPos = 0
             peekLimit = 0
+            filteredPlaylistBytes = null
+            filteredPlaylistPos = 0
             upstream.close()
         }
     }
@@ -195,7 +389,11 @@ object HlsCacheProvider {
         val okHttpFactory = OkHttpDataSource.Factory(streamingOkHttpClient)
             .setUserAgent(HttpClientProvider.DEFAULT_UA)
         val rawUpstream = DefaultDataSource.Factory(context.applicationContext, okHttpFactory)
-        val sanitizingUpstream = DataSource.Factory { SanitizingTsDataSource(rawUpstream.createDataSource()) }
+        val sanitizingUpstream = DataSource.Factory {
+            SanitizingTsDataSource(rawUpstream.createDataSource()) {
+                runCatching { PrefsStore.getSettings().extensions.adblock }.getOrDefault(true)
+            }
+        }
         return CacheDataSource.Factory()
             .setCache(getCache(context))
             .setUpstreamDataSourceFactory(sanitizingUpstream)

@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.RecognizerIntent
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -23,6 +24,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.Fragment
@@ -178,6 +180,27 @@ class MainActivity : AppCompatActivity(), AppHost {
     private var lastSourceTriggerView: View? = null
     private var lastRealtimeSyncMs: Long = 0L
     private var pendingInstallManifest: com.hoathinh3d.donghua.core.UpdateManifest? = null
+
+    private val voiceSearchLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (spoken.isEmpty()) {
+            showToast("Không nhận diện được giọng nói, hãy thử lại")
+            return@registerForActivityResult
+        }
+        binding.editSearch.setText(spoken)
+        binding.editSearch.setSelection(spoken.length)
+        PrefsStore.addSearchHistory(spoken)
+        if (state.activeTab != MainTab.HOME) navigateTab(MainTab.HOME)
+        searchJob?.cancel()
+        searchJob = lifecycleScope.launch { runLiveSearch(spoken) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -369,6 +392,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
 
         binding.btnClearSearch.setOnClickListener { clearSearch() }
+        binding.btnVoiceSearch.setOnClickListener { startVoiceSearch() }
         binding.editSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -502,7 +526,9 @@ class MainActivity : AppCompatActivity(), AppHost {
 
         binding.headerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
         binding.btnBrandHome.background = ThemeManager.navTabDrawable(this, p, active = false, 16f, liteRender = isLite)
+        binding.txtHeaderBrand.text = getString(R.string.app_name)
         binding.txtHeaderBrand.setTextColor(p.accentFrom)
+        binding.txtHeaderBadge.text = "3D"
         binding.txtHeaderBadge.background = ThemeManager.accentGradientDrawable(this, p, 8f)
         binding.txtHeaderSub.setTextColor(p.textMuted)
         binding.txtHeaderSub.visibility =
@@ -513,6 +539,8 @@ class MainActivity : AppCompatActivity(), AppHost {
         binding.imgSearchIcon.imageTintList = ThemeManager.tintColorState(p.textMuted)
         binding.editSearch.setTextColor(p.textMain)
         binding.editSearch.setHintTextColor(p.textMuted)
+        binding.btnVoiceSearch.imageTintList = ThemeManager.tintColorState(p.accentFrom)
+        binding.btnVoiceSearch.background = ThemeManager.navTabDrawable(this, p, active = false, 10f, liteRender = isLite)
         binding.txtSearchSourceCount.setTextColor(p.accentFrom)
         binding.btnClearSearch.setTextColor(p.textMuted)
         binding.btnClearSearch.background = ThemeManager.navTabDrawable(this, p, active = false, 10f)
@@ -651,6 +679,24 @@ class MainActivity : AppCompatActivity(), AppHost {
             0L
         } else {
             normalMs
+        }
+    }
+
+    private fun startVoiceSearch() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Nói tên phim hoạt hình 3D cần tìm...")
+        }
+        val canResolve = intent.resolveActivity(packageManager) != null
+        if (!canResolve) {
+            showToast("Thiết bị chưa hỗ trợ hoặc chưa cài Google Voice Search!")
+            return
+        }
+        try {
+            voiceSearchLauncher.launch(intent)
+        } catch (_: Exception) {
+            showToast("Không thể kích hoạt tìm kiếm giọng nói trên thiết bị này")
         }
     }
 

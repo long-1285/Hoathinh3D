@@ -101,10 +101,11 @@
                             android:id="@+id/txtHeaderBrand"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:ellipsize="end"
                             android:letterSpacing="-0.02"
                             android:maxLines="1"
                             android:text="HoatHinh3D"
-                            android:textSize="15sp"
+                            android:textSize="14sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -114,7 +115,7 @@
                             android:layout_marginStart="5dp"
                             android:paddingHorizontal="5dp"
                             android:paddingVertical="1.5dp"
-                            android:text="GLASS"
+                            android:text="3D"
                             android:textColor="#FFFFFF"
                             android:textSize="7.5sp"
                             android:textStyle="bold" />
@@ -258,7 +259,21 @@
                     android:imeOptions="actionSearch"
                     android:inputType="text"
                     android:maxLines="1"
+                    android:nextFocusRight="@+id/btnVoiceSearch"
                     android:textSize="13sp" />
+
+                <ImageView
+                    android:id="@+id/btnVoiceSearch"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="4dp"
+                    android:clickable="true"
+                    android:contentDescription="Tìm kiếm bằng giọng nói"
+                    android:focusable="true"
+                    android:nextFocusLeft="@+id/editSearch"
+                    android:nextFocusRight="@+id/btnCloseSearchOverlay"
+                    android:padding="5dp"
+                    android:src="@drawable/ic_lg_mic" />
 
                 <TextView
                     android:id="@+id/txtSearchSourceCount"

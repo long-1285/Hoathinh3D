@@ -118,8 +118,48 @@ class PlayerHelpersTest {
             2160,
             com.hoathinh3d.donghua.core.DeviceProfileResolver.capMaxVideoHeightForDevice(2160, 4096L, 2160)
         )
+        // Projector/TV with 1080p hardware decoder limit even with high RAM -> capped at 1080p
+        assertEquals(
+            1080,
+            com.hoathinh3d.donghua.core.DeviceProfileResolver.capMaxVideoHeightForDevice(2160, 4096L, 2160, 1080)
+        )
         assertTrue(com.hoathinh3d.donghua.core.DeviceProfileResolver.isUltraLowRamMb(1600L))
         assertTrue(!com.hoathinh3d.donghua.core.DeviceProfileResolver.isUltraLowRamMb(3072L))
+    }
+
+    @Test
+    fun hlsPlaylistAdFilter_stripsDiscontinuityAdBlocksAndKeepsMovie() {
+        val m3u8 = """
+            #EXTM3U
+            #EXT-X-VERSION:3
+            #EXT-X-TARGETDURATION:10
+            #EXT-X-MEDIA-SEQUENCE:0
+            #EXTINF:6.0,
+            https://ads.adcenter.cx/ads/preroll_01.ts
+            #EXT-X-DISCONTINUITY
+            #EXTINF:10.0,
+            https://cdn.movie.test/ep1/seg_001.ts
+            #EXTINF:10.0,
+            https://cdn.movie.test/ep1/seg_002.ts
+            #EXTINF:80.0,
+            https://cdn.movie.test/ep1/seg_003.ts
+            #EXT-X-DISCONTINUITY
+            #EXTINF:12.0,
+            https://track.casino-promo.test/midroll_01.ts
+            #EXT-X-DISCONTINUITY
+            #EXTINF:20.0,
+            https://cdn.movie.test/ep1/seg_004.ts
+            #EXT-X-ENDLIST
+        """.trimIndent()
+        val (cleaned, removedCount) = com.hoathinh3d.donghua.player.HlsPlaylistAdFilter.stripAdSegments(
+            m3u8,
+            "https://cdn.movie.test/ep1/index.m3u8"
+        )
+        assertEquals(2, removedCount)
+        assertTrue(!cleaned.contains("adcenter.cx"))
+        assertTrue(!cleaned.contains("casino-promo.test"))
+        assertTrue(cleaned.contains("seg_001.ts"))
+        assertTrue(cleaned.contains("seg_004.ts"))
     }
 
     @Test

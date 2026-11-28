@@ -451,6 +451,23 @@ class PlayerActivity : AppCompatActivity() {
         )
     }
 
+    private fun applySubtitleStyle() {
+        binding.playerView.subtitleView?.apply {
+            setStyle(
+                CaptionStyleCompat(
+                    settings.subtitleTextColor,
+                    Color.argb(settings.subtitleBgAlpha.coerceIn(0, 240), 8, 12, 22),
+                    Color.TRANSPARENT,
+                    CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
+                    Color.BLACK,
+                    null
+                )
+            )
+            setFractionalTextSize(settings.subtitleScale.coerceIn(0.035f, 0.095f))
+            setBottomPaddingFraction(settings.subtitleBottomPct.coerceIn(0.04f, 0.30f))
+        }
+    }
+
     private fun initExoPlayer() {
         val biOn = settings.extensions.bilingualSub || settings.bilingualSub
         val ts = DefaultTrackSelector(this).apply {
@@ -460,24 +477,15 @@ class PlayerActivity : AppCompatActivity() {
             val deviceCapH = DeviceProfileResolver.recommendedMaxVideoHeight(this@PlayerActivity, presetMaxH)
             deviceCapH?.let { maxH ->
                 builder.setMaxVideoSize(Int.MAX_VALUE, maxH)
+                if (presetMaxH != null && maxH < presetMaxH) {
+                    showToast("Tối ưu giải mã mượt tới ${maxH}p cho cấu hình thiết bị này")
+                }
             }
             setParameters(builder)
         }
         trackSelector = ts
 
-        binding.playerView.subtitleView?.apply {
-            setStyle(
-                CaptionStyleCompat(
-                    Color.WHITE,
-                    Color.argb(175, 8, 12, 22),
-                    Color.TRANSPARENT,
-                    CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
-                    Color.BLACK,
-                    null
-                )
-            )
-            setFractionalTextSize(settings.subtitleScale.coerceIn(0.035f, 0.095f))
-        }
+        applySubtitleStyle()
 
         val renderersFactory = DefaultRenderersFactory(this)
             .setEnableDecoderFallback(true)
@@ -1982,7 +1990,7 @@ class PlayerActivity : AppCompatActivity() {
                 isFocusable = true
                 setOnClickListener {
                     settings = PrefsStore.saveSettings(settings.copy(subtitleScale = scaleVal))
-                    binding.playerView.subtitleView?.setFractionalTextSize(scaleVal)
+                    applySubtitleStyle()
                     renderDrawer()
                     showToast("Cỡ phụ đề: $lbl")
                 }
@@ -1995,6 +2003,87 @@ class PlayerActivity : AppCompatActivity() {
             )
         }
         binding.drawerContentContainer.addView(subScaleRow)
+
+        val bottomPct = kotlin.math.round(settings.subtitleBottomPct * 100f).toInt()
+        val posHeading = TextView(this).apply {
+            text = "Vị trí phụ đề từ đáy (${bottomPct}%) • Chỉnh trực tiếp"
+            setTextColor(Color.parseColor("#2CE59B"))
+            textSize = 12f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, (10 * dp).toInt(), 0, (4 * dp).toInt())
+        }
+        binding.drawerContentContainer.addView(posHeading)
+        val posRow = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+        }
+        val posActions = listOf(-0.02f to "Xuống -2%", 0.0f to "Chuẩn 8%", 0.02f to "Lên +2%")
+        for ((idx, pair) in posActions.withIndex()) {
+            val (deltaPct, lbl) = pair
+            val active = deltaPct == 0.0f && abs(settings.subtitleBottomPct - 0.08f) < 0.005f
+            val pBtn = Button(this).apply {
+                text = lbl
+                isAllCaps = false
+                textSize = 11.5f
+                setTextColor(if (active) Color.parseColor("#090D16") else Color.WHITE)
+                background = drawerItemBackground(if (active) Color.parseColor("#2CE59B") else Color.parseColor("#151B26"))
+                isFocusable = true
+                setOnClickListener {
+                    val nextPct = if (deltaPct == 0.0f) 0.08f else (settings.subtitleBottomPct + deltaPct).coerceIn(0.04f, 0.30f)
+                    settings = PrefsStore.saveSettings(settings.copy(subtitleBottomPct = nextPct))
+                    applySubtitleStyle()
+                    renderDrawer()
+                }
+            }
+            posRow.addView(
+                pBtn,
+                android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (idx > 0) marginStart = (6 * dp).toInt()
+                }
+            )
+        }
+        binding.drawerContentContainer.addView(posRow)
+
+        val styleHeading = TextView(this).apply {
+            text = "Màu chữ & Độ mờ nền phụ đề"
+            setTextColor(Color.parseColor("#2CE59B"))
+            textSize = 12f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, (10 * dp).toInt(), 0, (4 * dp).toInt())
+        }
+        binding.drawerContentContainer.addView(styleHeading)
+        val styleRow = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+        }
+        val yellowColor = Color.parseColor("#FACC15")
+        val styleOptions = listOf(
+            Triple("Trắng", settings.subtitleTextColor == Color.WHITE) { settings.copy(subtitleTextColor = Color.WHITE) },
+            Triple("Vàng", settings.subtitleTextColor == yellowColor) { settings.copy(subtitleTextColor = yellowColor) },
+            Triple("Nền trong", settings.subtitleBgAlpha == 0) { settings.copy(subtitleBgAlpha = 0) },
+            Triple("Nền đậm", settings.subtitleBgAlpha >= 175) { settings.copy(subtitleBgAlpha = if (settings.subtitleBgAlpha == 175) 235 else 175) }
+        )
+        for ((idx, opt) in styleOptions.withIndex()) {
+            val (lbl, active, updater) = opt
+            val stBtn = Button(this).apply {
+                text = lbl
+                isAllCaps = false
+                textSize = 11f
+                setTextColor(if (active) Color.parseColor("#090D16") else Color.WHITE)
+                background = drawerItemBackground(if (active) Color.parseColor("#2CE59B") else Color.parseColor("#151B26"))
+                isFocusable = true
+                setOnClickListener {
+                    settings = PrefsStore.saveSettings(updater())
+                    applySubtitleStyle()
+                    renderDrawer()
+                }
+            }
+            styleRow.addView(
+                stBtn,
+                android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (idx > 0) marginStart = (5 * dp).toInt()
+                }
+            )
+        }
+        binding.drawerContentContainer.addView(styleRow)
 
         if (externalSubtitleRawText != null) {
             val offsetText = if (subtitleOffsetMs == 0L) "0.0s" else String.format(Locale.US, "%+.1fs", subtitleOffsetMs / 1000.0)

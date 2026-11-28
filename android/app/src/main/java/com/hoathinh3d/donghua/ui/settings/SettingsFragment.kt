@@ -1236,11 +1236,13 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
 
         val isWide = st.resolvedDevice != ResolvedDeviceProfile.MOBILE
         val infoBox = cardContainer(p)
+        val hwCap = DeviceProfileResolver.detectVideoDecoderCapability()
         infoBox.addView(headingText("Thông Tin Gói APK Native (v${BuildConfig.VERSION_NAME})", p, 15f))
         infoBox.addView(
             mutedText(
                 "• Package: ${BuildConfig.APPLICATION_ID} (build ${BuildConfig.VERSION_CODE}) • Min SDK 23 → Target SDK 35\n" +
-                    "• Media3 ExoPlayer 1.5.1 (ClosestSync + SimpleCache) • Bộ nhớ đệm HLS: $cacheMb • Offline: ${st.offlineEpisodes.size} tập ($offlineMb)",
+                    "• Media3 ExoPlayer 1.5.1 (ClosestSync + SimpleCache) • Giải mã video: ${hwCap.summaryLabel}\n" +
+                    "• Bộ nhớ đệm HLS: $cacheMb • Offline: ${st.offlineEpisodes.size} tập ($offlineMb)",
                 p,
                 12f
             )
