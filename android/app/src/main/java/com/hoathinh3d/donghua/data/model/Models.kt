@@ -167,7 +167,7 @@ data class AppSettings(
     val seekStep: Int = 10,
     val bilingualSub: Boolean = false,
     val defaultAudio: String = "Thuyết Minh",
-    val defaultQuality: String = "4K 60FPS",
+    val defaultQuality: String = "Auto",
     val aspectRatio: String = "16:9",
     val volume: Float = 1f,
     val playbackSpeed: Float = 1f,

@@ -40,6 +40,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -51,6 +52,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
@@ -188,6 +190,9 @@ class PlayerActivity : AppCompatActivity() {
     private var gestureFadeRunnable: Runnable? = null
     private var skipIntroHideRunnable: Runnable? = null
     private var seekThumbHideRunnable: Runnable? = null
+    private var sleepTimerMinutes: Int = 0
+    private var sleepTimerEndAtMs: Long = 0L
+    private var sleepTimerRunnable: Runnable? = null
     private var storyboardCues: List<StoryboardCue> = emptyList()
     private val storyboardSprites = android.util.LruCache<String, android.graphics.Bitmap>(2)
     private val storyboardRequestedUrls = HashSet<String>()
@@ -470,7 +475,13 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun initExoPlayer() {
         val biOn = settings.extensions.bilingualSub || settings.bilingualSub
-        val ts = DefaultTrackSelector(this).apply {
+        val adaptiveFactory = AdaptiveTrackSelection.Factory(
+            4_000,  // Tăng độ nét nhanh hơn khi mạng ổn (4s)
+            10_000, // Hạ mượt khi băng thông giảm
+            10_000,
+            0.75f
+        )
+        val ts = DefaultTrackSelector(this, adaptiveFactory).apply {
             val builder = buildUponParameters()
             builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !biOn)
             val presetMaxH = PlayerUtils.maxHeightForQualityPreset(settings.defaultQuality)
@@ -490,10 +501,17 @@ class PlayerActivity : AppCompatActivity() {
         val renderersFactory = DefaultRenderersFactory(this)
             .setEnableDecoderFallback(true)
 
+        val audioAttrs = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build()
+
         val player = ExoPlayer.Builder(this, renderersFactory)
             .setTrackSelector(ts)
             .setLoadControl(InstantLoadControl.create(this))
             .setMediaSourceFactory(HlsCacheProvider.buildMediaSourceFactory(this))
+            .setAudioAttributes(audioAttrs, true)
+            .setHandleAudioBecomingNoisy(true)
             .build().apply {
                 setSeekParameters(SeekParameters.CLOSEST_SYNC)
                 playbackParameters = PlaybackParameters(playbackSpeed)
@@ -2183,6 +2201,47 @@ class PlayerActivity : AppCompatActivity() {
         }
         binding.drawerContentContainer.addView(skipRow)
 
+        val remSleepMin = if (sleepTimerMinutes > 0 && sleepTimerEndAtMs > System.currentTimeMillis()) {
+            (((sleepTimerEndAtMs - System.currentTimeMillis()) / 60_000L) + 1L).toInt()
+        } else {
+            0
+        }
+        val sleepHeading = TextView(this).apply {
+            text = if (remSleepMin > 0) "⏰ Hẹn giờ tắt (Còn ~${remSleepMin} phút)" else "⏰ Hẹn giờ tắt (Đang tắt)"
+            setTextColor(Color.parseColor("#2CE59B"))
+            textSize = 12.5f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, (12 * dp).toInt(), 0, (4 * dp).toInt())
+        }
+        binding.drawerContentContainer.addView(sleepHeading)
+        val sleepRow = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+        }
+        val sleepOptions = listOf(0 to "Tắt", 15 to "15p", 30 to "30p", 45 to "45p", 60 to "60p")
+        for ((idx, pair) in sleepOptions.withIndex()) {
+            val (mins, lbl) = pair
+            val active = sleepTimerMinutes == mins
+            val slBtn = Button(this).apply {
+                text = lbl
+                isAllCaps = false
+                textSize = 11f
+                setTextColor(if (active) Color.parseColor("#090D16") else Color.WHITE)
+                background = drawerItemBackground(if (active) Color.parseColor("#2CE59B") else Color.parseColor("#151B26"))
+                isFocusable = true
+                setOnClickListener {
+                    applySleepTimer(mins)
+                    renderDrawer()
+                }
+            }
+            sleepRow.addView(
+                slBtn,
+                android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (idx > 0) marginStart = (4 * dp).toInt()
+                }
+            )
+        }
+        binding.drawerContentContainer.addView(sleepRow)
+
         if (!isTvProfile) {
             val rotBtn = Button(this).apply {
                 text = if (isPortraitLocked) "✓ Đang khóa xoay dọc (Đổi xoay ngang)" else "Khóa màn hình dọc"
@@ -2544,6 +2603,29 @@ class PlayerActivity : AppCompatActivity() {
         unlockHideHandler.removeCallbacks(unlockHideRunnable)
     }
 
+    private fun applySleepTimer(minutes: Int) {
+        sleepTimerRunnable?.let { mainHandler.removeCallbacks(it) }
+        sleepTimerRunnable = null
+        sleepTimerMinutes = minutes
+        if (minutes <= 0) {
+            sleepTimerEndAtMs = 0L
+            showToast("Đã tắt hẹn giờ tắt trình phát")
+            return
+        }
+        val delayMs = minutes * 60_000L
+        sleepTimerEndAtMs = System.currentTimeMillis() + delayMs
+        val r = Runnable {
+            sleepTimerMinutes = 0
+            sleepTimerEndAtMs = 0L
+            exoPlayer?.pause()
+            persistWatchProgressNow()
+            showToast("Đã hết giờ hẹn — tự tạm dừng phim")
+        }
+        sleepTimerRunnable = r
+        mainHandler.postDelayed(r, delayMs)
+        showToast("Sẽ tự tạm dừng phát sau $minutes phút")
+    }
+
     private fun shareCurrentMovieOrEpisode() {
         val title = movie.title.ifBlank { "Hoạt Hình 3D" }
         val currentEp = episodesList().getOrNull(currentEpIdx)
@@ -2782,6 +2864,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onDestroy() {
         persistWatchProgressNow()
         cancelUnlockHideTimer()
+        sleepTimerRunnable = null
         mainHandler.removeCallbacksAndMessages(null)
         storyboardSprites.evictAll()
         seekCoalescer?.release()

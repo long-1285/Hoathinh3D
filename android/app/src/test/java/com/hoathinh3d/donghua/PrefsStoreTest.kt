@@ -67,6 +67,7 @@ class PrefsStoreTest {
         val settings = PrefsStore.getSettings()
         assertEquals("YanHH3DNow", settings.preferredSource)
         assertEquals("Thuyết Minh", settings.defaultAudio)
+        assertEquals("Auto", settings.defaultQuality)
         assertEquals("pearl", settings.theme)
         assertEquals("light", settings.darkMode)
         assertEquals(52, settings.glassOpacity)
@@ -323,5 +324,52 @@ class PrefsStoreTest {
         // Clear all
         PrefsStore.clearSearchHistory()
         assertTrue(PrefsStore.getSearchHistory().isEmpty())
+    }
+
+    @Test
+    fun favoritesSnapshot_preservesAll10MoviesAcrossPagesAndBackup() {
+        for (i in 1..10) {
+            val movie = com.hoathinh3d.donghua.data.model.DonghuaMovie(
+                id = "fav_movie_$i",
+                title = "Phim Yêu Thích $i",
+                originalTitle = "Orig $i",
+                slug = "fav-movie-$i",
+                studio = "YanHH3D Now",
+                latestEp = 10 + i,
+                totalEp = 50,
+                rating = 9.7,
+                views = "1M",
+                viewsNum = 1.0,
+                quality = "1080p",
+                audioModes = listOf("Thuyết Minh"),
+                sources = listOf("YanHH3DNow"),
+                genres = listOf("Tu Tiên"),
+                scheduleDay = "Thứ 2",
+                scheduleTime = "10:00",
+                poster = "https://img.test/m$i.jpg"
+            )
+            assertTrue(PrefsStore.toggleFavorite(movie.id, movie))
+        }
+
+        val favIds = PrefsStore.getFavorites()
+        val favMap = PrefsStore.getFavoriteMoviesMap()
+        assertEquals(10, favIds.size)
+        assertEquals(10, favMap.size)
+        assertEquals("Phim Yêu Thích 10", favMap["fav_movie_10"]?.title)
+
+        val backupJson = PrefsStore.exportFullBackup()
+        PrefsStore.initForTest(InMemorySharedPrefs())
+        assertTrue(PrefsStore.getFavorites().isEmpty())
+        assertTrue(PrefsStore.getFavoriteMoviesMap().isEmpty())
+
+        assertTrue(PrefsStore.importFullBackup(backupJson))
+        assertEquals(10, PrefsStore.getFavorites().size)
+        assertEquals(10, PrefsStore.getFavoriteMoviesMap().size)
+        assertEquals("https://img.test/m1.jpg", PrefsStore.getFavoriteMoviesMap()["fav_movie_1"]?.poster)
+
+        // Removing 1 favorite removes both ID and snapshot cleanly
+        assertFalse(PrefsStore.toggleFavorite("fav_movie_5"))
+        assertEquals(9, PrefsStore.getFavorites().size)
+        assertEquals(9, PrefsStore.getFavoriteMoviesMap().size)
     }
 }

@@ -104,8 +104,8 @@
                             android:ellipsize="end"
                             android:letterSpacing="-0.02"
                             android:maxLines="1"
-                            android:text="HH3D"
-                            android:textSize="14sp"
+                            android:text="Hoạt Hình"
+                            android:textSize="15sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -125,7 +125,7 @@
                         android:id="@+id/txtHeaderSub"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Donghua 3D • Liquid Glass UI"
+                        android:text=""
                         android:textSize="10sp"
                         android:visibility="gone" />
                 </LinearLayout>

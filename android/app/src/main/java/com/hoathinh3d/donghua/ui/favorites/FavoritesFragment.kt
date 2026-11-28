@@ -59,7 +59,8 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         favAdapter = MovieCardAdapter(
             fixedWidthDp = null,
             onSelect = { h.openMovieDetail(it) },
-            onToggleFavorite = { h.toggleFavorite(it.id) }
+            onToggleFavorite = { h.toggleFavorite(it.id) },
+            onLongSelect = { movie -> showFavoriteActions(h, movie) }
         )
         currentSpan = DeviceProfileResolver.gridSpanCount(h.getState().resolvedDevice)
         binding.rvFavorites.layoutManager = GridLayoutManager(requireContext(), currentSpan)
@@ -89,6 +90,32 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         b.favoritesScroll.setPadding(hPad, topPx, hPad, bottomPx)
     }
 
+    private fun showFavoriteActions(h: AppHost, movie: com.hoathinh3d.donghua.data.model.DonghuaMovie) {
+        val options = arrayOf(
+            "▶ Xem ngay",
+            "ℹ Chi tiết & Danh sách tập",
+            "♡ Bỏ khỏi Yêu thích"
+        )
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle(movie.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        val prog = h.getState().watchHistory[movie.id]
+                        if (prog != null) {
+                            h.quickPlayMovie(movie, prog.episode, -1, prog.currentTime)
+                        } else {
+                            h.quickPlayMovie(movie, 1)
+                        }
+                    }
+                    1 -> h.openMovieDetail(movie)
+                    2 -> h.toggleFavorite(movie.id)
+                }
+            }
+            .setNegativeButton("Đóng", null)
+            .show()
+    }
+
     override fun refreshUi() {
         val b = _binding ?: return
         val h = host ?: return
@@ -106,14 +133,46 @@ class FavoritesFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val (chromeTop, chromeBot) = h.getChromeInsets()
         b.favoritesScroll.setPadding(hPad, chromeTop, hPad, chromeBot)
 
-        val favMovies = st.allMovies.filter { st.favorites.contains(it.id) }
+        val livePool = st.allMovies + st.trendingTop10 + st.activeGenreMovies.orEmpty() + st.remoteSearchResults
+        val favMovies = st.favorites.distinct().map { favId ->
+            val live = livePool.firstOrNull { it.id == favId || it.slug == favId }
+            val snap = st.favoriteMoviesMap[favId]
+            when {
+                live != null -> if (live.id == favId) live else live.copy(id = favId)
+                snap != null -> if (snap.id == favId) snap else snap.copy(id = favId)
+                st.watchHistory[favId] != null -> h.resolveMovieForProgress(st.watchHistory.getValue(favId)).copy(id = favId)
+                else -> com.hoathinh3d.donghua.data.model.DonghuaMovie(
+                    id = favId,
+                    title = favId.replace('-', ' ').ifBlank { "Hoạt Hình 3D" },
+                    originalTitle = "Đã lưu Yêu thích",
+                    slug = favId,
+                    studio = st.activeSourceId,
+                    latestEp = 1,
+                    totalEp = 1,
+                    rating = 9.5,
+                    views = "Yêu thích",
+                    viewsNum = 1.0,
+                    quality = "HD",
+                    audioModes = listOf("Thuyết Minh", "Vietsub"),
+                    sources = listOf(st.activeSourceId),
+                    genres = listOf("Tu Tiên"),
+                    scheduleDay = "Hàng ngày",
+                    scheduleTime = "10:00",
+                    poster = ""
+                )
+            }
+        }
         val offlineList = st.offlineEpisodes.values.sortedByDescending { it.savedAt }
         val offlineCountByMovie = offlineList.groupingBy { it.donghuaId }.eachCount()
         val totalNew = favMovies.sumOf { st.favoriteMetaMap[it.id]?.newEpCount ?: 0 }
 
         b.favHeaderPanel.background = ThemeManager.glassPanelDrawable(requireContext(), p, 22f)
         b.txtFavTitle.setTextColor(p.textMain)
-        b.txtFavSub.text = "${favMovies.size} phim đang theo dõi • ${offlineList.size} tập đã lưu offline"
+        b.txtFavSub.text = if (offlineList.isNotEmpty()) {
+            "${favMovies.size} phim đang theo dõi • ${offlineList.size} tập đã lưu offline"
+        } else {
+            "${favMovies.size} phim đang theo dõi"
+        }
         b.txtFavSub.setTextColor(p.textMuted)
         b.txtFavNewBadge.visibility = if (totalNew > 0) View.VISIBLE else View.GONE
         b.txtFavNewBadge.text = "+$totalNew tập mới"

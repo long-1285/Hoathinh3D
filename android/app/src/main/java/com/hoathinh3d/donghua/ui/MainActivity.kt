@@ -125,6 +125,7 @@ data class MainState(
     val genresLastSyncAtMs: Long = 0L,
     val searchQuery: String = "",
     val favorites: List<String> = emptyList(),
+    val favoriteMoviesMap: Map<String, DonghuaMovie> = emptyMap(),
     val favoriteMetaMap: Map<String, FavoriteEpisodeMeta> = emptyMap(),
     val offlineEpisodes: Map<String, OfflineEpisodeRecord> = emptyMap(),
     val watchHistory: Map<String, WatchProgress> = emptyMap(),
@@ -221,6 +222,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             activeSourceId = initialSource,
             settings = savedSettings,
             favorites = PrefsStore.getFavorites(),
+            favoriteMoviesMap = PrefsStore.getFavoriteMoviesMap(),
             favoriteMetaMap = PrefsStore.getFavoriteMetaMap(),
             offlineEpisodes = PrefsStore.getOfflineEpisodes(),
             watchHistory = PrefsStore.getHistory(),
@@ -323,6 +325,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         state = state.copy(
             watchHistory = freshHistory,
             favorites = PrefsStore.getFavorites(),
+            favoriteMoviesMap = PrefsStore.getFavoriteMoviesMap(),
             favoriteMetaMap = PrefsStore.getFavoriteMetaMap(),
             offlineEpisodes = PrefsStore.getOfflineEpisodes(),
             sources = PrefsStore.getSources()
@@ -526,13 +529,11 @@ class MainActivity : AppCompatActivity(), AppHost {
 
         binding.headerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
         binding.btnBrandHome.background = ThemeManager.navTabDrawable(this, p, active = false, 16f, liteRender = isLite)
-        binding.txtHeaderBrand.text = getString(R.string.app_name)
+        binding.txtHeaderBrand.text = "Hoạt Hình"
         binding.txtHeaderBrand.setTextColor(p.accentFrom)
         binding.txtHeaderBadge.text = "3D"
         binding.txtHeaderBadge.background = ThemeManager.accentGradientDrawable(this, p, 8f)
-        binding.txtHeaderSub.setTextColor(p.textMuted)
-        binding.txtHeaderSub.visibility =
-            if (state.resolvedDevice == ResolvedDeviceProfile.MOBILE) View.GONE else View.VISIBLE
+        binding.txtHeaderSub.visibility = View.GONE
 
         binding.floatingSearchContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 24f, liteRender = isLite)
         binding.searchBarBox.background = ThemeManager.glassPanelDrawable(this, p, 16f, isCard = true, liteRender = isLite)
@@ -1339,8 +1340,13 @@ class MainActivity : AppCompatActivity(), AppHost {
 
                     val favs = PrefsStore.getFavorites()
                     if (favs.isNotEmpty()) {
-                        val favCheck = MovieRepository.checkFavoritesNewEpisodes(favs, mergedCatalog, 3)
-                        state = state.copy(favoriteMetaMap = favCheck.metaMap)
+                        val pool = mergedCatalog + top10Task + state.favoriteMoviesMap.values
+                        val backfilled = PrefsStore.backfillFavoriteMovies(pool)
+                        val favCheck = MovieRepository.checkFavoritesNewEpisodes(favs, pool, 3)
+                        state = state.copy(
+                            favoriteMoviesMap = backfilled,
+                            favoriteMetaMap = favCheck.metaMap
+                        )
                         if (favCheck.newlyUpdatedTitles.isNotEmpty()) {
                             showToast("Yêu thích có tập mới: ${favCheck.newlyUpdatedTitles.take(2).joinToString(", ")}")
                         }
@@ -1807,15 +1813,26 @@ class MainActivity : AppCompatActivity(), AppHost {
         )
     }
 
+    private fun resolveMovieSnapshotById(movieId: String): DonghuaMovie? {
+        val pool = state.allMovies +
+            state.trendingTop10 +
+            state.activeGenreMovies.orEmpty() +
+            state.remoteSearchResults
+        return pool.firstOrNull { it.id == movieId || it.slug == movieId }
+            ?: state.favoriteMoviesMap[movieId]
+            ?: state.watchHistory[movieId]?.let { resolveMovieForProgress(it) }
+    }
+
     override fun toggleFavorite(movieId: String) {
-        val isFav = PrefsStore.toggleFavorite(movieId)
+        val snapshot = resolveMovieSnapshotById(movieId)
+        val isFav = PrefsStore.toggleFavorite(movieId, snapshot)
         val favs = PrefsStore.getFavorites()
+        val favMap = PrefsStore.getFavoriteMoviesMap()
         var metaMap = state.favoriteMetaMap
         if (isFav) {
-            val m = state.allMovies.firstOrNull { it.id == movieId }
-            metaMap = PrefsStore.markFavoriteEpisodeSeen(movieId, m?.latestEp ?: 1)
+            metaMap = PrefsStore.markFavoriteEpisodeSeen(movieId, snapshot?.latestEp ?: 1)
         }
-        state = state.copy(favorites = favs, favoriteMetaMap = metaMap)
+        state = state.copy(favorites = favs, favoriteMoviesMap = favMap, favoriteMetaMap = metaMap)
         maybeAutoCloudSync()
         updateBottomNavUi()
         notifyActiveFragment()
@@ -1828,12 +1845,18 @@ class MainActivity : AppCompatActivity(), AppHost {
         notifyActiveFragment()
         lifecycleScope.launch {
             try {
-                val res = MovieRepository.checkFavoritesNewEpisodes(state.favorites, state.allMovies, 6)
+                val knownPool = state.allMovies +
+                    state.trendingTop10 +
+                    state.activeGenreMovies.orEmpty() +
+                    state.remoteSearchResults +
+                    state.favoriteMoviesMap.values
+                val res = MovieRepository.checkFavoritesNewEpisodes(state.favorites, knownPool, 6)
                 val updatedMap = state.allMovies.map { m ->
                     res.updatedMovies.firstOrNull { it.id == m.id } ?: m
                 }
                 state = state.copy(
                     favoriteMetaMap = res.metaMap,
+                    favoriteMoviesMap = PrefsStore.getFavoriteMoviesMap(),
                     allMovies = updatedMap,
                     isCheckingFavUpdates = false
                 )
@@ -2074,6 +2097,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             activeSourceId = targetSource,
             settings = savedSettings,
             favorites = PrefsStore.getFavorites(),
+            favoriteMoviesMap = PrefsStore.getFavoriteMoviesMap(),
             favoriteMetaMap = PrefsStore.getFavoriteMetaMap(),
             offlineEpisodes = PrefsStore.getOfflineEpisodes(),
             watchHistory = PrefsStore.getHistory(),

@@ -110,7 +110,7 @@ class MovieDetailActivity : AppCompatActivity() {
             )
         }
         binding.btnDetailFavorite.setOnClickListener {
-            val isFav = PrefsStore.toggleFavorite(movie.id)
+            val isFav = PrefsStore.toggleFavorite(movie.id, movie)
             if (isFav) PrefsStore.markFavoriteEpisodeSeen(movie.id, movie.latestEp)
             renderUi()
             Toast.makeText(

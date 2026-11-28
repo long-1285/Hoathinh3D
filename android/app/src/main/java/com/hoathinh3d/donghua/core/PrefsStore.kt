@@ -21,6 +21,7 @@ object PrefsStore {
     object Keys {
         const val HISTORY = "hh3d_watch_history_v2"
         const val FAVORITES = "hh3d_favorites_v2"
+        const val FAVORITE_MOVIES = "hh3d_favorite_movies_v1"
         const val FAVORITES_EP_META = "hh3d_favorites_ep_meta_v1"
         const val OFFLINE_EPISODES = "hh3d_offline_episodes_v1"
         const val WATCHED_EPISODES = "hh3d_watched_episodes_v1"
@@ -35,6 +36,7 @@ object PrefsStore {
         const val SOURCES_V5_YAN_NOW_NO_NGUONC = "hh3d_sources_v5_yan_now_no_nguonc"
         const val APPEARANCE_DEFAULTS_V45 = "hh3d_appearance_defaults_v45"
         const val APPEARANCE_TWO_MODES_V51 = "hh3d_appearance_2modes_v51"
+        const val QUALITY_AUTO_DEFAULT_V55 = "hh3d_quality_auto_default_v55"
         const val SEARCH_HISTORY = "hh3d_search_history_v1"
     }
 
@@ -231,13 +233,60 @@ object PrefsStore {
         val raw = prefs.getString(Keys.FAVORITES, null) ?: return emptyList()
         return try {
             val arr = JSONArray(raw)
-            List(arr.length()) { idx -> arr.optString(idx) }.filter { it.isNotBlank() }
+            List(arr.length()) { idx -> arr.optString(idx) }.filter { it.isNotBlank() }.distinct()
         } catch (_: Exception) {
             emptyList()
         }
     }
 
-    fun toggleFavorite(id: String): Boolean {
+    fun getFavoriteMoviesMap(): Map<String, DonghuaMovie> {
+        val raw = prefs.getString(Keys.FAVORITE_MOVIES, null) ?: return emptyMap()
+        return try {
+            val obj = JSONObject(raw)
+            val map = LinkedHashMap<String, DonghuaMovie>()
+            for (k in obj.keys()) {
+                val mJson = obj.optJSONObject(k) ?: continue
+                map[k] = movieFromJson(mJson)
+            }
+            map
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun saveFavoriteMoviesMap(map: Map<String, DonghuaMovie>) {
+        val root = JSONObject()
+        for ((k, v) in map) {
+            root.put(k, movieToJson(v))
+        }
+        prefs.edit().putString(Keys.FAVORITE_MOVIES, root.toString()).apply()
+    }
+
+    fun saveFavoriteMovieSnapshot(movie: DonghuaMovie) {
+        if (movie.id.isBlank()) return
+        val map = getFavoriteMoviesMap().toMutableMap()
+        map[movie.id] = movie
+        saveFavoriteMoviesMap(map)
+    }
+
+    fun backfillFavoriteMovies(candidates: List<DonghuaMovie>): Map<String, DonghuaMovie> {
+        val favIds = getFavorites()
+        if (favIds.isEmpty() || candidates.isEmpty()) return getFavoriteMoviesMap()
+        val map = getFavoriteMoviesMap().toMutableMap()
+        var changed = false
+        for (favId in favIds) {
+            val found = candidates.firstOrNull { it.id == favId || it.slug == favId } ?: continue
+            val prev = map[favId]
+            if (prev == null || found.latestEp > prev.latestEp || (prev.poster.isBlank() && found.poster.isNotBlank())) {
+                map[favId] = if (found.id == favId) found else found.copy(id = favId)
+                changed = true
+            }
+        }
+        if (changed) saveFavoriteMoviesMap(map)
+        return map
+    }
+
+    fun toggleFavorite(id: String, movieSnapshot: DonghuaMovie? = null): Boolean {
         val favs = getFavorites().toMutableList()
         val idx = favs.indexOf(id)
         val isFav = if (idx >= 0) {
@@ -250,6 +299,13 @@ object PrefsStore {
         val arr = JSONArray()
         favs.forEach { arr.put(it) }
         prefs.edit().putString(Keys.FAVORITES, arr.toString()).apply()
+        val favMap = getFavoriteMoviesMap().toMutableMap()
+        if (isFav && movieSnapshot != null) {
+            favMap[id] = if (movieSnapshot.id == id) movieSnapshot else movieSnapshot.copy(id = id)
+            saveFavoriteMoviesMap(favMap)
+        } else if (!isFav && favMap.remove(id) != null) {
+            saveFavoriteMoviesMap(favMap)
+        }
         return isFav
     }
 
@@ -511,6 +567,7 @@ object PrefsStore {
 
             val needsV45Migration = !prefs.contains(Keys.APPEARANCE_DEFAULTS_V45)
             val needsTwoModesMigration = !prefs.contains(Keys.APPEARANCE_TWO_MODES_V51)
+            val needsQualityAutoMigration = !prefs.contains(Keys.QUALITY_AUTO_DEFAULT_V55)
             val loaded = AppSettings(
                 deviceMode = obj.optString("deviceMode", "auto"),
                 theme = theme,
@@ -525,7 +582,7 @@ object PrefsStore {
                 seekStep = obj.optInt("seekStep", 10),
                 bilingualSub = obj.optBoolean("bilingualSub", false),
                 defaultAudio = defaultAudio,
-                defaultQuality = obj.optString("defaultQuality", "4K 60FPS"),
+                defaultQuality = if (needsQualityAutoMigration) "Auto" else obj.optString("defaultQuality", "Auto"),
                 aspectRatio = obj.optString("aspectRatio", "16:9"),
                 volume = obj.optDouble("volume", 1.0).toFloat().coerceIn(0f, 1f),
                 playbackSpeed = obj.optDouble("playbackSpeed", 1.0).toFloat().coerceIn(0.25f, 2f),
@@ -543,11 +600,12 @@ object PrefsStore {
                 showHomeContinue = if (needsV45Migration) true else obj.optBoolean("showHomeContinue", true),
                 showHomeTrending = if (needsV45Migration) true else obj.optBoolean("showHomeTrending", true)
             )
-            if (needsV45Migration || needsTwoModesMigration) {
+            if (needsV45Migration || needsTwoModesMigration || needsQualityAutoMigration) {
                 prefs.edit()
                     .putString(Keys.SETTINGS, settingsToJson(loaded).toString())
                     .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
                     .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
+                    .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
                     .apply()
             }
             loaded
@@ -561,6 +619,7 @@ object PrefsStore {
             .putString(Keys.SETTINGS, settingsToJson(updated).toString())
             .putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
             .putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
+            .putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
             .apply()
         return updated
     }
@@ -643,6 +702,9 @@ object PrefsStore {
         getHistory().forEach { (k, v) -> historyObj.put(k, watchProgressToJson(v)) }
 
         val favArr = JSONArray(getFavorites())
+        val favMoviesObj = JSONObject().apply {
+            getFavoriteMoviesMap().forEach { (k, v) -> put(k, movieToJson(v)) }
+        }
         val srcArr = JSONArray().apply { getSources().forEach { put(sourceToJson(it)) } }
         val customArr = JSONArray().apply { getCustomMovies().forEach { put(movieToJson(it)) } }
         val watchedRaw = prefs.getString(Keys.WATCHED_EPISODES, null)
@@ -653,6 +715,7 @@ object PrefsStore {
             put("timestamp", System.currentTimeMillis())
             put("history", historyObj)
             put("favorites", favArr)
+            put("favoriteMovies", favMoviesObj)
             put("sources", srcArr)
             put("customMovies", customArr)
             put("settings", settingsToJson(getSettings()))
@@ -680,6 +743,7 @@ object PrefsStore {
             val ed = prefs.edit()
             payload.optJSONObject("history")?.let { ed.putString(Keys.HISTORY, it.toString()) }
             payload.optJSONArray("favorites")?.let { ed.putString(Keys.FAVORITES, it.toString()) }
+            payload.optJSONObject("favoriteMovies")?.let { ed.putString(Keys.FAVORITE_MOVIES, it.toString()) }
             val srcs = payload.optJSONArray("sources") ?: payload.optJSONArray("sourcesList")
             srcs?.let { ed.putString(Keys.SOURCES, it.toString()) }
             payload.optJSONArray("customMovies")?.let { ed.putString(Keys.CUSTOM_MOVIES, it.toString()) }
@@ -687,6 +751,7 @@ object PrefsStore {
                 ed.putString(Keys.SETTINGS, it.toString())
                 ed.putString(Keys.APPEARANCE_DEFAULTS_V45, "1")
                 ed.putString(Keys.APPEARANCE_TWO_MODES_V51, "1")
+                ed.putString(Keys.QUALITY_AUTO_DEFAULT_V55, "1")
             }
             payload.optJSONObject("user")?.let { ed.putString(Keys.GOOGLE_USER, it.toString()) }
             payload.optJSONObject("watchedEpisodes")?.let { ed.putString(Keys.WATCHED_EPISODES, it.toString()) }

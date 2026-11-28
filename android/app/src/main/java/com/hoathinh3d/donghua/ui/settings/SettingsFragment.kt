@@ -703,15 +703,24 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val box = cardContainer(p)
         box.addView(headingText("Cấu Hình Trình Phát Tích Hợp (Media3 ExoPlayer)", p, 15f))
 
+        val qualityOptions = listOf(
+            "Auto" to "Auto (Theo mạng thực tế)",
+            "4K 60FPS" to "4K 60FPS",
+            "2K HDR" to "2K HDR",
+            "1080p Pro" to "1080p Pro"
+        )
+        val curQualityLabel = qualityOptions.firstOrNull { it.first == s.defaultQuality }?.second
+            ?: "Auto (Theo mạng thực tế)"
         val spinners = listOf(
             spinnerRow(
                 "Chất lượng mặc định",
-                listOf("4K 60FPS", "2K HDR", "1080p Pro", "Auto"),
-                s.defaultQuality,
+                qualityOptions.map { it.second },
+                curQualityLabel,
                 p
-            ) { picked ->
-                h.updateSettings { it.copy(defaultQuality = picked) }
-                h.showToast("Đã đặt chất lượng mặc định: $picked")
+            ) { pickedLabel ->
+                val wire = qualityOptions.firstOrNull { it.second == pickedLabel }?.first ?: "Auto"
+                h.updateSettings { it.copy(defaultQuality = wire) }
+                h.showToast("Đã đặt chất lượng mặc định: $pickedLabel")
             },
             spinnerRow(
                 "Âm thanh / Phụ đề ưu tiên",
@@ -1150,30 +1159,27 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val st = h.getState()
         val isWide = st.resolvedDevice != ResolvedDeviceProfile.MOBILE
 
-        val devBox = cardContainer(p)
-        devBox.addView(headingText("Lựa Chọn Thiết Bị Phù Hợp", p, 15f))
-        devBox.addView(
-            mutedText(
-                "Tự nhận diện hiện tại: ${DeviceProfileResolver.physicalDeviceLabel(requireContext())}",
-                p
-            )
-        )
         val devModes = listOf(
-            "auto" to "✨ Tự động (Auto)",
-            "mobile" to "📱 Điện thoại (3 Cột)",
-            "tablet" to "📲 Tablet / PC (4 Cột)",
-            "tv" to "📺 Smart TV (5 Cột)"
+            "auto" to "Auto (${DeviceProfileResolver.physicalDeviceLabel(requireContext())})",
+            "mobile" to "Điện thoại (3 Cột)",
+            "tablet" to "Tablet / PC (4 Cột)",
+            "tv" to "Smart TV (5 Cột)"
         )
-        val devButtons = devModes.map { (mode, label) ->
-            val active = st.settings.deviceMode == mode
-            val tagStr = "dev_$mode"
-            styledButton(if (active) "$label ✓" else label, p, active) {
-                pendingFocusTag = tagStr
+        val curDevLabel = devModes.firstOrNull { it.first == st.settings.deviceMode }?.second ?: devModes.first().second
+        val devMenuRow = spinnerRow(
+            "Lựa chọn thiết bị phù hợp",
+            devModes.map { it.second },
+            curDevLabel,
+            p
+        ) { pickedLabel ->
+            val mode = devModes.firstOrNull { it.second == pickedLabel }?.first ?: "auto"
+            if (mode != st.settings.deviceMode) {
                 h.updateSettings { it.copy(deviceMode = mode) }
-                h.showToast("Đã chuyển chế độ thiết bị: $label")
-            }.apply { tag = tagStr }
+                h.showToast("Đã chuyển chế độ thiết bị: $pickedLabel")
+            }
         }
-        devBox.addView(buttonGrid(devButtons, columns = if (isWide) 2 else 1, topMarginDp = 10f))
+        val devBox = cardContainer(p)
+        devBox.addView(devMenuRow)
         binding.settingsSubtabContent.addView(devBox)
 
         val themeBox = cardContainer(p)

@@ -961,7 +961,10 @@ object MovieRepository {
         val newlyUpdatedTitles = mutableListOf<String>()
         val updatedMovies = mutableListOf<DonghuaMovie>()
 
-        val favMovies = knownMovies.filter { favoriteIds.contains(it.id) }
+        val favMovies = favoriteIds.distinct().mapNotNull { favId ->
+            knownMovies.firstOrNull { it.id == favId || it.slug == favId }
+                ?: PrefsStore.getFavoriteMoviesMap()[favId]
+        }
         val now = System.currentTimeMillis()
         val targets = favMovies.take(deepCheckLimit)
 
@@ -975,13 +978,13 @@ object MovieRepository {
             val ep = res?.latestEp
             if (res != null && ep != null && ep > 0) {
                 refreshedLatestById[m.id] = ep
-                updatedMovies.add(
-                    m.copy(
-                        latestEp = maxOf(m.latestEp, ep),
-                        totalEp = maxOf(m.totalEp, res.totalEp ?: ep),
-                        serverGroups = if (res.serverGroups.isNotEmpty()) res.serverGroups else m.serverGroups
-                    )
+                val updated = m.copy(
+                    latestEp = maxOf(m.latestEp, ep),
+                    totalEp = maxOf(m.totalEp, res.totalEp ?: ep),
+                    serverGroups = if (res.serverGroups.isNotEmpty()) res.serverGroups else m.serverGroups
                 )
+                updatedMovies.add(updated)
+                PrefsStore.saveFavoriteMovieSnapshot(updated)
             }
         }
 
