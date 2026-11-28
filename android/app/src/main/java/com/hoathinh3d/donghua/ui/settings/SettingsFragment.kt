@@ -215,23 +215,29 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.txtSettingsBannerTitle.setTextColor(p.textMain)
             b.txtSettingsBannerSub.setTextColor(p.textMuted)
 
-            for (sub in SettingsSubtab.entries) {
+            val isLite = DeviceProfileResolver.shouldUseReducedMotion(requireContext(), st.resolvedDevice, st.settings.reducedMotion)
+            val subEntries = SettingsSubtab.entries
+            val subIds = List(subEntries.size) { View.generateViewId() }
+            subEntries.forEachIndexed { idx, sub ->
                 val active = st.settingsSubtab == sub
                 val tagStr = "subtab_${sub.wireValue}"
                 val btn = Button(requireContext()).apply {
+                    id = subIds[idx]
                     tag = tagStr
                     text = sub.label
                     isAllCaps = false
                     textSize = 12f
                     minHeight = 0
                     minimumHeight = 0
+                    if (idx > 0) nextFocusLeftId = subIds[idx - 1]
+                    if (idx < subIds.lastIndex) nextFocusRightId = subIds[idx + 1]
                     setPadding(
                         ThemeManager.dp(context, 14f),
                         ThemeManager.dp(context, 8f),
                         ThemeManager.dp(context, 14f),
                         ThemeManager.dp(context, 8f)
                     )
-                    background = ThemeManager.pillDrawable(context, p, active = active, radiusDp = 16f)
+                    background = ThemeManager.pillDrawable(context, p, active = active, radiusDp = 16f, liteRender = isLite)
                     setTextColor(if (active) Color.WHITE else p.textMain)
                     isFocusable = true
                     setOnClickListener {
@@ -1722,6 +1728,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val row = cardContainer(p, 14f, isCard = true).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
+            isClickable = true
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -1736,7 +1743,7 @@ class SettingsFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         val spinner = Spinner(requireContext()).apply {
             tag = rowTag
             isFocusable = true
-            background = ThemeManager.pillDrawable(context, p, active = false, radiusDp = 10f)
+            background = ThemeManager.pillDrawable(context, p, active = false, radiusDp = 10f, liteRender = p.liteRender)
             setPadding(
                 ThemeManager.dp(context, 10f),
                 ThemeManager.dp(context, 6f),

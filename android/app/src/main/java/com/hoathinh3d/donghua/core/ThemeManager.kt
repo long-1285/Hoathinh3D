@@ -144,7 +144,14 @@ object ThemeManager {
     }
 
     private fun focusStrokeColor(palette: ThemePalette): Int =
-        if (palette.preset == ThemePreset.DARK) palette.accentFrom else Color.parseColor("#47B8C4")
+        if (palette.isDark) Color.WHITE else Color.parseColor("#0284C7")
+
+    private fun focusFillOverlayColor(palette: ThemePalette, active: Boolean): Int = when {
+        active && palette.isDark -> Color.argb(235, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
+        active -> Color.argb(235, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
+        palette.isDark -> Color.argb(72, 56, 189, 248)
+        else -> Color.argb(38, 2, 132, 199)
+    }
 
     /**
      * Apple iOS 27 Liquid Glass Floating Sheet (for Header, Tab Capsule, Control Panels):
@@ -179,7 +186,7 @@ object ThemeManager {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
             setColor(palette.glassSurface)
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
+            setStroke(dp(context, 3f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         val focused: Drawable = if (useLite) {
             baseFocused
@@ -213,8 +220,8 @@ object ThemeManager {
         val focusedBase = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusPx
-            setColor(palette.glassCard)
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
+            setColor(if (palette.isDark) Color.argb(225, 28, 34, 48) else Color.argb(245, 232, 244, 255))
+            setStroke(dp(context, 3f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         val normal: Drawable = if (useLite) {
             normalBase
@@ -263,10 +270,10 @@ object ThemeManager {
                 orientation = GradientDrawable.Orientation.TL_BR
                 colors = intArrayOf(palette.accentFrom, palette.accentTo)
             } else {
-                setColor(palette.glassCard)
+                setColor(focusFillOverlayColor(palette, active = false))
             }
             cornerRadius = radiusPx
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
+            setStroke(dp(context, 3f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -299,7 +306,7 @@ object ThemeManager {
             intArrayOf(palette.accentFrom, palette.accentTo)
         ).apply {
             cornerRadius = radiusPx
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor(palette))
+            setStroke(dp(context, 3f).coerceAtLeast(3), focusStrokeColor(palette))
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -347,8 +354,14 @@ object ThemeManager {
         }
         val focused = GradientDrawable().apply {
             cornerRadius = radiusPx
-            setColor(Color.argb(if (palette.isDark) 58 else 32, Color.red(focusCol), Color.green(focusCol), Color.blue(focusCol)))
-            setStroke(dp(context, 2f).coerceAtLeast(2), focusCol)
+            setColor(
+                if (active) {
+                    Color.argb(if (palette.isDark) 96 else 64, Color.red(palette.accentFrom), Color.green(palette.accentFrom), Color.blue(palette.accentFrom))
+                } else {
+                    focusFillOverlayColor(palette, active = false)
+                }
+            )
+            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusCol)
         }
         val states = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)
@@ -476,7 +489,7 @@ object ThemeManager {
         context: Context,
         bgColor: Int,
         radiusDp: Float = 14f,
-        focusStrokeColor: Int = Color.parseColor("#47B8C4")
+        focusStrokeColor: Int = Color.parseColor("#0284C7")
     ): StateListDrawable {
         val radiusPx = dp(context, radiusDp).toFloat()
         val normal = GradientDrawable().apply {
@@ -486,7 +499,7 @@ object ThemeManager {
         val focused = GradientDrawable().apply {
             cornerRadius = radiusPx
             setColor(bgColor)
-            setStroke(dp(context, 2.5f).coerceAtLeast(3), focusStrokeColor)
+            setStroke(dp(context, 3f).coerceAtLeast(3), focusStrokeColor)
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focused)

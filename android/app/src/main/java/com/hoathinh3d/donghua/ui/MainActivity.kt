@@ -89,6 +89,7 @@ interface AppHost {
     fun resetCatalogFilters()
     fun setSearchSourceFilter(sourceName: String?)
     fun loadMoreCatalog()
+    fun openSourcePicker(triggerView: View? = null)
     fun selectSource(sourceId: String)
     fun openMovieDetail(movie: DonghuaMovie)
     fun quickPlayMovie(movie: DonghuaMovie, episode: Int = 1, serverIdx: Int = -1, resumeTimeSec: Double = -1.0)
@@ -133,6 +134,7 @@ data class MainState(
     val allMovies: List<DonghuaMovie> = emptyList(),
     val trendingTop10: List<DonghuaMovie> = emptyList(),
     val activeGenreMovies: List<DonghuaMovie>? = null,
+    val statusCatalogMovies: List<DonghuaMovie>? = null,
     val remoteSearchResults: List<DonghuaMovie> = emptyList(),
     val catalogStatusFilter: CatalogStatusFilter = CatalogStatusFilter.ALL,
     val catalogAudioFilter: CatalogAudioFilter = CatalogAudioFilter.ALL,
@@ -140,6 +142,8 @@ data class MainState(
     val searchSourceFilter: String? = null,
     val catalogPage: Int = 1,
     val catalogTotalPages: Int = 1,
+    val statusPage: Int = 1,
+    val statusTotalPages: Int = 1,
     val genrePage: Int = 1,
     val genreTotalPages: Int = 1,
     val isLoadingFeed: Boolean = false,
@@ -152,9 +156,17 @@ data class MainState(
     val resolvedDevice: ResolvedDeviceProfile = ResolvedDeviceProfile.MOBILE
 ) {
     val activeCatalogPage: Int
-        get() = if (selectedGenre == "Tất cả") catalogPage else genrePage
+        get() = when {
+            selectedGenre != "Tất cả" -> genrePage
+            catalogStatusFilter != CatalogStatusFilter.ALL && statusCatalogMovies != null -> statusPage
+            else -> catalogPage
+        }
     val activeCatalogTotalPages: Int
-        get() = if (selectedGenre == "Tất cả") catalogTotalPages else genreTotalPages
+        get() = when {
+            selectedGenre != "Tất cả" -> genreTotalPages
+            catalogStatusFilter != CatalogStatusFilter.ALL && statusCatalogMovies != null -> statusTotalPages
+            else -> catalogTotalPages
+        }
     val hasMoreCatalogPages: Boolean
         get() = searchQuery.trim().isEmpty() && activeCatalogPage < activeCatalogTotalPages
 }
@@ -289,6 +301,13 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
         applyThemeAndDeviceLayout()
         showTabFragment(MainTab.HOME)
+        if (state.resolvedDevice == ResolvedDeviceProfile.TV) {
+            binding.tvRailHome.post {
+                if (!isSourcePickerOpen && !isGenrePickerOpen && !isSearchOverlayOpen) {
+                    binding.tvRailHome.requestFocus()
+                }
+            }
+        }
         loadLiveDonghuaFeed(initialSource, silentOnSuccess = true)
         startRealtimeTrendingSync()
         lifecycleScope.launch(Dispatchers.IO) {
@@ -703,10 +722,27 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
     }
 
+    private fun setBackgroundChromeFocusBlocked(blocked: Boolean) {
+        val mode = if (blocked) ViewGroup.FOCUS_BLOCK_DESCENDANTS else ViewGroup.FOCUS_AFTER_DESCENDANTS
+        binding.headerContainer.descendantFocusability = mode
+        binding.contentContainer.descendantFocusability = mode
+        binding.bottomNavContainer.descendantFocusability = mode
+        binding.tvNavRail.descendantFocusability = mode
+        binding.btnCollapsedSearch.isFocusable = !blocked
+        binding.btnCollapsedSource.isFocusable = !blocked
+    }
+
+    private fun releaseBackgroundFocusIfClear() {
+        if (!isSourcePickerOpen && !isGenrePickerOpen && !isSearchOverlayOpen) {
+            setBackgroundChromeFocusBlocked(false)
+        }
+    }
+
     private fun openSearchOverlay() {
         if (isSourcePickerOpen) closeSourcePickerOverlay()
         if (isGenrePickerOpen) closeGenrePickerOverlay()
         isSearchOverlayOpen = true
+        setBackgroundChromeFocusBlocked(true)
         renderSearchSuggestions()
         binding.searchSuggestionsPanel.visibility =
             if (binding.editSearch.text.isNullOrBlank()) View.VISIBLE else View.GONE
@@ -741,6 +777,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             return
         }
         isSearchOverlayOpen = false
+        releaseBackgroundFocusIfClear()
         binding.editSearch.clearFocus()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.editSearch.windowToken, 0)
@@ -750,6 +787,9 @@ class MainActivity : AppCompatActivity(), AppHost {
             binding.floatingSearchContainer.visibility = View.GONE
             binding.floatingSearchContainer.alpha = 1f
             binding.floatingSearchContainer.translationY = 0f
+            if (state.resolvedDevice == ResolvedDeviceProfile.TV && !isSourcePickerOpen && !isGenrePickerOpen) {
+                binding.tvRailSearch.requestFocus()
+            }
             return
         }
         binding.floatingSearchContainer.animate()
@@ -757,7 +797,12 @@ class MainActivity : AppCompatActivity(), AppHost {
             .translationY(-ThemeManager.dp(this, 14f).toFloat())
             .setDuration(dur)
             .withEndAction {
-                if (!isSearchOverlayOpen) binding.floatingSearchContainer.visibility = View.GONE
+                if (!isSearchOverlayOpen) {
+                    binding.floatingSearchContainer.visibility = View.GONE
+                    if (state.resolvedDevice == ResolvedDeviceProfile.TV && !isSourcePickerOpen && !isGenrePickerOpen) {
+                        binding.tvRailSearch.requestFocus()
+                    }
+                }
             }
             .start()
     }
@@ -983,6 +1028,10 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
     }
 
+    override fun openSourcePicker(triggerView: View?) {
+        openSourcePickerOverlay(triggerView)
+    }
+
     private fun openSourcePickerOverlay(triggerView: View? = null) {
         val enabled = state.sources.filter { it.enabled }
         if (enabled.isEmpty()) {
@@ -997,28 +1046,32 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
         lastSourceTriggerView = triggerView
         isSourcePickerOpen = true
+        setBackgroundChromeFocusBlocked(true)
 
         val p = getPalette()
         val isTv = state.resolvedDevice == ResolvedDeviceProfile.TV
+        val isLite = DeviceProfileResolver.shouldUseReducedMotion(this, state.resolvedDevice, state.settings.reducedMotion)
         binding.sourcePickerScrim.setBackgroundColor(
-            Color.argb(if (p.isDark) 76 else 32, 10, 15, 28)
+            Color.argb(if (p.isDark) 88 else 42, 10, 15, 28)
         )
-        binding.floatingSourcePickerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 22f)
+        binding.floatingSourcePickerContainer.background =
+            ThemeManager.liquidGlassSheetDrawable(this, p, 22f, liteRender = isLite)
         binding.txtSourcePickerTitle.setTextColor(p.textMain)
-        binding.txtSourcePickerCount.background = ThemeManager.navTabDrawable(this, p, active = true, 10f)
+        binding.txtSourcePickerCount.background = ThemeManager.navTabDrawable(this, p, active = true, 10f, liteRender = isLite)
         binding.txtSourcePickerCount.setTextColor(p.accentFrom)
-        binding.btnCloseSourcePicker.background = ThemeManager.navTabDrawable(this, p, active = false, 12f)
-        binding.btnCloseSourcePicker.setTextColor(p.textMuted)
+        binding.btnCloseSourcePicker.background = ThemeManager.pillDrawable(this, p, active = false, 12f, liteRender = isLite)
+        binding.btnCloseSourcePicker.setTextColor(p.textMain)
 
+        val dm = resources.displayMetrics
         val lp = binding.floatingSourcePickerContainer.layoutParams as FrameLayout.LayoutParams
-        val maxAvailW = (resources.displayMetrics.widthPixels - ThemeManager.dp(this, 24f)).coerceAtLeast(ThemeManager.dp(this, 240f))
+        val maxAvailW = (dm.widthPixels - ThemeManager.dp(this, 24f)).coerceAtLeast(ThemeManager.dp(this, 240f))
         if (isTv) {
-            lp.width = minOf(ThemeManager.dp(this, 360f), maxAvailW)
+            lp.width = minOf(ThemeManager.dp(this, 440f), maxAvailW)
             lp.gravity = android.view.Gravity.CENTER
             lp.topMargin = 0
             lp.rightMargin = 0
         } else {
-            lp.width = minOf(ThemeManager.dp(this, 310f), maxAvailW)
+            lp.width = minOf(ThemeManager.dp(this, 320f), maxAvailW)
             lp.gravity = android.view.Gravity.TOP or android.view.Gravity.END
             lp.rightMargin = ThemeManager.dp(this, 12f) + insetRightPx
             lp.topMargin = if (isChromeCollapsed) {
@@ -1028,6 +1081,15 @@ class MainActivity : AppCompatActivity(), AppHost {
             }
         }
         binding.floatingSourcePickerContainer.layoutParams = lp
+
+        val maxListH = minOf((dm.heightPixels * 0.56f).toInt(), ThemeManager.dp(this, 360f))
+        val scrollLp = binding.sourcePickerScrollView.layoutParams
+        if (enabled.size > 5) {
+            scrollLp.height = maxListH
+        } else {
+            scrollLp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        }
+        binding.sourcePickerScrollView.layoutParams = scrollLp
 
         val focusTarget = renderSourcePickerContent()
         binding.floatingSourcePickerOverlay.visibility = View.VISIBLE
@@ -1057,22 +1119,30 @@ class MainActivity : AppCompatActivity(), AppHost {
     private fun renderSourcePickerContent(): View? {
         val enabled = state.sources.filter { it.enabled }
         val p = getPalette()
+        val isLite = DeviceProfileResolver.shouldUseReducedMotion(this, state.resolvedDevice, state.settings.reducedMotion)
         val countLabel = formatSourceCountLabel(enabled.size, state.sources.size)
         binding.txtSourcePickerCount.text = countLabel
         binding.sourcePickerListContainer.removeAllViews()
         var activeRowView: View? = null
 
+        val rowViews = ArrayList<LinearLayout>(enabled.size)
         enabled.forEachIndexed { idx, src ->
             val selected = src.id == state.activeSourceId
             val row = LinearLayout(this).apply {
+                id = View.generateViewId()
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 isFocusable = true
                 isClickable = true
-                background = ThemeManager.navTabDrawable(this@MainActivity, p, active = selected, radiusDp = 16f)
+                background = ThemeManager.navTabDrawable(this@MainActivity, p, active = selected, radiusDp = 16f, liteRender = isLite)
                 val padH = ThemeManager.dp(context, 12f)
                 val padV = ThemeManager.dp(context, 10f)
                 setPadding(padH, padV, padH, padV)
+                setOnFocusChangeListener { v, hasFocus ->
+                    if (hasFocus) {
+                        v.requestRectangleOnScreen(android.graphics.Rect(0, 0, v.width, v.height), false)
+                    }
+                }
                 setOnClickListener {
                     closeSourcePickerOverlay()
                     if (src.id != state.activeSourceId) {
@@ -1082,11 +1152,13 @@ class MainActivity : AppCompatActivity(), AppHost {
             }
             val textCol = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = ThemeManager.dp(this@MainActivity, 8f)
+                }
             }
             val nameTv = TextView(this).apply {
                 text = src.name
-                textSize = 13.5f
+                textSize = 14f
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 setTextColor(if (selected) p.accentFrom else p.textMain)
                 maxLines = 1
@@ -1104,19 +1176,23 @@ class MainActivity : AppCompatActivity(), AppHost {
             textCol.addView(metaTv)
             row.addView(textCol)
 
-            if (selected) {
-                val badge = TextView(this).apply {
-                    text = "✓ Đang dùng"
-                    textSize = 10f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
+            val badge = TextView(this).apply {
+                text = if (selected) "✓ Đang dùng" else "Chọn ›"
+                textSize = 10.5f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                if (selected) {
                     setTextColor(Color.WHITE)
-                    background = ThemeManager.accentGradientDrawable(this@MainActivity, p, 10f)
-                    setPadding(ThemeManager.dp(context, 8f), ThemeManager.dp(context, 3f), ThemeManager.dp(context, 8f), ThemeManager.dp(context, 3f))
+                    background = ThemeManager.accentGradientDrawable(this@MainActivity, p, 10f, liteRender = isLite)
+                } else {
+                    setTextColor(p.textMuted)
+                    background = ThemeManager.pillDrawable(this@MainActivity, p, active = false, 10f, liteRender = isLite)
                 }
-                row.addView(badge)
-                activeRowView = row
+                setPadding(ThemeManager.dp(context, 9f), ThemeManager.dp(context, 4f), ThemeManager.dp(context, 9f), ThemeManager.dp(context, 4f))
             }
+            row.addView(badge)
+            if (selected) activeRowView = row
 
+            rowViews.add(row)
             binding.sourcePickerListContainer.addView(
                 row,
                 LinearLayout.LayoutParams(
@@ -1127,53 +1203,97 @@ class MainActivity : AppCompatActivity(), AppHost {
         }
 
         binding.sourcePickerFooterRow.removeAllViews()
+        val footerButtons = mutableListOf<TextView>()
         if (isChromeCollapsed) {
+            val openBarBtn = TextView(this).apply {
+                id = View.generateViewId()
+                text = "Mở thanh điều hướng"
+                textSize = 11.5f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(p.accentFrom)
+                gravity = android.view.Gravity.CENTER
+                isFocusable = true
+                isClickable = true
+                background = ThemeManager.pillDrawable(this@MainActivity, p, active = false, 12f, liteRender = isLite)
+                setPadding(ThemeManager.dp(context, 10f), ThemeManager.dp(context, 8f), ThemeManager.dp(context, 10f), ThemeManager.dp(context, 8f))
+                setOnClickListener {
+                    closeSourcePickerOverlay()
+                    setChromeCollapsed(false)
+                }
+            }
+            footerButtons.add(openBarBtn)
             binding.sourcePickerFooterRow.addView(
-                TextView(this).apply {
-                    text = "Mở thanh điều hướng"
-                    textSize = 11.5f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setTextColor(p.accentFrom)
-                    gravity = android.view.Gravity.CENTER
-                    isFocusable = true
-                    background = ThemeManager.navTabDrawable(this@MainActivity, p, active = false, 12f)
-                    setPadding(ThemeManager.dp(context, 10f), ThemeManager.dp(context, 7f), ThemeManager.dp(context, 10f), ThemeManager.dp(context, 7f))
-                    setOnClickListener {
-                        closeSourcePickerOverlay()
-                        setChromeCollapsed(false)
-                    }
-                },
+                openBarBtn,
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                     marginEnd = ThemeManager.dp(this@MainActivity, 6f)
                 }
             )
         }
+        val manageSourcesBtn = TextView(this).apply {
+            id = View.generateViewId()
+            text = "⚙ Quản lý nguồn Web"
+            textSize = 11.5f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(p.textMain)
+            gravity = android.view.Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            background = ThemeManager.pillDrawable(this@MainActivity, p, active = false, 12f, liteRender = isLite)
+            setPadding(ThemeManager.dp(context, 10f), ThemeManager.dp(context, 8f), ThemeManager.dp(context, 10f), ThemeManager.dp(context, 8f))
+            setOnClickListener {
+                closeSourcePickerOverlay()
+                navigateTab(MainTab.SETTINGS)
+                setSettingsSubtab(SettingsSubtab.SOURCES)
+            }
+        }
+        footerButtons.add(manageSourcesBtn)
         binding.sourcePickerFooterRow.addView(
-            TextView(this).apply {
-                text = "⚙ Quản lý nguồn Web"
-                textSize = 11.5f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                setTextColor(p.textMain)
-                gravity = android.view.Gravity.CENTER
-                isFocusable = true
-                background = ThemeManager.navTabDrawable(this@MainActivity, p, active = false, 12f)
-                setPadding(ThemeManager.dp(context, 10f), ThemeManager.dp(context, 7f), ThemeManager.dp(context, 10f), ThemeManager.dp(context, 7f))
-                setOnClickListener {
-                    closeSourcePickerOverlay()
-                    navigateTab(MainTab.SETTINGS)
-                    setSettingsSubtab(SettingsSubtab.SOURCES)
-                }
-            },
+            manageSourcesBtn,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         )
-        return activeRowView ?: binding.sourcePickerListContainer.getChildAt(0)
+
+        // Ràng buộc D-Pad 4 hướng bên trong hộp Chọn nguồn phim (tránh trôi focus ra ngoài trên MiTV4)
+        val closeId = binding.btnCloseSourcePicker.id
+        val firstRowId = rowViews.firstOrNull()?.id ?: footerButtons.first().id
+        val lastRowId = rowViews.lastOrNull()?.id ?: closeId
+        val firstFooterId = footerButtons.first().id
+
+        binding.btnCloseSourcePicker.apply {
+            nextFocusUpId = closeId
+            nextFocusLeftId = closeId
+            nextFocusRightId = closeId
+            nextFocusDownId = firstRowId
+        }
+        rowViews.forEachIndexed { idx, row ->
+            row.nextFocusLeftId = row.id
+            row.nextFocusRightId = row.id
+            row.nextFocusUpId = if (idx == 0) closeId else rowViews[idx - 1].id
+            row.nextFocusDownId = if (idx == rowViews.lastIndex) firstFooterId else rowViews[idx + 1].id
+        }
+        footerButtons.forEachIndexed { idx, btn ->
+            btn.nextFocusUpId = lastRowId
+            btn.nextFocusDownId = btn.id
+            btn.nextFocusLeftId = if (idx == 0) btn.id else footerButtons[idx - 1].id
+            btn.nextFocusRightId = if (idx == footerButtons.lastIndex) btn.id else footerButtons[idx + 1].id
+        }
+
+        return activeRowView ?: rowViews.firstOrNull()
     }
 
     private fun closeSourcePickerOverlay() {
         if (!isSourcePickerOpen && binding.floatingSourcePickerOverlay.visibility != View.VISIBLE) return
         isSourcePickerOpen = false
+        releaseBackgroundFocusIfClear()
         val restoreView = lastSourceTriggerView
         lastSourceTriggerView = null
+        val restoreFocus = {
+            if (state.resolvedDevice == ResolvedDeviceProfile.TV &&
+                !isGenrePickerOpen && !isSearchOverlayOpen
+            ) {
+                val ok = restoreView?.takeIf { it.isAttachedToWindow && it.isFocusable }?.requestFocus() == true
+                if (!ok) binding.tvRailSource.requestFocus()
+            }
+        }
         val dur = animDuration(135L)
         binding.floatingSourcePickerOverlay.animate().cancel()
         binding.floatingSourcePickerContainer.animate().cancel()
@@ -1183,7 +1303,7 @@ class MainActivity : AppCompatActivity(), AppHost {
             binding.floatingSourcePickerContainer.apply {
                 alpha = 1f; scaleX = 1f; scaleY = 1f; translationY = 0f
             }
-            if (state.resolvedDevice == ResolvedDeviceProfile.TV) restoreView?.requestFocus()
+            restoreFocus()
             return
         }
         binding.floatingSourcePickerContainer.animate()
@@ -1202,7 +1322,7 @@ class MainActivity : AppCompatActivity(), AppHost {
                     binding.floatingSourcePickerContainer.apply {
                         alpha = 1f; scaleX = 1f; scaleY = 1f; translationY = 0f
                     }
-                    if (state.resolvedDevice == ResolvedDeviceProfile.TV) restoreView?.requestFocus()
+                    restoreFocus()
                 }
             }
             .start()
@@ -1468,19 +1588,22 @@ class MainActivity : AppCompatActivity(), AppHost {
             return
         }
         isGenrePickerOpen = true
+        setBackgroundChromeFocusBlocked(true)
 
         val p = getPalette()
         val isTv = state.resolvedDevice == ResolvedDeviceProfile.TV
+        val isLite = DeviceProfileResolver.shouldUseReducedMotion(this, state.resolvedDevice, state.settings.reducedMotion)
         binding.genrePickerScrim.setBackgroundColor(
-            Color.argb(if (p.isDark) 82 else 36, 10, 15, 28)
+            Color.argb(if (p.isDark) 88 else 42, 10, 15, 28)
         )
-        binding.floatingGenrePickerContainer.background = ThemeManager.liquidGlassSheetDrawable(this, p, 22f)
+        binding.floatingGenrePickerContainer.background =
+            ThemeManager.liquidGlassSheetDrawable(this, p, 22f, liteRender = isLite)
         binding.txtGenrePickerTitle.setTextColor(p.textMain)
         binding.txtGenrePickerSyncStatus.setTextColor(p.accentFrom)
-        binding.btnSyncGenresNow.background = ThemeManager.pillDrawable(this, p, active = false, radiusDp = 12f)
+        binding.btnSyncGenresNow.background = ThemeManager.pillDrawable(this, p, active = false, radiusDp = 12f, liteRender = isLite)
         binding.btnSyncGenresNow.setTextColor(p.accentFrom)
-        binding.btnCloseGenrePicker.background = ThemeManager.navTabDrawable(this, p, active = false, radiusDp = 12f)
-        binding.btnCloseGenrePicker.setTextColor(p.textMuted)
+        binding.btnCloseGenrePicker.background = ThemeManager.pillDrawable(this, p, active = false, radiusDp = 12f, liteRender = isLite)
+        binding.btnCloseGenrePicker.setTextColor(p.textMain)
 
         val dm = resources.displayMetrics
         val maxAvailW = (dm.widthPixels - ThemeManager.dp(this, 24f)).coerceAtLeast(ThemeManager.dp(this, 260f))
@@ -1525,6 +1648,7 @@ class MainActivity : AppCompatActivity(), AppHost {
 
     private fun renderGenrePickerContent(): View? {
         val p = getPalette()
+        val isLite = DeviceProfileResolver.shouldUseReducedMotion(this, state.resolvedDevice, state.settings.reducedMotion)
         val srcName = state.sources.firstOrNull { it.id == state.activeSourceId }?.name ?: state.activeSourceId
         val syncTimeStr = if (state.genresLastSyncAtMs > 0L) {
             android.text.format.DateFormat.format("HH:mm:ss", java.util.Date(state.genresLastSyncAtMs)).toString()
@@ -1544,7 +1668,10 @@ class MainActivity : AppCompatActivity(), AppHost {
 
         val list = state.genres.ifEmpty { InitialData.GENRES_DATA }
         var focusTarget: View? = null
-        list.chunked(cols).forEachIndexed { rIdx, rowItems ->
+        val rowsList = list.chunked(cols)
+        val cellGrid = ArrayList<List<TextView?>>(rowsList.size)
+
+        rowsList.forEachIndexed { rIdx, rowItems ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
@@ -1552,29 +1679,35 @@ class MainActivity : AppCompatActivity(), AppHost {
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply { if (rIdx > 0) topMargin = gap }
             }
+            val rowCells = ArrayList<TextView?>(cols)
             for (c in 0 until cols) {
                 val item = rowItems.getOrNull(c)
                 if (item != null) {
                     val active = state.selectedGenre == item.id
                     val displayLabel = if (item.id == "Tất cả") "Tất cả phim" else item.label
                     val chip = TextView(this).apply {
+                        id = View.generateViewId()
                         text = if (active) "✓ $displayLabel" else displayLabel
                         textSize = 12f
                         maxLines = 1
                         ellipsize = android.text.TextUtils.TruncateAt.END
                         setTypeface(null, if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
                         setTextColor(if (active) Color.WHITE else p.textMain)
-                        background = ThemeManager.pillDrawable(this@MainActivity, p, active = active, radiusDp = 14f)
+                        background = ThemeManager.pillDrawable(this@MainActivity, p, active = active, radiusDp = 14f, liteRender = isLite)
                         gravity = android.view.Gravity.CENTER_VERTICAL
                         isFocusable = true
                         isClickable = true
                         val padH = ThemeManager.dp(context, 10f)
                         val padV = ThemeManager.dp(context, 9f)
                         setPadding(padH, padV, padH, padV)
+                        setOnFocusChangeListener { v, hasFocus ->
+                            if (hasFocus) v.requestRectangleOnScreen(android.graphics.Rect(0, 0, v.width, v.height), false)
+                        }
                         setOnClickListener { selectGenre(item.id) }
                     }
                     if (active) focusTarget = chip
                     if (focusTarget == null) focusTarget = chip
+                    rowCells.add(chip)
                     row.addView(
                         chip,
                         LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
@@ -1582,6 +1715,7 @@ class MainActivity : AppCompatActivity(), AppHost {
                         }
                     )
                 } else {
+                    rowCells.add(null)
                     row.addView(
                         View(this),
                         LinearLayout.LayoutParams(0, 0, 1f).apply {
@@ -1590,7 +1724,47 @@ class MainActivity : AppCompatActivity(), AppHost {
                     )
                 }
             }
+            cellGrid.add(rowCells)
             container.addView(row)
+        }
+
+        // Gắn D-Pad 4 hướng bên trong bảng Thể loại phim (MiTV4)
+        val syncId = binding.btnSyncGenresNow.id
+        val closeId = binding.btnCloseGenrePicker.id
+        val firstCellId = cellGrid.firstOrNull()?.firstOrNull()?.id ?: syncId
+        binding.btnSyncGenresNow.apply {
+            nextFocusUpId = syncId
+            nextFocusLeftId = syncId
+            nextFocusRightId = closeId
+            nextFocusDownId = firstCellId
+        }
+        binding.btnCloseGenrePicker.apply {
+            nextFocusUpId = closeId
+            nextFocusLeftId = syncId
+            nextFocusRightId = closeId
+            nextFocusDownId = firstCellId
+        }
+        cellGrid.forEachIndexed { rIdx, rowCells ->
+            rowCells.forEachIndexed { cIdx, cell ->
+                if (cell != null) {
+                    val leftCell = (cIdx - 1 downTo 0).firstNotNullOfOrNull { rowCells.getOrNull(it) } ?: cell
+                    val rightCell = (cIdx + 1 until cols).firstNotNullOfOrNull { rowCells.getOrNull(it) } ?: cell
+                    val upCell = if (rIdx == 0) {
+                        if (cIdx >= cols / 2) binding.btnCloseGenrePicker else binding.btnSyncGenresNow
+                    } else {
+                        cellGrid[rIdx - 1].getOrNull(cIdx) ?: cellGrid[rIdx - 1].filterNotNull().lastOrNull() ?: binding.btnSyncGenresNow
+                    }
+                    val downCell = if (rIdx == cellGrid.lastIndex) {
+                        cell
+                    } else {
+                        cellGrid[rIdx + 1].getOrNull(cIdx) ?: cellGrid[rIdx + 1].filterNotNull().lastOrNull() ?: cell
+                    }
+                    cell.nextFocusLeftId = leftCell.id
+                    cell.nextFocusRightId = rightCell.id
+                    cell.nextFocusUpId = upCell.id
+                    cell.nextFocusDownId = downCell.id
+                }
+            }
         }
         return focusTarget
     }
@@ -1598,6 +1772,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     private fun closeGenrePickerOverlay() {
         if (!isGenrePickerOpen && binding.floatingGenrePickerOverlay.visibility != View.VISIBLE) return
         isGenrePickerOpen = false
+        releaseBackgroundFocusIfClear()
         val dur = animDuration(130L)
         binding.floatingGenrePickerOverlay.animate().cancel()
         binding.floatingGenrePickerContainer.animate().cancel()
@@ -1655,13 +1830,28 @@ class MainActivity : AppCompatActivity(), AppHost {
     override fun setCatalogStatusFilter(filter: CatalogStatusFilter) {
         if (state.catalogStatusFilter == filter) return
         statusFilterJob?.cancel()
-        state = state.copy(catalogStatusFilter = filter, isLoadingGenre = false)
+        if (filter == CatalogStatusFilter.ALL) {
+            state = state.copy(
+                catalogStatusFilter = CatalogStatusFilter.ALL,
+                statusCatalogMovies = null,
+                statusPage = 1,
+                statusTotalPages = 1,
+                isLoadingGenre = false
+            )
+            notifyActiveFragment()
+            return
+        }
+        state = state.copy(
+            catalogStatusFilter = filter,
+            statusCatalogMovies = null,
+            statusPage = 1,
+            statusTotalPages = 1,
+            isLoadingGenre = state.selectedGenre == "Tất cả"
+        )
         notifyActiveFragment()
-        if (filter == CatalogStatusFilter.ALL || state.selectedGenre != "Tất cả") return
+        if (state.selectedGenre != "Tất cả") return
 
         val snapshotSource = state.activeSourceId
-        state = state.copy(isLoadingGenre = true)
-        notifyActiveFragment()
         statusFilterJob = lifecycleScope.launch {
             try {
                 val res = MovieRepository.fetchStatusCatalogPage(snapshotSource, filter, page = 1)
@@ -1671,12 +1861,10 @@ class MainActivity : AppCompatActivity(), AppHost {
                 ) {
                     return@launch
                 }
-                val merged = if (res.movies.isNotEmpty()) {
-                    MovieRepository.mergeCatalogPages(state.allMovies, res.movies)
-                } else state.allMovies
                 state = state.copy(
-                    allMovies = merged,
-                    catalogTotalPages = maxOf(state.catalogTotalPages, res.totalPages),
+                    statusCatalogMovies = if (res.movies.isNotEmpty()) res.movies else null,
+                    statusPage = if (res.movies.isNotEmpty()) res.page else 1,
+                    statusTotalPages = if (res.movies.isNotEmpty()) res.totalPages else 1,
                     isLoadingGenre = false
                 )
             } catch (t: Throwable) {
@@ -1704,6 +1892,7 @@ class MainActivity : AppCompatActivity(), AppHost {
         if (state.catalogStatusFilter == CatalogStatusFilter.ALL &&
             state.catalogAudioFilter == CatalogAudioFilter.ALL &&
             state.catalogSortMode == CatalogSortMode.DEFAULT &&
+            state.statusCatalogMovies == null &&
             !state.isLoadingGenre
         ) {
             return
@@ -1712,6 +1901,9 @@ class MainActivity : AppCompatActivity(), AppHost {
             catalogStatusFilter = CatalogStatusFilter.ALL,
             catalogAudioFilter = CatalogAudioFilter.ALL,
             catalogSortMode = CatalogSortMode.DEFAULT,
+            statusCatalogMovies = null,
+            statusPage = 1,
+            statusTotalPages = 1,
             isLoadingGenre = false
         )
         notifyActiveFragment()
@@ -1724,6 +1916,9 @@ class MainActivity : AppCompatActivity(), AppHost {
             catalogStatusFilter = CatalogStatusFilter.ALL,
             catalogAudioFilter = CatalogAudioFilter.ALL,
             catalogSortMode = CatalogSortMode.DEFAULT,
+            statusCatalogMovies = null,
+            statusPage = 1,
+            statusTotalPages = 1,
             searchSourceFilter = null,
             isLoadingGenre = false
         )
@@ -1748,6 +1943,9 @@ class MainActivity : AppCompatActivity(), AppHost {
         val snapshotSourceId = state.activeSourceId
         val snapshotGenre = state.selectedGenre
         val snapshotStatus = state.catalogStatusFilter
+        val useStatusCatalog = snapshotGenre == "Tất cả" &&
+            snapshotStatus != CatalogStatusFilter.ALL &&
+            state.statusCatalogMovies != null
         val nextPage = state.activeCatalogPage + 1
 
         state = state.copy(isLoadingMore = true)
@@ -1756,12 +1954,28 @@ class MainActivity : AppCompatActivity(), AppHost {
         loadMoreJob?.cancel()
         loadMoreJob = lifecycleScope.launch {
             try {
-                if (snapshotGenre == "Tất cả") {
-                    val pageRes = if (snapshotStatus != CatalogStatusFilter.ALL) {
-                        MovieRepository.fetchStatusCatalogPage(snapshotSourceId, snapshotStatus, nextPage)
-                    } else {
-                        MovieRepository.fetchDonghuaPage(nextPage, 30, snapshotSourceId)
+                if (useStatusCatalog) {
+                    val pageRes = MovieRepository.fetchStatusCatalogPage(snapshotSourceId, snapshotStatus, nextPage)
+                    if (state.activeSourceId != snapshotSourceId ||
+                        state.selectedGenre != snapshotGenre ||
+                        state.catalogStatusFilter != snapshotStatus
+                    ) {
+                        return@launch
                     }
+                    val merged = MovieRepository.mergeCatalogPages(state.statusCatalogMovies.orEmpty(), pageRes.movies)
+                    val newTotalPages = if (pageRes.movies.isNotEmpty()) {
+                        maxOf(state.statusTotalPages, pageRes.totalPages)
+                    } else {
+                        state.statusPage
+                    }
+                    state = state.copy(
+                        statusCatalogMovies = merged,
+                        statusPage = if (pageRes.movies.isNotEmpty()) nextPage else state.statusPage,
+                        statusTotalPages = newTotalPages,
+                        isLoadingMore = false
+                    )
+                } else if (snapshotGenre == "Tất cả") {
+                    val pageRes = MovieRepository.fetchDonghuaPage(nextPage, 30, snapshotSourceId)
                     if (state.activeSourceId != snapshotSourceId || state.selectedGenre != snapshotGenre) return@launch
                     val merged = MovieRepository.mergeCatalogPages(state.allMovies, pageRes.movies)
                     val newTotalPages = if (pageRes.movies.isNotEmpty()) {
@@ -1812,11 +2026,14 @@ class MainActivity : AppCompatActivity(), AppHost {
             activeSourceId = sourceId,
             selectedGenre = "Tất cả",
             activeGenreMovies = null,
+            statusCatalogMovies = null,
             catalogStatusFilter = CatalogStatusFilter.ALL,
             catalogAudioFilter = CatalogAudioFilter.ALL,
             catalogSortMode = CatalogSortMode.DEFAULT,
             catalogPage = 1,
             catalogTotalPages = 1,
+            statusPage = 1,
+            statusTotalPages = 1,
             genrePage = 1,
             genreTotalPages = 1,
             isLoadingGenre = false,
@@ -2398,6 +2615,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     override fun navigateTab(tab: MainTab) {
         closeSearchOverlay()
         closeGenrePickerOverlay()
+        closeSourcePickerOverlay()
         if (state.activeTab == tab) {
             setChromeCollapsed(false)
             if (tab == MainTab.SETTINGS &&
@@ -2454,6 +2672,7 @@ class MainActivity : AppCompatActivity(), AppHost {
     override fun onDestroy() {
         searchJob?.cancel()
         genreJob?.cancel()
+        statusFilterJob?.cancel()
         loadMoreJob?.cancel()
         realtimeTrendingJob?.cancel()
         mainHandler.removeCallbacksAndMessages(null)

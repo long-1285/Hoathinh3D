@@ -332,6 +332,14 @@ class NguonCApiAndRepoTest {
         assertEquals(CatalogStatusFilter.ALL, defaultState.catalogStatusFilter)
         assertEquals(CatalogSortMode.DEFAULT, defaultState.catalogSortMode)
 
+        val singleByGenre = sampleMovie("sg1", "Tiên Nghịch: Chiến Thần", latestEp = 1, totalEp = 1)
+            .copy(genres = listOf("Phim Lẻ", "Tiên Hiệp"))
+        val singleByTitle = sampleMovie("sg2", "Đấu La Movie", latestEp = 2, totalEp = 2)
+            .copy(genres = listOf("Hoạt Hình 3D"))
+        assertTrue(CatalogQueryEngine.matchesStatusFilter(singleByGenre, CatalogStatusFilter.SINGLE))
+        assertTrue(CatalogQueryEngine.matchesStatusFilter(singleByTitle, CatalogStatusFilter.SINGLE))
+        assertFalse(CatalogQueryEngine.matchesStatusFilter(ongoing, CatalogStatusFilter.SINGLE))
+
         assertEquals(
             "https://phimimg.com/upload/poster.jpg",
             MovieRepository.getOptimizedPosterUrl("https://phimimg.com/upload/poster.jpg")

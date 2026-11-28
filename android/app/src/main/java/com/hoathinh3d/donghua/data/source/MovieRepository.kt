@@ -670,7 +670,7 @@ object MovieRepository {
     }
 
     /**
-     * Đồng bộ trực tiếp danh sách phim theo Trạng thái (Đang chiếu / Hoàn thành) từ nguồn đang chọn.
+     * Đồng bộ trực tiếp danh sách phim theo Trạng thái (Đang chiếu / Hoàn thành / Phim lẻ) từ nguồn đang chọn.
      */
     suspend fun fetchStatusCatalogPage(
         sourceId: String,
@@ -679,6 +679,73 @@ object MovieRepository {
     ): CatalogPageResult {
         if (statusFilter == CatalogStatusFilter.ALL) {
             return fetchDonghuaPage(page, 30, sourceId)
+        }
+        if (statusFilter == CatalogStatusFilter.SINGLE) {
+            return runCatching {
+                val rawPage = when (sourceId) {
+                    "YanHH3DNow" -> {
+                        val single = YanHh3dNowScraper.fetchMoviesByPath(
+                            path = "phim-le",
+                            page = page,
+                            baseUrl = YanHh3dNowScraper.YAN_NOW_BASE,
+                            sourceName = "YanHH3D Now",
+                            forcedGenre = "Phim Lẻ",
+                            bypassCache = page == 1
+                        )
+                        val used = if (single.movies.isNotEmpty()) single else YanHh3dNowScraper.fetchMoviesByPath(
+                            path = "phim-chieu-rap",
+                            page = page,
+                            baseUrl = YanHh3dNowScraper.YAN_NOW_BASE,
+                            sourceName = "YanHH3D Now",
+                            forcedGenre = "Phim Lẻ",
+                            bypassCache = page == 1
+                        )
+                        CatalogPageResult(
+                            movies = used.movies,
+                            page = page,
+                            totalPages = used.totalPages.coerceAtLeast(if (used.movies.isNotEmpty()) page else 1)
+                        )
+                    }
+                    "YanHH3D" -> resolveYanTopicPage("topic:phim-le", "Phim Lẻ", page, 30, forceRefresh = page == 1)
+                    Phim500SourceProvider.SOURCE_ID -> Phim500SourceProvider.fetchGenreCatalogForApp(
+                        GenreItem("Phim Lẻ", "Phim Lẻ", "film", sourceSlug = "phim-le"),
+                        page
+                    )
+                    NguonCSourceProvider.SOURCE_ID -> NguonCSourceProvider.fetchGenreCatalogForApp(
+                        GenreItem("Phim Lẻ", "Phim Lẻ", "film", sourceSlug = "danh-sach/phim-le"),
+                        page
+                    )
+                    KKPhimSourceProvider.SOURCE_ID -> KKPhimSourceProvider.fetchGenreCatalogForApp(
+                        GenreItem("Phim Lẻ", "Phim Lẻ", "film", sourceSlug = "danh-sach/phim-le"),
+                        page
+                    )
+                    VsmovSourceProvider.SOURCE_ID -> VsmovSourceProvider.fetchGenreCatalogForApp(
+                        GenreItem("Phim Lẻ", "Phim Lẻ", "film", sourceSlug = "danh-sach/phim-le"),
+                        page
+                    )
+                    else -> {
+                        val customSrc = PrefsStore.getSources().firstOrNull { it.id == sourceId && it.isCustom }
+                        if (customSrc != null) {
+                            CustomSourceParser.fetchMoviesByCategory(
+                                customSrc,
+                                GenreItem("Phim Lẻ", "Phim Lẻ", "film", sourceSlug = "danh-sach/phim-le"),
+                                page
+                            )
+                        } else {
+                            CatalogPageResult(emptyList(), page, 1)
+                        }
+                    }
+                }
+                val tagged = rawPage.movies.map { m ->
+                    if (m.genres.any { it.contains("phim lẻ", true) || it.contains("ova", true) }) m
+                    else m.copy(genres = (listOf("Phim Lẻ") + m.genres).distinct())
+                }
+                CatalogPageResult(
+                    movies = tagged,
+                    page = rawPage.page,
+                    totalPages = rawPage.totalPages.coerceAtLeast(if (tagged.isNotEmpty()) page else 1)
+                )
+            }.getOrDefault(CatalogPageResult(emptyList(), page, 1))
         }
         val wantCompleted = statusFilter == CatalogStatusFilter.COMPLETED
         return runCatching {
@@ -1357,6 +1424,18 @@ object CatalogQueryEngine {
                     lbl.contains("đang") || lbl.contains("trailer") || lbl.contains("lên sóng") || lbl.contains("sắp") || lbl.contains("ongoing") -> false
                     else -> movie.totalEp > 0 && movie.latestEp >= movie.totalEp
                 }
+            }
+            CatalogStatusFilter.SINGLE -> {
+                val lbl = movie.statusLabel.orEmpty().lowercase()
+                val titleLow = movie.title.lowercase()
+                val slugLow = movie.slug.orEmpty().lowercase()
+                val hasSingleGenre = movie.genres.any { g ->
+                    val gl = g.lowercase()
+                    gl.contains("phim lẻ") || gl.contains("chiếu rạp") || gl == "ova" || gl == "movie"
+                }
+                val hasSingleText = lbl.contains("phim lẻ") || lbl.contains("full") || lbl.contains("movie") ||
+                    titleLow.contains("movie") || slugLow.contains("movie") || slugLow.contains("ova")
+                hasSingleGenre || hasSingleText || (movie.totalEp == 1 && movie.latestEp == 1)
             }
         }
     }

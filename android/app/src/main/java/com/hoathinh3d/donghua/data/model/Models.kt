@@ -240,9 +240,10 @@ enum class CatalogAudioFilter(val wireValue: String, val label: String) {
 }
 
 enum class CatalogStatusFilter(val wireValue: String, val label: String) {
-    ALL("all", "Tất cả trạng thái"),
+    ALL("all", "Mới cập nhật"),
     ONGOING("ongoing", "Đang chiếu"),
-    COMPLETED("completed", "Hoàn thành")
+    COMPLETED("completed", "Hoàn thành"),
+    SINGLE("single", "Phim lẻ")
 }
 
 enum class CatalogSortMode(val wireValue: String, val label: String) {

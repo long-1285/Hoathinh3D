@@ -324,58 +324,6 @@
             android:nestedScrollingEnabled="false" />
     </LinearLayout>
 
-    <!-- Favorites New Episodes Alert Strip (chỉ hiện khi có tập mới ở Yêu thích) -->
-    <LinearLayout
-        android:id="@+id/favUpdatesPanel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:orientation="vertical"
-        android:padding="12dp"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/txtFavUpdatesHeading"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="🔔 Mới ra mắt trong Yêu thích"
-                android:textSize="13.5sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/btnFavUpdatesAll"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:clickable="true"
-                android:focusable="true"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
-                android:text="Xem tất cả ›"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <HorizontalScrollView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:id="@+id/favUpdatesChipsContainer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal" />
-        </HorizontalScrollView>
-    </LinearLayout>
-
     <!-- Trending Carousel -->
     <LinearLayout
         android:id="@+id/trendingSection"
@@ -444,8 +392,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="6dp"
+            android:clickable="true"
+            android:focusable="true"
             android:paddingHorizontal="10dp"
-            android:paddingVertical="3dp"
+            android:paddingVertical="4dp"
             android:text="YanHH3D VIP"
             android:textSize="11sp"
             android:textStyle="bold" />
@@ -468,6 +418,7 @@
             android:layout_marginStart="6dp"
             android:clickable="true"
             android:focusable="true"
+            android:nextFocusDown="@+id/chipStatusAll"
             android:paddingHorizontal="10dp"
             android:paddingVertical="4dp"
             android:text="↻ Làm mới"
@@ -476,7 +427,7 @@
             android:visibility="gone" />
     </LinearLayout>
 
-    <!-- Simplified Filter Bar: Mới cập nhật (mặc định) • Đang chiếu • Hoàn thành • Nhiều tập -->
+    <!-- Simplified Filter Bar: Mới cập nhật (mặc định) • Đang chiếu • Hoàn thành • Phim lẻ • Nhiều tập -->
     <HorizontalScrollView
         android:id="@+id/catalogFilterScroll"
         android:layout_width="match_parent"
@@ -534,10 +485,27 @@
                 android:gravity="center"
                 android:minHeight="30dp"
                 android:nextFocusLeft="@+id/chipStatusOngoing"
-                android:nextFocusRight="@+id/chipSortEpisodes"
+                android:nextFocusRight="@+id/chipStatusSingle"
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:text="Hoàn thành"
+                android:textSize="11.5sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/chipStatusSingle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:minHeight="30dp"
+                android:nextFocusLeft="@+id/chipStatusCompleted"
+                android:nextFocusRight="@+id/chipSortEpisodes"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:text="Phim lẻ"
                 android:textSize="11.5sp"
                 android:textStyle="bold" />
 
@@ -549,7 +517,7 @@
                 android:focusable="true"
                 android:gravity="center"
                 android:minHeight="30dp"
-                android:nextFocusLeft="@+id/chipStatusCompleted"
+                android:nextFocusLeft="@+id/chipStatusSingle"
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:text="Nhiều tập"

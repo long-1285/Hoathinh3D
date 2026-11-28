@@ -73,7 +73,6 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
     private var lastCatalogMetaSig: String? = null
     private var lastGenreBarKey: String? = null
     private var lastFilterBarKey: String? = null
-    private var lastFavUpdatesKey: String? = null
     private var lastSearchSourceKey: String? = null
     private val tvRowAdapters = mutableListOf<MovieCardAdapter>()
     private val sharedTvCardPool = RecyclerView.RecycledViewPool().apply { setMaxRecycledViews(0, 12) }
@@ -122,7 +121,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         binding.rvHomeFeed.layoutManager = glm
         binding.rvHomeFeed.adapter = concatAdapter
         if (isLite) binding.rvHomeFeed.itemAnimator = null
-        binding.rvHomeFeed.setItemViewCacheSize(if (isUltraLow) 2 else if (isLite) 6 else 14)
+        binding.rvHomeFeed.setItemViewCacheSize(if (isUltraLow) 5 else if (isLite) 8 else 15)
         sharedTvCardPool.setMaxRecycledViews(0, if (isUltraLow) 6 else 12)
 
         binding.rvHomeFeed.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -191,7 +190,14 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         }
 
         val filtered = CatalogQueryEngine.filterAndSort(
-            allMovies = st.allMovies,
+            allMovies = if (st.selectedGenre == "Tất cả" &&
+                st.catalogStatusFilter != CatalogStatusFilter.ALL &&
+                !st.statusCatalogMovies.isNullOrEmpty()
+            ) {
+                st.statusCatalogMovies
+            } else {
+                st.allMovies
+            },
             activeGenreMovies = st.activeGenreMovies,
             remoteSearchResults = st.remoteSearchResults,
             selectedGenre = st.selectedGenre,
@@ -353,57 +359,6 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             }
         } else {
             b.continuePanel.visibility = View.GONE
-        }
-
-        // Nhắc tự động tập mới trên Trang chủ khi mục Yêu thích có tập mới
-        val livePoolForFav = st.allMovies + st.trendingTop10 + st.activeGenreMovies.orEmpty()
-        val favNewMovies = if (!isSearchActive && st.favorites.isNotEmpty()) {
-            st.favorites.distinct().mapNotNull { favId ->
-                val meta = st.favoriteMetaMap[favId] ?: return@mapNotNull null
-                if (meta.newEpCount <= 0) return@mapNotNull null
-                val movieObj = livePoolForFav.firstOrNull { it.id == favId || it.slug == favId }
-                    ?: st.favoriteMoviesMap[favId]
-                    ?: return@mapNotNull null
-                movieObj to meta
-            }
-        } else {
-            emptyList()
-        }
-        if (favNewMovies.isNotEmpty()) {
-            b.favUpdatesPanel.visibility = View.VISIBLE
-            b.favUpdatesPanel.background = ThemeManager.glassPanelDrawable(ctx, p, 18f)
-            b.txtFavUpdatesHeading.setTextColor(p.textMain)
-            b.btnFavUpdatesAll.setTextColor(p.accentFrom)
-            b.btnFavUpdatesAll.background = ThemeManager.navTabDrawable(ctx, p, false, 10f, liteRender = isLite)
-            val favUpdKey = "${p.preset.wireValue}_${p.isDark}_${p.glassOpacityPct}_${favNewMovies.joinToString(",") { "${it.first.id}:${it.second.latestKnownEp}:${it.second.newEpCount}" }}"
-            if (favUpdKey != lastFavUpdatesKey) {
-                lastFavUpdatesKey = favUpdKey
-                b.favUpdatesChipsContainer.removeAllViews()
-                val gap = ThemeManager.dp(ctx, 8f)
-                favNewMovies.take(8).forEachIndexed { idx, (favMovie, meta) ->
-                    val chip = TextView(ctx).apply {
-                        text = "✨ ${favMovie.title} • Tập ${meta.latestKnownEp} (+${meta.newEpCount})"
-                        textSize = 11.5f
-                        setTypeface(null, android.graphics.Typeface.BOLD)
-                        setTextColor(p.textMain)
-                        background = ThemeManager.pillDrawable(ctx, p, active = false, radiusDp = 14f, liteRender = isLite)
-                        setPadding(ThemeManager.dp(ctx, 11f), ThemeManager.dp(ctx, 6f), ThemeManager.dp(ctx, 11f), ThemeManager.dp(ctx, 6f))
-                        isFocusable = true
-                        isClickable = true
-                        setOnClickListener { h.openMovieDetail(favMovie) }
-                    }
-                    b.favUpdatesChipsContainer.addView(
-                        chip,
-                        LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        ).apply { if (idx > 0) marginStart = gap }
-                    )
-                }
-            }
-        } else {
-            lastFavUpdatesKey = null
-            b.favUpdatesPanel.visibility = View.GONE
         }
 
         if (st.settings.showHomeTrending && !isSearchActive && trending.isNotEmpty() && st.selectedGenre == "Tất cả") {
@@ -571,9 +526,10 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         b.txtCatalogTitle.setTextColor(p.textMain)
         b.txtCatalogSourceBadge.text = if (st.selectedGenre != "Tất cả" && !isSearchActive) {
             "$activeSrcName • ${st.selectedGenre}"
-        } else activeSrcName
-        b.txtCatalogSourceBadge.background = ThemeManager.pillDrawable(ctx, p, false, 12f)
+        } else "$activeSrcName ▾"
+        b.txtCatalogSourceBadge.background = ThemeManager.pillDrawable(ctx, p, false, 12f, liteRender = isLite)
         b.txtCatalogSourceBadge.setTextColor(p.accentFrom)
+        b.txtCatalogSourceBadge.setOnClickListener { h.openSourcePicker(b.txtCatalogSourceBadge) }
         b.txtCatalogCount.text = when {
             st.isLoadingGenre -> "(Đang lọc...)"
             st.activeCatalogTotalPages > 1 && !isSearchActive ->
@@ -727,6 +683,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.chipStatusAll to isLatestDefault,
             b.chipStatusOngoing to (st.catalogStatusFilter == CatalogStatusFilter.ONGOING),
             b.chipStatusCompleted to (st.catalogStatusFilter == CatalogStatusFilter.COMPLETED),
+            b.chipStatusSingle to (st.catalogStatusFilter == CatalogStatusFilter.SINGLE),
             b.chipSortEpisodes to (st.catalogSortMode == CatalogSortMode.MOST_EPISODES)
         )
         for ((pill, active) in pills) {
@@ -882,7 +839,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.rvTrending.layoutManager = LinearLayoutManager(ctx, LinearLayoutManager.HORIZONTAL, false)
             b.rvTrending.setRecycledViewPool(sharedTvCardPool)
             b.rvTrending.setHasFixedSize(true)
-            b.rvTrending.setItemViewCacheSize(if (DeviceProfileResolver.isUltraLowRamDevice(ctx)) 2 else 6)
+            b.rvTrending.setItemViewCacheSize(if (DeviceProfileResolver.isUltraLowRamDevice(ctx)) 4 else 8)
             b.rvTrending.adapter = trendingAdapter
 
             genreAdapter = GenreChipAdapter { g ->
@@ -898,7 +855,6 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
 
             b.btnHomeClearSearch.setOnClickListener { host?.clearSearch() }
             b.btnContinueClear.setOnClickListener { host?.clearHistory() }
-            b.btnFavUpdatesAll.setOnClickListener { host?.navigateTab(MainTab.FAVORITES) }
             b.btnRefreshTvFeed.setOnClickListener {
                 host?.showToast("Đang làm mới danh sách phim...")
                 host?.reloadActiveSourceFeed()
@@ -908,6 +864,7 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             b.chipStatusAll.setOnClickListener { host?.resetHomeLatestFilter() }
             b.chipStatusOngoing.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.ONGOING) }
             b.chipStatusCompleted.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.COMPLETED) }
+            b.chipStatusSingle.setOnClickListener { host?.setCatalogStatusFilter(CatalogStatusFilter.SINGLE) }
             b.chipSortEpisodes.setOnClickListener {
                 val cur = host?.getState()?.catalogSortMode ?: CatalogSortMode.DEFAULT
                 val next = if (cur == CatalogSortMode.MOST_EPISODES) CatalogSortMode.DEFAULT else CatalogSortMode.MOST_EPISODES
@@ -931,7 +888,6 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
             if (h != null) {
                 lastGenreBarKey = null
                 lastFilterBarKey = null
-                lastFavUpdatesKey = null
                 lastHeroSlidesKey = null
                 lastTrendingThemeSig = null
                 lastTrendingMetaSig = null
@@ -988,7 +944,6 @@ class HomeFragment : Fragment(), RefreshableTab, ChromeInsetsListener {
         lastCatalogMetaSig = null
         lastGenreBarKey = null
         lastFilterBarKey = null
-        lastFavUpdatesKey = null
         lastSearchSourceKey = null
         tvRowAdapters.clear()
         headerBinding = null
